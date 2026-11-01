@@ -2084,6 +2084,202 @@ const UNIT_32 = {
   quiz: { id: 'u32', passScore: 80 },
 };
 
+/* -------------------------------------------------------------------------- */
+/* Professional branches (optional, unlocked after the 32-unit core path)      */
+/* -------------------------------------------------------------------------- */
+
+function branchSection(unitId, number, { termId, demoId = null, variant = 'key' }) {
+  const base = `lesson.${unitId}.s${number}`;
+  const blocks = [
+    p(`${base}.p1`),
+    p(`${base}.p2`),
+    list(`${base}.list.title`, [`${base}.list.i1`, `${base}.list.i2`, `${base}.list.i3`]),
+    term(termId),
+  ];
+  if (demoId) blocks.push(demo(demoId));
+  blocks.push(
+    example(`${base}.example.title`, [`${base}.example.l1`, `${base}.example.l2`]),
+    callout(variant, `${base}.key.title`, `${base}.key.text`),
+  );
+  return { id: `s${number}`, titleKey: `${base}.title`, blocks };
+}
+
+function branchUnit({
+  id, number, branchId, minutes, sections, practice,
+}) {
+  return {
+    id,
+    number,
+    stageId: 'branches',
+    branchId,
+    optional: true,
+    implemented: true,
+    titleKey: `curriculum.${id}.title`,
+    summaryKey: `curriculum.${id}.summary`,
+    minutes,
+    prerequisites: ['u32'],
+    unlocks: [],
+    sections: sections.map((section, index) => branchSection(id, index + 1, section)),
+    practice: {
+      id: `${id}-p1`,
+      check: practice.check,
+      ...(practice.demoId ? { demoId: practice.demoId } : {}),
+      ...(practice.target ? { target: practice.target } : {}),
+      titleKey: `practice.${id}.title`,
+      requirementKey: `practice.${id}.requirement`,
+      hintKey: `practice.${id}.hint`,
+      actionKey: `practice.${id}.action`,
+      actionHref: practice.actionHref,
+    },
+    quiz: { id, passScore: 80 },
+  };
+}
+
+const BRANCH_UNIT_1 = branchUnit({
+  id: 'b1',
+  number: 33,
+  branchId: 'asset',
+  minutes: 22,
+  sections: [
+    { termId: 'nav', variant: 'key' },
+    { termId: 'riskBudget', demoId: 'allocation', variant: 'key' },
+    { termId: 'attribution', variant: 'warning' },
+    { termId: 'assetAllocation', variant: 'pro' },
+  ],
+  practice: { check: 'diversify-sectors', target: 3, actionHref: '#/market' },
+});
+
+const BRANCH_UNIT_2 = branchUnit({
+  id: 'b2',
+  number: 34,
+  branchId: 'quant',
+  minutes: 24,
+  sections: [
+    { termId: 'sharpeRatio', demoId: 'risk', variant: 'key' },
+    { termId: 'lookAheadBias', variant: 'warning' },
+    { termId: 'factorModel', variant: 'key' },
+    { termId: 'overfitting', variant: 'pro' },
+  ],
+  practice: { check: 'demo', demoId: 'risk', actionHref: '#/academy/b2/s1' },
+});
+
+const BRANCH_UNIT_3 = branchUnit({
+  id: 'b3',
+  number: 35,
+  branchId: 'derivatives',
+  minutes: 24,
+  sections: [
+    { termId: 'volatilitySmile', demoId: 'greeks', variant: 'key' },
+    { termId: 'deltaHedge', variant: 'key' },
+    { termId: 'gammaScalping', demoId: 'strategyPayoff', variant: 'warning' },
+    { termId: 'greeks', variant: 'pro' },
+  ],
+  practice: { check: 'demo', demoId: 'strategyPayoff', actionHref: '#/academy/b3/s3' },
+});
+
+const BRANCH_UNIT_4 = branchUnit({
+  id: 'b4',
+  number: 36,
+  branchId: 'banking',
+  minutes: 22,
+  sections: [
+    { termId: 'dcf', demoId: 'dcf', variant: 'key' },
+    { termId: 'comps', variant: 'key' },
+    { termId: 'dilution', variant: 'warning' },
+    { termId: 'ipo', variant: 'pro' },
+  ],
+  practice: { check: 'demo', demoId: 'dcf', actionHref: '#/academy/b4/s1' },
+});
+
+const BRANCH_UNIT_5 = branchUnit({
+  id: 'b5',
+  number: 37,
+  branchId: 'macro',
+  minutes: 22,
+  sections: [
+    { termId: 'interestRate', demoId: 'macro', variant: 'key' },
+    { termId: 'yieldCurve', variant: 'key' },
+    { termId: 'carryTrade', variant: 'warning' },
+    { termId: 'inflation', variant: 'pro' },
+  ],
+  practice: { check: 'demo', demoId: 'macro', actionHref: '#/academy/b5/s1' },
+});
+
+const BRANCH_UNIT_6 = branchUnit({
+  id: 'b6',
+  number: 38,
+  branchId: 'microstructure',
+  minutes: 22,
+  sections: [
+    { termId: 'orderBook', demoId: 'orderBook', variant: 'key' },
+    { termId: 'marketMaker', variant: 'key' },
+    { termId: 'priceImpact', variant: 'warning' },
+    { termId: 'adverseSelection', variant: 'pro' },
+  ],
+  practice: { check: 'demo', demoId: 'orderBook', actionHref: '#/academy/b6/s1' },
+});
+
+export const BRANCH_UNITS = [
+  BRANCH_UNIT_1, BRANCH_UNIT_2, BRANCH_UNIT_3, BRANCH_UNIT_4, BRANCH_UNIT_5, BRANCH_UNIT_6,
+];
+
+export const BRANCHES = [
+  {
+    id: 'asset',
+    unitId: 'b1',
+    number: 33,
+    nameKey: 'branch.asset.name',
+    descKey: 'branch.asset.desc',
+    careerKey: 'branch.asset.career',
+    outcomeKey: 'branch.asset.outcome',
+  },
+  {
+    id: 'quant',
+    unitId: 'b2',
+    number: 34,
+    nameKey: 'branch.quant.name',
+    descKey: 'branch.quant.desc',
+    careerKey: 'branch.quant.career',
+    outcomeKey: 'branch.quant.outcome',
+  },
+  {
+    id: 'derivatives',
+    unitId: 'b3',
+    number: 35,
+    nameKey: 'branch.derivatives.name',
+    descKey: 'branch.derivatives.desc',
+    careerKey: 'branch.derivatives.career',
+    outcomeKey: 'branch.derivatives.outcome',
+  },
+  {
+    id: 'banking',
+    unitId: 'b4',
+    number: 36,
+    nameKey: 'branch.banking.name',
+    descKey: 'branch.banking.desc',
+    careerKey: 'branch.banking.career',
+    outcomeKey: 'branch.banking.outcome',
+  },
+  {
+    id: 'macro',
+    unitId: 'b5',
+    number: 37,
+    nameKey: 'branch.macro.name',
+    descKey: 'branch.macro.desc',
+    careerKey: 'branch.macro.career',
+    outcomeKey: 'branch.macro.outcome',
+  },
+  {
+    id: 'microstructure',
+    unitId: 'b6',
+    number: 38,
+    nameKey: 'branch.microstructure.name',
+    descKey: 'branch.microstructure.desc',
+    careerKey: 'branch.microstructure.career',
+    outcomeKey: 'branch.microstructure.outcome',
+  },
+];
+
 const plannedUnit = (number, titleKey, summaryKey) => ({
   id: `u${number}`,
   number,
@@ -2175,10 +2371,15 @@ export const STAGES = [
   },
 ];
 
-export const ALL_UNITS = STAGES.flatMap((stage) => stage.units);
+export const CORE_UNITS = STAGES.flatMap((stage) => stage.units);
+export const ALL_UNITS = [...CORE_UNITS, ...BRANCH_UNITS];
 
 export function getUnit(unitId) {
   return ALL_UNITS.find((unit) => unit.id === unitId) || null;
+}
+
+export function getBranch(branchId) {
+  return BRANCHES.find((branch) => branch.id === branchId) || null;
 }
 
 export function getSection(unitId, sectionId) {
@@ -2191,12 +2392,16 @@ export function stageOf(unitId) {
   return STAGES.find((stage) => stage.units.some((unit) => unit.id === unitId)) || null;
 }
 
+export function branchOf(unitId) {
+  return BRANCHES.find((branch) => branch.unitId === unitId) || null;
+}
+
 export function sectionKey(unitId, sectionId) {
   return `${unitId}.${sectionId}`;
 }
 
 export function nextUnitId(unitId) {
-  const implemented = ALL_UNITS.filter((unit) => unit.implemented);
+  const implemented = CORE_UNITS.filter((unit) => unit.implemented);
   const index = implemented.findIndex((unit) => unit.id === unitId);
   if (index < 0 || index >= implemented.length - 1) return null;
   return implemented[index + 1].id;

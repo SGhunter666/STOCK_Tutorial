@@ -25,6 +25,7 @@ import { buildOptionChain, strikeGrid, findContract } from '../js/options/chains
 import {
   buyOption, sellOption, markOptions, closeOption, settleOptions, optionPositionRows,
   optionCollateral, availableOptionCash, availableCoveredShares, executeOptionLegs,
+  assignEarlyOptions,
 } from '../js/options/optionsEngine.js';
 import { buildStrategy, strategyPayoff, STRATEGY_DEFS } from '../js/options/strategies.js';
 import {
@@ -36,10 +37,15 @@ import { portfolioSummary } from '../js/trading/portfolio.js';
 import { buildQuizSession, gradeQuiz, TEST_OUT_SCORE, questionXp } from '../js/education/quizEngine.js';
 import {
   markSectionRead, recordQuizResult, isUnitComplete, isUnitUnlocked, unitProgress,
+  overallProgress,
 } from '../js/education/lessonEngine.js';
 import { recordInspection, evaluatePractice } from '../js/education/practiceEngine.js';
 import { isToolUnlocked, lockReason } from '../js/education/unlockManager.js';
-import { STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, STAGE_5_UNITS, STAGE_6_UNITS, STAGE_7_UNITS, STAGE_8_UNITS, getUnit } from '../js/education/curriculum.js';
+import {
+  STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, STAGE_5_UNITS,
+  STAGE_6_UNITS, STAGE_7_UNITS, STAGE_8_UNITS, getUnit,
+  BRANCHES, BRANCH_UNITS, CORE_UNITS,
+} from '../js/education/curriculum.js';
 import { COMPANIES } from '../js/data/companies.js';
 import { styleOf, STOCK_STYLES } from '../js/data/stockTypes.js';
 import {
@@ -53,6 +59,9 @@ import {
   MARKET_SEGMENTS, isCompanyUnlocked, isSegmentUnlocked, unlockedCompanies,
 } from '../js/market/marketAccess.js';
 import { createStore } from '../js/core/store.js';
+import {
+  CHALLENGES, startChallenge, abandonChallenge, checkChallenge, challengeProgress,
+} from '../js/education/challenges.js';
 import { createBus } from '../js/core/bus.js';
 import { money, pct, compactNumber, clamp } from '../js/core/format.js';
 
@@ -550,13 +559,17 @@ test('serialized market restores identical continuation', () => {
 
 suite('Market universe and segments');
 
-test('forty unique companies are assigned to five segments of eight', () => {
-  assertEqual(COMPANIES.length, 40, 'company count');
+test('forty unique companies plus five ETFs are assigned to six segments', () => {
+  const stocks = COMPANIES.filter((company) => !company.isEtf);
+  const etfs = COMPANIES.filter((company) => company.isEtf);
+  assertEqual(stocks.length, 40, 'stock count');
+  assertEqual(etfs.length, 5, 'ETF count');
   const tickers = new Set(COMPANIES.map((company) => company.ticker));
-  assertEqual(tickers.size, 40, 'unique tickers');
-  assertEqual(MARKET_SEGMENTS.length, 5, 'segment count');
+  assertEqual(tickers.size, 45, 'unique tickers');
+  assertEqual(MARKET_SEGMENTS.length, 6, 'segment count');
   for (const segment of MARKET_SEGMENTS) {
-    assertEqual(segment.tickers.length, 8, `${segment.id} company count`);
+    const expected = segment.id === 'etf' ? 5 : 8;
+    assertEqual(segment.tickers.length, expected, `${segment.id} company count`);
     for (const ticker of segment.tickers) {
       assert(tickers.has(ticker), `${ticker} exists`);
     }
@@ -566,7 +579,7 @@ test('forty unique companies are assigned to five segments of eight', () => {
 test('only the core segment is tradable at the start', () => {
   const state = createGameState({ seed: 'segments' });
   assert(isSegmentUnlocked(state, 'core'), 'core unlocked');
-  for (const id of ['growth', 'consumer', 'industry', 'frontier']) {
+  for (const id of ['growth', 'consumer', 'industry', 'frontier', 'etf']) {
     assert(!isSegmentUnlocked(state, id), `${id} locked`);
   }
   assert(!isCompanyUnlocked(state, 'VELT'), 'growth ticker locked');
@@ -600,8 +613,8 @@ test('ensureUniverse migrates an eight-company save without losing prices', () =
   const engine = new MarketEngine(state.market);
   const changed = engine.ensureUniverse();
   assert(changed, 'migration ran');
-  assertEqual(Object.keys(state.market.quotes).length, 40, 'all quotes generated');
-  assertEqual(Object.keys(state.market.history).length, 40, 'all histories generated');
+  assertEqual(Object.keys(state.market.quotes).length, 45, 'all quotes generated');
+  assertEqual(Object.keys(state.market.history).length, 45, 'all histories generated');
   assertClose(state.market.quotes.AURA.last, auraPrice, 1e-9, 'existing quote untouched');
   assert(Number.isFinite(state.market.index.value), 'index recalculated');
 });
@@ -922,14 +935,155 @@ test('Stage 2 exposes the dividend unit and keeps it gated', () => {
   assertEqual(evaluatePractice(state, unit).done, true, 'inspecting two dividend stocks completes practice');
 });
 
-test('every company has exactly one stock style', () => {
-  const styled = COMPANIES.filter((company) => styleOf(company.ticker));
-  assertEqual(styled.length, COMPANIES.length, 'every company is classified');
-  const ids = new Set(COMPANIES.map((company) => styleOf(company.ticker)));
+test('every stock has exactly one stock style and ETFs are excluded', () => {
+  const stocks = COMPANIES.filter((company) => !company.isEtf);
+  const styled = stocks.filter((company) => styleOf(company.ticker));
+  assertEqual(styled.length, stocks.length, 'every stock is classified');
+  const ids = new Set(stocks.map((company) => styleOf(company.ticker)));
   assertEqual(ids.size, 4, 'four styles are represented');
   const mapped = Object.values(STOCK_STYLES).flat();
-  assertEqual(mapped.length, COMPANIES.length, 'no duplicate style assignments');
-  assertEqual(new Set(mapped).size, COMPANIES.length, 'no ticker appears in two styles');
+  assertEqual(mapped.length, stocks.length, 'no duplicate style assignments');
+  assertEqual(new Set(mapped).size, stocks.length, 'no ticker appears in two styles');
+  for (const etf of COMPANIES.filter((company) => company.isEtf)) {
+    assert(!styleOf(etf.ticker), `${etf.ticker} is not classified as a stock style`);
+  }
+});
+
+test('ETF quotes are derived from their weighted component basket', () => {
+  const engine = MarketEngine.create('etf-basket');
+  const state = engine.state;
+  assert(state.etfDivisors && Object.keys(state.etfDivisors).length === 5, 'five ETF divisors');
+  for (const etf of COMPANIES.filter((company) => company.isEtf)) {
+    const quote = state.quotes[etf.ticker];
+    assert(quote, `${etf.ticker} quote exists`);
+    const basket = etf.components.reduce((sum, component) => (
+      sum + component.weight * state.quotes[component.ticker].last
+    ), 0);
+    assertClose(quote.last, basket * state.etfDivisors[etf.ticker], 0.02, `${etf.ticker} tracks the basket`);
+    const totalWeight = etf.components.reduce((sum, component) => sum + component.weight, 0);
+    assertClose(totalWeight, 1, 1e-9, `${etf.ticker} weights sum to 100%`);
+    assertEqual(state.history[etf.ticker].length, 90, `${etf.ticker} has history`);
+  }
+});
+
+suite('Professional branches');
+
+test('six optional branches sit after the 32-unit core path', () => {
+  assertEqual(BRANCHES.length, 6, 'six professional branches');
+  assertEqual(BRANCH_UNITS.length, 6, 'one focused unit per branch');
+  assertEqual(CORE_UNITS.length, 32, 'core path remains 32 units');
+  const ids = new Set(BRANCH_UNITS.map((unit) => unit.id));
+  assertEqual(ids.size, 6, 'unique branch unit ids');
+  for (const branch of BRANCHES) {
+    const unit = getUnit(branch.unitId);
+    assert(unit, `${branch.id} unit exists`);
+    assertEqual(unit.optional, true, `${branch.id} is optional`);
+    assertEqual(unit.prerequisites[0], 'u32', `${branch.id} follows Unit 32`);
+    assertEqual(unit.sections.length, 4, `${branch.id} has four lessons`);
+    assertEqual(unit.quiz.passScore, 80, `${branch.id} pass score`);
+    const questions = buildQuizSession(unit.id, 1);
+    assertEqual(questions.questions.length, 6, `${branch.id} has six quiz questions`);
+  }
+});
+
+test('branches stay locked until Unit 32 and do not dilute core progress', () => {
+  const state = createGameState({ seed: 'branches' });
+  assert(!isUnitUnlocked(state, getUnit('b1')), 'branch locked before core completion');
+  assertEqual(overallProgress(state).total, 32, 'core progress has 32 units');
+  for (const unit of CORE_UNITS) {
+    const progress = state.education.units[unit.id];
+    progress.completedAt = Date.now();
+    progress.practiceDone = true;
+    progress.quizBest = 100;
+    for (const section of unit.sections) progress.sectionsRead[section.id] = true;
+  }
+  assert(isUnitComplete(state, 'u32'), 'core complete');
+  assert(isUnitUnlocked(state, getUnit('b1')), 'branches unlock after u32');
+  assertEqual(overallProgress(state).completed, 32, 'core completed count');
+  assertEqual(overallProgress(state).pct, 100, 'core completion is 100%');
+  assert(!isUnitComplete(state, 'b1'), 'branch still needs its own work');
+});
+
+test('deep in-the-money short calls can be assigned early and deliver stock', () => {
+  let account = createGameState({ seed: 'early-assignment' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const sold = sellOption(account, {
+    contract: {
+      ticker: 'AURA', type: 'call', strike: 100, expiryDay: 8, premium: 12, vol: 0.3,
+    },
+    qty: 1,
+    fee: 0,
+    day: 0,
+    tick: 0,
+  });
+  assert(sold.ok, 'short call opens');
+  const bought = buy(sold.account, {
+    ticker: 'AURA', qty: 100, price: 90, fee: 0, day: 0, tick: 0,
+  });
+  assert(bought.ok, 'covering shares bought');
+  const assigned = assignEarlyOptions(bought.account, { AURA: { last: 112 } }, 1);
+  assertEqual(assigned.assignments.length, 1, 'one assignment');
+  assertEqual(assigned.account.options.length, 0, 'short call removed');
+  assertEqual(positionOf(assigned.account, 'AURA').qty, 0, 'shares delivered');
+  assertClose(assigned.account.cash, 12200, 0.01, 'premium and strike proceeds credited');
+  assertClose(assigned.account.realizedPnl, 1000, 0.01, 'stock delivery realizes gain');
+  assertEqual(assigned.account.optionTrades[0].side, 'assignedEarly', 'assignment logged');
+  assertEqual(assigned.account.trades[0].assignment, true, 'stock delivery logged');
+});
+
+test('early assignment can open a short stock position for an uncovered call', () => {
+  const account = createGameState({ seed: 'early-assignment-short' }).account;
+  const sold = sellOption(account, {
+    contract: {
+      ticker: 'AURA', type: 'call', strike: 100, expiryDay: 9, premium: 10, vol: 0.3,
+    },
+    qty: 2,
+    fee: 0,
+    day: 0,
+    tick: 0,
+  });
+  const assigned = assignEarlyOptions(sold.account, { AURA: { last: 114 } }, 2);
+  assertEqual(assigned.assignments.length, 1, 'one assignment');
+  const position = positionOf(assigned.account, 'AURA');
+  assertEqual(position.qty, -200, 'uncovered call creates a short stock position');
+  assertClose(position.costBasis, 20000, 0.01, 'short basis is the strike');
+});
+
+test('challenges start from recorded equity and complete on real activity', () => {
+  const state = createGameState({ seed: 'challenge' });
+  state.education.units.u3.completedAt = Date.now();
+  const store = createStore({ bus: createBus(), initialState: state });
+  const locked = startChallenge(store, null, 'hedger');
+  assertEqual(locked.ok, false, 'locked challenge cannot start');
+  const started = startChallenge(store, null, 'firstProfit');
+  assert(started.ok, 'first challenge starts');
+  assertEqual(state.challenges.active.id, 'firstProfit', 'active challenge recorded');
+  state.account.cash += 400;
+  state.account.trades = [
+    { id: state.account.tradeSeq, side: 'buy', ticker: 'AURA', qty: 1, price: 10, day: 1 },
+    { id: state.account.tradeSeq + 1, side: 'sell', ticker: 'AURA', qty: 1, price: 11, day: 2 },
+  ];
+  const completed = checkChallenge(store, null);
+  assertEqual(completed.status, 'completed', 'challenge completes');
+  assert(state.challenges.completed.includes('firstProfit'), 'completion recorded');
+  assertEqual(state.challenges.active, null, 'active challenge cleared');
+  assert(state.education.xp >= 120, 'challenge XP awarded');
+});
+
+test('challenge progress reports the active checks', () => {
+  const state = createGameState({ seed: 'challenge-progress' });
+  state.education.units.u15.completedAt = Date.now();
+  const store = createStore({ bus: createBus(), initialState: state });
+  startChallenge(store, null, 'riskManager');
+  const challenge = CHALLENGES.find((entry) => entry.id === 'riskManager');
+  const progress = challengeProgress(state, challenge);
+  assert(progress, 'progress exists while active');
+  assertEqual(progress.checks.length, 3, 'three checks');
+  assert(progress.checks.some((check) => check.kind === 'drawdownMax'), 'drawdown tracked');
+  assertEqual(progress.remaining, 30, 'full deadline remains');
+  abandonChallenge(store, null);
+  assertEqual(state.challenges.active, null, 'abandon clears active challenge');
 });
 
 test('Stage 2 units 6-8 are implemented in order', () => {

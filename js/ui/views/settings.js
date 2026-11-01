@@ -134,6 +134,12 @@ export function createSettingsView(ctx) {
               </div>
               <p class="page-footnote">${t('settings.disclaimer')}</p>`,
           })}
+          ${card({
+            title: t('boundaries.title'),
+            subtitle: t('boundaries.subtitle'),
+            body: `<p class="muted">${t('boundaries.intro')}</p>
+              <a class="btn btn--ghost btn--sm" href="#/boundaries">${t('boundaries.settingsLink')}</a>`,
+          })}
         </div>
       </div>`;
   }

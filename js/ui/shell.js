@@ -15,19 +15,23 @@ import { isCompanyUnlocked } from '../market/marketAccess.js';
 const NAV_ITEMS = [
   { id: 'dashboard', path: '/dashboard', labelKey: 'nav.dashboard', icon: 'dashboard' },
   { id: 'academy', path: '/academy', labelKey: 'nav.academy', icon: 'academy' },
+  { id: 'branches', path: '/branches', labelKey: 'nav.branches', icon: 'academy', requiresUnit: 'u32' },
   { id: 'history', path: '/history', labelKey: 'nav.history', icon: 'roadmap' },
   { id: 'market', path: '/market', labelKey: 'nav.market', icon: 'market' },
   { id: 'trading', path: '/trade', labelKey: 'nav.trading', icon: 'trading' },
   { id: 'portfolio', path: '/portfolio', labelKey: 'nav.portfolio', icon: 'portfolio' },
+  { id: 'sandbox', path: '/sandbox', labelKey: 'nav.sandbox', icon: 'sparkle' },
   { id: 'news', path: '/news', labelKey: 'nav.news', icon: 'news' },
   { id: 'options', path: '/options', labelKey: 'nav.options', icon: 'options', toolId: 'options.trade' },
   { id: 'futures', path: '/futures', labelKey: 'nav.futures', icon: 'challenges', toolId: 'trade.futures' },
-  { id: 'challenges', path: '/challenges', labelKey: 'nav.challenges', icon: 'challenges', locked: true },
+  { id: 'challenges', path: '/challenges', labelKey: 'nav.challenges', icon: 'challenges' },
   { id: 'glossary', path: '/glossary', labelKey: 'nav.glossary', icon: 'glossary' },
   { id: 'settings', path: '/settings', labelKey: 'nav.settings', icon: 'settings' },
 ];
 
-export function createShell({ i18n, store, bus, clock, router, actions }) {
+export function createShell({
+  i18n, store, bus, clock, router, actions, sandbox = false,
+}) {
   let rootEl = null;
   let viewEl = null;
   let navEl = null;
@@ -40,13 +44,16 @@ export function createShell({ i18n, store, bus, clock, router, actions }) {
 
   function currentSection(path) {
     if (path.startsWith('/academy')) return 'academy';
+    if (path.startsWith('/branches')) return 'academy';
     if (path.startsWith('/trade')) return 'trading';
     if (path.startsWith('/market')) return 'market';
     if (path.startsWith('/portfolio')) return 'portfolio';
+    if (path.startsWith('/sandbox')) return 'sandbox';
     if (path.startsWith('/news')) return 'news';
     if (path.startsWith('/options')) return 'options';
     if (path.startsWith('/futures')) return 'futures';
     if (path.startsWith('/challenges')) return 'challenges';
+    if (path.startsWith('/boundaries')) return 'settings';
     if (path.startsWith('/history')) return 'history';
     if (path.startsWith('/glossary')) return 'glossary';
     if (path.startsWith('/settings')) return 'settings';
@@ -58,7 +65,11 @@ export function createShell({ i18n, store, bus, clock, router, actions }) {
     const state = store.get();
     const active = currentSection(router.current);
     return NAV_ITEMS.map((item) => {
-      const locked = item.toolId ? !isToolUnlocked(state, item.toolId) : Boolean(item.locked);
+      const locked = item.toolId
+        ? !isToolUnlocked(state, item.toolId)
+        : item.requiresUnit
+          ? !isUnitComplete(state, item.requiresUnit)
+          : Boolean(item.locked);
       return `
         <a class="nav-item ${active === item.id ? 'is-active' : ''} ${locked ? 'is-locked' : ''}"
            href="#${item.path}" data-nav="${item.id}">
@@ -84,6 +95,7 @@ export function createShell({ i18n, store, bus, clock, router, actions }) {
           <div class="progress__track"><div class="progress__fill progress__fill--accent" style="width:${level.pct}%"></div></div>
         </div>
         ${stageOne ? `<span class="rail-level__credential">${icon('sparkle', { size: 14 })} ${t('shell.stageOneBadge')}</span>` : ''}
+        ${sandbox ? `<button class="link-btn rail-sandbox__exit" type="button" data-sandbox-exit>${t('sandbox.exit')}</button>` : ''}
       </div>
       <p class="rail-disclaimer">${t('shell.disclaimer')}</p>`;
   }
@@ -165,6 +177,7 @@ export function createShell({ i18n, store, bus, clock, router, actions }) {
         <div class="workspace">
           <header class="topbar">
             <span class="mode-chip" id="mode-chip" hidden>${t('history.topbarChip')}</span>
+            ${sandbox ? `<span class="mode-chip mode-chip--sandbox">${t('sandbox.modeBadge')}</span>` : ''}
             <div id="clock-slot">${clockHtml()}</div>
             <div id="acct-slot">${accountHtml()}</div>
             <div class="topbar__tools">
@@ -214,6 +227,9 @@ export function createShell({ i18n, store, bus, clock, router, actions }) {
       }
       if (event.target.closest('#go-settings')) {
         router.go('/settings');
+      }
+      if (event.target.closest('[data-sandbox-exit]')) {
+        actions.exitSandbox();
       }
     });
   }
@@ -288,7 +304,11 @@ export function createShell({ i18n, store, bus, clock, router, actions }) {
     const state = store.get();
     navEl.querySelectorAll('[data-nav]').forEach((node) => {
       const item = NAV_ITEMS.find((entry) => entry.id === node.dataset.nav);
-      const locked = item?.toolId ? !isToolUnlocked(state, item.toolId) : Boolean(item?.locked);
+      const locked = item?.toolId
+        ? !isToolUnlocked(state, item.toolId)
+        : item?.requiresUnit
+          ? !isUnitComplete(state, item.requiresUnit)
+          : Boolean(item?.locked);
       node.classList.toggle('is-locked', locked);
     });
     applyHistoryMode(active);

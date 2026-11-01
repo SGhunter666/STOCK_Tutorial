@@ -611,6 +611,44 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 
+suite('Sandbox, challenges and boundaries');
+
+test('sandbox, challenge and boundary copy exists in both languages', () => {
+  const { check, missing } = required();
+  [
+    'nav.sandbox', 'nav.challenges', 'nav.branches',
+    'sandbox.eyebrow', 'sandbox.title', 'sandbox.subtitle', 'sandbox.setupTitle',
+    'sandbox.cashLabel', 'sandbox.seedLabel', 'sandbox.difficultyLabel', 'sandbox.start',
+    'sandbox.exit', 'sandbox.restart', 'sandbox.modeBadge', 'sandbox.note',
+    'sandbox.commission', 'sandbox.currentTitle', 'sandbox.activeNote',
+    'sandbox.difficulty.easy', 'sandbox.difficulty.normal', 'sandbox.difficulty.hard',
+    'challenges.eyebrow', 'challenges.title', 'challenges.subtitle', 'challenges.start',
+    'challenges.abandon', 'challenges.activeTitle', 'challenges.noActiveTitle',
+    'challenges.metric.return', 'challenges.metric.drawdownMax', 'challenges.metric.trades',
+    'challenges.metric.optionTrades', 'challenges.metric.futuresTrades',
+    'challenges.metric.hedge', 'challenges.metric.income', 'challenges.metric.volatility',
+    'challenges.metric.allRound',
+    'challenges.firstProfit.title', 'challenges.firstProfit.desc',
+    'challenges.riskManager.title', 'challenges.riskManager.desc',
+    'challenges.hedger.title', 'challenges.hedger.desc',
+    'challenges.incomeDesk.title', 'challenges.incomeDesk.desc',
+    'challenges.volatilityDesk.title', 'challenges.volatilityDesk.desc',
+    'challenges.allRound.title', 'challenges.allRound.desc',
+    'boundaries.eyebrow', 'boundaries.title', 'boundaries.subtitle', 'boundaries.intro',
+    'boundaries.futures.title', 'boundaries.futures.body', 'boundaries.futures.detail',
+    'boundaries.options.title', 'boundaries.options.body', 'boundaries.options.detail',
+    'boundaries.history.title', 'boundaries.history.body', 'boundaries.history.detail',
+    'boundaries.note', 'boundaries.settingsLink',
+    'futures.boundaryTitle', 'futures.boundaryText',
+    'options.boundaryTitle', 'options.boundaryText',
+    'branches.title', 'branches.subtitle', 'branches.lockedTitle', 'branches.lockedText',
+    'branch.asset.name', 'branch.asset.desc', 'branch.asset.career', 'branch.asset.outcome',
+    'branch.quant.name', 'branch.derivatives.name', 'branch.banking.name',
+    'branch.macro.name', 'branch.microstructure.name',
+  ].forEach((key) => check(key));
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
 test('error and toast messages are localised', () => {
   const { check, missing } = required();
   [
@@ -622,6 +660,8 @@ test('error and toast messages are localised', () => {
     'toast.saved', 'toast.saveFailed', 'toast.practiceComplete', 'toast.unitComplete',
     'toast.achievement', 'toast.toolUnlocked', 'toast.quizPassed', 'toast.quizFailed',
     'toast.exported', 'toast.importOk', 'toast.importInvalid',
+    'toast.challengeStarted', 'toast.challengeCompleted', 'toast.challengeFailed',
+    'toast.optionAssignedEarly',
   ].forEach((key) => check(key));
   assertEqual(missing.length, 0, missing.join('\n'));
 });

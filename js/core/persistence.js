@@ -159,3 +159,4 @@ export async function clearSnapshot(key) {
 }
 
 export const SAVE_KEY = 'career-v1';
+export const SANDBOX_KEY = 'sandbox-v1';

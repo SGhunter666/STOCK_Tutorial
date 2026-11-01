@@ -693,6 +693,106 @@
   padding-top: 4px;
 }
 
+.branch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.branch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--card-bg-alt);
+}
+
+.branch-card:hover { border-color: var(--line-strong); }
+.branch-card.is-complete { border-color: rgba(52, 211, 153, 0.24); }
+.branch-card.is-active { border-color: rgba(94, 234, 212, 0.32); }
+.branch-card.is-locked { opacity: 0.72; }
+
+.branch-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.branch-card__code {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: rgba(94, 234, 212, 0.1);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  flex: none;
+}
+
+.branch-card__titles { flex: 1; min-width: 0; }
+
+.branch-card__title { font-size: 16px; line-height: 1.25; }
+
+.branch-card__desc {
+  margin-top: 4px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.branch-card__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+.branch-card__meta strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.branch-card__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 14px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.branch-lessons {
+  margin: 6px 0 0;
+  padding-left: 17px;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.branch-card__body .field-label { display: block; }
+
+.branch-card__body p { margin: 6px 0 0; font-size: 11px; line-height: 1.55; }
+
+.branch-card__progress { display: flex; flex-direction: column; gap: 7px; }
+
+.branch-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 2px;
+}
+
+@media (max-width: 1080px) {
+  .branch-grid { grid-template-columns: 1fr; }
+  .branch-card__body { grid-template-columns: 1fr; }
+}
+
 .locked-note {
   display: inline-flex;
   align-items: center;

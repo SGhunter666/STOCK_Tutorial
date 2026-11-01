@@ -188,6 +188,10 @@ export function createFuturesView(ctx) {
             margin: money(futuresMargin(state.account), i18n.locale),
           })}</p>
         </div>
+        <div class="callout callout--warning">
+          <span class="callout__label">${t('futures.boundaryTitle')}</span>
+          <p>${t('futures.boundaryText')}</p>
+        </div>
       </div>`;
   }
 

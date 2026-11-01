@@ -476,7 +476,7 @@ function mountDividend(node, ctx) {
 function mountStyle(node, ctx) {
   const { i18n, store } = ctx;
   const t = (key, params) => i18n.t(key, params);
-  const companies = unlockedCompanies(store.get()).slice(0, 12);
+  const companies = unlockedCompanies(store.get()).filter((entry) => !entry.isEtf).slice(0, 12);
   let ticker = companies[0]?.ticker || 'AURA';
 
   function detail() {
@@ -834,7 +834,7 @@ function mountIndicators(node, ctx) {
 function mountFinancials(node, ctx) {
   const { i18n, store, actions } = ctx;
   const t = (key, params) => i18n.t(key, params);
-  const companies = unlockedCompanies(store.get()).slice(0, 15);
+  const companies = unlockedCompanies(store.get()).filter((entry) => !entry.isEtf).slice(0, 15);
   let ticker = companies[0]?.ticker || 'AURA';
 
   function render() {

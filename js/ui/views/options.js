@@ -343,6 +343,10 @@ export function createOptionsView(ctx) {
             expiry: expiry ? expiry.expiryDay : 0,
           })}</p>
         </div>
+        <div class="callout callout--warning">
+          <span class="callout__label">${t('options.boundaryTitle')}</span>
+          <p>${t('options.boundaryText')}</p>
+        </div>
       </div>`;
   }
 

@@ -36,6 +36,12 @@ const SEGMENT_DEFS = [
     descKey: 'market.segment.frontier.desc',
     unlockUnit: 'u4',
   },
+  {
+    id: 'etf',
+    nameKey: 'market.segment.etf.name',
+    descKey: 'market.segment.etf.desc',
+    unlockUnit: 'u7',
+  },
 ];
 
 export const MARKET_SEGMENTS = SEGMENT_DEFS.map((segment) => ({

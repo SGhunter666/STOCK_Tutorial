@@ -1,7 +1,8 @@
 /**
  * Option positions support both long and short contracts. Premiums, collateral
  * and settlement all flow through the same cash account as stocks. Short options
- * are cash-settled at expiry in this simulation; real brokers may deliver stock.
+ * are cash-settled at expiry; deep in-the-money shorts can also be assigned
+ * early, which delivers stock at the strike as a teaching approximation.
  */
 import { CONTRACT_SIZE, blackScholes } from './pricing.js';
 import { reservedCash, reservedShares } from '../trading/account.js';
@@ -320,6 +321,154 @@ export function settleOptions(account, quotes, day) {
     },
     settlements,
   };
+}
+
+/**
+ * Delivers stock for an early assignment. A positive signed quantity buys shares
+ * (short put assignment); a negative quantity sells or shorts shares (short call).
+ */
+function deliverShares(account, { ticker, signedQty, price, day, tick }) {
+  const positions = { ...account.positions };
+  let cash = account.cash - signedQty * price;
+  let realized = account.realizedPnl;
+  let position = positions[ticker] ? { ...positions[ticker] } : null;
+  let remaining = signedQty;
+
+  if (position && position.qty !== 0 && Math.sign(position.qty) !== Math.sign(remaining)) {
+    const closeQty = Math.min(Math.abs(remaining), Math.abs(position.qty));
+    const basisPart = (position.costBasis / Math.abs(position.qty)) * closeQty;
+    if (position.qty > 0) {
+      realized += price * closeQty - basisPart;
+    } else {
+      realized += basisPart - price * closeQty;
+    }
+    position.qty -= Math.sign(position.qty) * closeQty;
+    position.costBasis = Math.max(0, position.costBasis - basisPart);
+    remaining -= Math.sign(remaining) * closeQty;
+    if (Math.abs(position.qty) < 1e-9) position = null;
+  }
+
+  if (remaining !== 0) {
+    if (position) {
+      position.qty += remaining;
+      position.costBasis += price * Math.abs(remaining);
+    } else {
+      position = { qty: remaining, costBasis: price * Math.abs(remaining) };
+    }
+  }
+
+  if (position) positions[ticker] = position;
+  else delete positions[ticker];
+
+  const trade = {
+    id: account.tradeSeq,
+    ticker,
+    side: signedQty > 0 ? 'buy' : 'sell',
+    qty: Math.abs(signedQty),
+    price,
+    fee: 0,
+    gross: Math.abs(signedQty) * price,
+    realized: round2(realized - account.realizedPnl),
+    day,
+    tick,
+    assignment: true,
+  };
+  return {
+    account: {
+      ...account,
+      cash: round2(cash),
+      positions,
+      realizedPnl: round2(realized),
+      tradeSeq: account.tradeSeq + 1,
+      trades: [trade, ...(account.trades || [])].slice(0, 250),
+    },
+    trade,
+  };
+}
+
+/**
+ * Approximates American early assignment: a short option that is deep in the
+ * money and within ten days of expiry is assigned in full. Delivery happens at
+ * the strike, not at the current spot.
+ */
+export function assignEarlyOptions(account, quotes, day) {
+  const positions = account.options || [];
+  const candidates = positions.filter((position) => {
+    if (position.qty >= 0 || position.expiryDay <= day) return false;
+    const daysLeft = position.expiryDay - day;
+    if (daysLeft > 10) return false;
+    const quote = quotes[position.ticker];
+    if (!quote) return false;
+    const spot = quote.last;
+    const intrinsic = position.type === 'call'
+      ? Math.max(0, spot - position.strike)
+      : Math.max(0, position.strike - spot);
+    if (intrinsic < Math.max(0.5, position.strike * 0.05)) return false;
+    const currentValue = Math.max(intrinsic, position.currentValue || 0);
+    const timeValue = Math.max(0, currentValue - intrinsic);
+    return timeValue <= intrinsic * 0.25;
+  });
+  if (!candidates.length) return { account, assignments: [] };
+
+  let next = account;
+  const assignments = [];
+  for (const position of candidates) {
+    const quote = quotes[position.ticker];
+    const spot = quote ? quote.last : position.currentValue;
+    const contracts = Math.abs(position.qty);
+    const shares = contracts * CONTRACT_SIZE;
+    const signedQty = position.type === 'call' ? -shares : shares;
+    const delivered = deliverShares(next, {
+      ticker: position.ticker,
+      signedQty,
+      price: position.strike,
+      day,
+      tick: 0,
+    });
+    next = delivered.account;
+    const assignment = {
+      ticker: position.ticker,
+      optionType: position.type,
+      strike: position.strike,
+      expiryDay: position.expiryDay,
+      qty: position.qty,
+      contracts,
+      spot,
+      shares,
+      side: position.type === 'call' ? 'deliver' : 'buy',
+      day,
+    };
+    const premium = position.costBasis;
+    if (premium > 0) {
+      next = {
+        ...next,
+        optionRealized: round2((next.optionRealized || 0) + premium),
+      };
+    }
+    const draft = { ...next, optionTrades: next.optionTrades || [] };
+    pushOptionTrade(draft, {
+      side: 'assignedEarly',
+      ticker: position.ticker,
+      optionType: position.type,
+      strike: position.strike,
+      expiryDay: position.expiryDay,
+      qty: contracts,
+      premium: position.currentValue,
+      fee: 0,
+      gross: 0,
+      cash: 0,
+      realized: premium,
+      day,
+      spot,
+      shares,
+    });
+    assignments.push(assignment);
+    next = {
+      ...draft,
+      options: (draft.options || []).filter((entry) => entry.key !== position.key),
+    };
+  }
+  return { account: next, assignments };
 }
 
 export function optionPositionRows(account, day = 0) {

@@ -30,6 +30,7 @@ export function createGameState({ locale = 'en', seed = DEFAULT_SEED, initialCas
     orders: [],
     orderSeq: 1,
     historyRuns: {},
+    challenges: { active: null, completed: [], failed: [] },
     education: {
       units: {},
       inspectedTickers: [],
@@ -89,6 +90,10 @@ export function hydrateState(saved) {
   state.orders = Array.isArray(state.orders) ? state.orders : [];
   state.orderSeq = Number.isFinite(state.orderSeq) ? state.orderSeq : (state.orders.length + 1);
   state.historyRuns = isPlainObject(state.historyRuns) ? state.historyRuns : {};
+  state.challenges = isPlainObject(state.challenges) ? state.challenges : {};
+  state.challenges.active = isPlainObject(state.challenges.active) ? state.challenges.active : null;
+  state.challenges.completed = Array.isArray(state.challenges.completed) ? state.challenges.completed : [];
+  state.challenges.failed = Array.isArray(state.challenges.failed) ? state.challenges.failed : [];
   state.education = {
     units: isPlainObject(state.education.units) ? state.education.units : {},
     inspectedTickers: Array.isArray(state.education.inspectedTickers) ? state.education.inspectedTickers : [],

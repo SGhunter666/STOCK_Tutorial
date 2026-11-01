@@ -193,7 +193,9 @@ export function firstUnreadSection(state, unit) {
 }
 
 export function overallProgress(state) {
-  const implemented = ALL_UNITS.filter((u) => u.implemented);
+  // Optional professional branches have their own progress and never dilute
+  // the core 32-unit completion percentage.
+  const implemented = ALL_UNITS.filter((u) => u.implemented && !u.optional);
   const completed = implemented.filter((u) => isUnitComplete(state, u.id)).length;
   return {
     completed,

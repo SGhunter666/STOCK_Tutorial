@@ -5,7 +5,9 @@
 import { loadDictionaries, I18n, detectLocale } from './i18n/i18n.js';
 import { createBus } from './core/bus.js';
 import { createStore } from './core/store.js';
-import { saveSnapshot, loadSnapshot, clearSnapshot, SAVE_KEY } from './core/persistence.js';
+import {
+  saveSnapshot, loadSnapshot, clearSnapshot, SAVE_KEY, SANDBOX_KEY,
+} from './core/persistence.js';
 import {
   createGameState, hydrateState, validateSave, serializeState, marketEngineFromState,
 } from './game/gameState.js';
@@ -23,7 +25,7 @@ import { marginStatus, applyFinancing, forceLiquidation } from './trading/margin
 import { buildOptionChain, findContract } from './options/chains.js';
 import {
   buyOption, sellOption, closeOption, markOptions, settleOptions, executeOptionLegs,
-  optionCollateral, availableOptionCash, availableCoveredShares,
+  assignEarlyOptions, optionCollateral, availableOptionCash, availableCoveredShares,
 } from './options/optionsEngine.js';
 import { buildStrategy } from './options/strategies.js';
 import {
@@ -35,6 +37,9 @@ import {
   markSectionRead, recordQuizResult,
 } from './education/lessonEngine.js';
 import { syncPractice, recordInspection } from './education/practiceEngine.js';
+import {
+  startChallenge, abandonChallenge, checkChallenge, challengeById,
+} from './education/challenges.js';
 import { gradeQuiz } from './education/quizEngine.js';
 import { allTools, isToolUnlocked, TOOL_DEFS } from './education/unlockManager.js';
 import { isCompanyUnlocked, newlyUnlockedSegments, segmentById } from './market/marketAccess.js';
@@ -47,6 +52,7 @@ import { initComponents, toast, openLockedToolModal } from './ui/components.js';
 import { viewSubscription } from './ui/dom.js';
 import { createDashboardView } from './ui/views/dashboard.js';
 import { createAcademyView } from './ui/views/academy.js';
+import { createBranchesView } from './ui/views/branches.js';
 import { createLessonView } from './ui/views/lesson.js';
 import { createQuizView } from './ui/views/quiz.js';
 import { createPracticeView } from './ui/views/practice.js';
@@ -55,13 +61,18 @@ import { createTradeView } from './ui/views/trading.js';
 import { createOptionsView } from './ui/views/options.js';
 import { createFuturesView } from './ui/views/futures.js';
 import { createPortfolioView } from './ui/views/portfolio.js';
+import { createSandboxView } from './ui/views/sandbox.js';
+import { createChallengesView } from './ui/views/challenges.js';
+import { createBoundariesView } from './ui/views/boundaries.js';
 import { createNewsView } from './ui/views/news.js';
 import { createGlossaryView } from './ui/views/glossary.js';
 import { createSettingsView } from './ui/views/settings.js';
-import { createRoadmapView, createLockedFeatureView } from './ui/views/roadmap.js';
+import { createRoadmapView } from './ui/views/roadmap.js';
 import { createHistoryListView, createHistoryScenarioView } from './ui/views/history.js';
 import { showOnboarding } from './ui/onboarding.js';
 
+const MODE_KEY = 'sma.mode';
+const SANDBOX_CONFIG_KEY = 'sma.sandbox-config';
 const bus = createBus();
 let i18n = null;
 let store = null;
@@ -78,6 +89,47 @@ let saveState = { lastSavedAt: null, storage: 'indexeddb' };
 
 function randomSeed() {
   return `academy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function readMode() {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'sandbox' ? 'sandbox' : 'career';
+  } catch {
+    return 'career';
+  }
+}
+
+const appMode = readMode();
+const activeSaveKey = appMode === 'sandbox' ? SANDBOX_KEY : SAVE_KEY;
+
+function readSandboxConfig() {
+  let stored = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(SANDBOX_CONFIG_KEY) || '{}') || {};
+  } catch {
+    stored = {};
+  }
+  const rawCash = Number(stored.cash);
+  const cash = Number.isFinite(rawCash) ? Math.min(10_000_000, Math.max(1_000, rawCash)) : 100_000;
+  const difficulty = ['easy', 'normal', 'hard'].includes(stored.difficulty) ? stored.difficulty : 'normal';
+  const seed = typeof stored.seed === 'string' && stored.seed.trim()
+    ? stored.seed.trim().slice(0, 48)
+    : randomSeed();
+  const commission = difficulty === 'easy' ? 0 : difficulty === 'hard' ? 3 : 1;
+  return { cash, seed, difficulty, commission };
+}
+
+function buildSandboxState(config, careerState, locale) {
+  const state = createGameState({ locale, seed: config.seed, initialCash: config.cash });
+  state.settings.commission = config.commission;
+  state.sandbox = { ...config };
+  if (careerState) {
+    state.education = careerState.education;
+    state.settings.layout = careerState.settings.layout;
+    state.settings.reducedMotion = careerState.settings.reducedMotion;
+    state.settings.theme = careerState.settings.theme;
+  }
+  return state;
 }
 
 function setRoute(container) {
@@ -105,7 +157,7 @@ async function boot() {
   }
 
   i18n = new I18n(dictionaries);
-  const loaded = await loadSnapshot(SAVE_KEY);
+  const loaded = await loadSnapshot(activeSaveKey);
   let state = null;
   let restored = false;
 
@@ -117,6 +169,21 @@ async function boot() {
     } else {
       console.warn('[boot] save rejected:', validation.reason);
     }
+  }
+  if (!state && appMode === 'sandbox') {
+    // A sandbox is free trading with an independent book. Course unlocks are
+    // copied from the career save so the same tools are available.
+    const config = readSandboxConfig();
+    let careerState = null;
+    const career = await loadSnapshot(SAVE_KEY);
+    if (career.data) {
+      const validation = validateSave(career.data);
+      if (validation.ok) careerState = hydrateState(career.data);
+    }
+    const locale = (careerState && careerState.settings.locale)
+      || (career.data && career.data.settings && career.data.settings.locale)
+      || detectLocale();
+    state = buildSandboxState(config, careerState, locale);
   }
   if (!state) {
     const locale = (loaded.data && loaded.data.settings && loaded.data.settings.locale) || detectLocale();
@@ -143,7 +210,9 @@ async function boot() {
     onTick: handleTick,
     onFastForward: handleFastForward,
   });
-  shell = createShell({ i18n, store, bus, clock, router, actions });
+  shell = createShell({
+    i18n, store, bus, clock, router, actions, sandbox: appMode === 'sandbox',
+  });
 
   i18n.onChange(() => {
     if (shell) shell.refresh();
@@ -175,6 +244,20 @@ async function boot() {
       if (def) toast(i18n.t('toast.toolUnlocked', { tool: i18n.t(def.titleKey) }), 'info', 4200);
     }
   });
+  bus.on('challenge:started', ({ id }) => {
+    const challenge = challengeById(id);
+    if (challenge) toast(i18n.t('toast.challengeStarted', { challenge: i18n.t(challenge.titleKey) }), 'info', 4200);
+  });
+  bus.on('challenge:completed', ({ id, xpGained }) => {
+    const challenge = challengeById(id);
+    const title = challenge ? i18n.t(challenge.titleKey) : id;
+    toast(i18n.t('toast.challengeCompleted', { challenge: title, xp: xpGained }), 'success', 5200);
+  });
+  bus.on('challenge:failed', ({ id }) => {
+    const challenge = challengeById(id);
+    const title = challenge ? i18n.t(challenge.titleKey) : id;
+    toast(i18n.t('toast.challengeFailed', { challenge: title }), 'warning', 5200);
+  });
 
   store.subscribe((stateNow, meta = {}) => {
     if (meta.type !== 'market:tick') shell.onState();
@@ -197,6 +280,7 @@ async function boot() {
   announceUnlocks(true);
   announceMarketSegments(true);
   syncPractice(store, bus);
+  checkChallenge(store, bus);
   if (restored) {
     toast(i18n.t('toast.saveRestored'), 'success');
   } else {
@@ -262,6 +346,14 @@ function announceMarketSegments(silent = false) {
 /* -------------------------------------------------------------------------- */
 /* Actions                                                                     */
 /* -------------------------------------------------------------------------- */
+
+function launchChallenge(id) {
+  return startChallenge(store, bus, id);
+}
+
+function haltChallenge() {
+  return abandonChallenge(store, bus);
+}
 
 const actions = {
   setLocale(locale) {
@@ -721,7 +813,7 @@ const actions = {
         saveTimer = null;
       }
       await saveChain.catch(() => {});
-      await saveSnapshot(SAVE_KEY, parsed);
+      await saveSnapshot(activeSaveKey, parsed);
       toast(i18n.t('toast.importOk'), 'success');
       setTimeout(() => window.location.reload(), 700);
     } catch (err) {
@@ -737,8 +829,71 @@ const actions = {
       saveTimer = null;
     }
     await saveChain.catch(() => {});
-    await clearSnapshot(SAVE_KEY);
+    await clearSnapshot(activeSaveKey);
     window.location.hash = '#/dashboard';
+    window.location.reload();
+  },
+  startChallenge(id) {
+    const result = launchChallenge(id);
+    if (!result.ok) toast(i18n.t(result.error), 'warning');
+    scheduleSave();
+    return result;
+  },
+  abandonChallenge() {
+    const result = haltChallenge();
+    scheduleSave();
+    return result;
+  },
+  getAppMode() {
+    return appMode;
+  },
+  getSandboxConfig() {
+    const state = store.get();
+    return state.sandbox || readSandboxConfig();
+  },
+  startSandbox({ cash, seed, difficulty }) {
+    const config = {
+      cash: Math.min(10_000_000, Math.max(1_000, Number(cash) || 100_000)),
+      seed: String(seed || '').trim().slice(0, 48) || randomSeed(),
+      difficulty: ['easy', 'normal', 'hard'].includes(difficulty) ? difficulty : 'normal',
+    };
+    config.commission = config.difficulty === 'easy' ? 0 : config.difficulty === 'hard' ? 3 : 1;
+    try {
+      localStorage.setItem(MODE_KEY, 'sandbox');
+      localStorage.setItem(SANDBOX_CONFIG_KEY, JSON.stringify(config));
+    } catch {
+      toast(i18n.t('sandbox.storageUnavailable'), 'error');
+      return { ok: false };
+    }
+    blockSave = true;
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    clearSnapshot(SANDBOX_KEY).finally(() => window.location.reload());
+    return { ok: true, config };
+  },
+  restartSandbox() {
+    blockSave = true;
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    clearSnapshot(SANDBOX_KEY).finally(() => window.location.reload());
+  },
+  async exitSandbox() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    await saveChain.catch(() => {});
+    await flushSave();
+    blockSave = true;
+    try {
+      localStorage.setItem(MODE_KEY, 'career');
+    } catch {
+      // ignore
+    }
     window.location.reload();
   },
   navigate(path) {
@@ -769,6 +924,7 @@ function runSimulation(ticks) {
   let fills = [];
   let dividends = [];
   let optionSettlements = [];
+  let earlyAssignments = [];
   let futuresVariation = 0;
   let futuresSettlements = [];
   let financing = 0;
@@ -806,6 +962,9 @@ function runSimulation(ticks) {
       const settled = settleOptions(account, state.market.quotes, Math.max(0, prevDay));
       account = settled.account;
       optionSettlements = [...optionSettlements, ...settled.settlements];
+      const assigned = assignEarlyOptions(account, state.market.quotes, Math.max(0, prevDay));
+      account = assigned.account;
+      earlyAssignments = [...earlyAssignments, ...assigned.assignments];
       const varied = applyFuturesVariation(account);
       account = varied.account;
       futuresVariation += varied.variation;
@@ -850,6 +1009,7 @@ function runSimulation(ticks) {
     fills: fills.length,
     dayClosed,
   });
+  checkChallenge(store, bus);
 
   if (fills.length) {
     applyFillsEmails(fills.filter((fill) => !fill.liquidation));
@@ -880,6 +1040,12 @@ function runSimulation(ticks) {
       amount: money(pnl, i18n.locale),
     }), pnl >= 0 ? 'success' : 'warning', 4200);
     announceAchievements();
+  }
+  if (earlyAssignments.length) {
+    toast(i18n.t('toast.optionAssignedEarly', {
+      count: earlyAssignments.length,
+      ticker: earlyAssignments[0].ticker,
+    }), 'warning', 5200);
   }
   if (futuresVariation !== 0) {
     toast(i18n.t('toast.futuresVariation', {
@@ -940,7 +1106,7 @@ async function flushSave(force = false) {
   // Serialise writes so a slower, older snapshot can never overwrite a newer one.
   const snapshot = serializeState(store.get());
   saveChain = saveChain.then(async () => {
-    const result = await saveSnapshot(SAVE_KEY, snapshot);
+    const result = await saveSnapshot(activeSaveKey, snapshot);
     if (result.ok) {
       saveState = { lastSavedAt: Date.now(), storage: result.storage };
     } else {
@@ -1012,6 +1178,9 @@ function renderRoute(route) {
       }
       break;
     }
+    case 'branches':
+      view = createBranchesView(ctx);
+      break;
     case 'market':
       view = createMarketView(ctx);
       break;
@@ -1021,6 +1190,9 @@ function renderRoute(route) {
       break;
     case 'portfolio':
       view = createPortfolioView(ctx);
+      break;
+    case 'sandbox':
+      view = createSandboxView(ctx);
       break;
     case 'news':
       view = createNewsView(ctx);
@@ -1046,7 +1218,10 @@ function renderRoute(route) {
       view = createFuturesView(ctx);
       break;
     case 'challenges':
-      view = createLockedFeatureView(ctx, 'challenges');
+      view = createChallengesView(ctx);
+      break;
+    case 'boundaries':
+      view = createBoundariesView(ctx);
       break;
     default:
       view = createDashboardView(ctx);

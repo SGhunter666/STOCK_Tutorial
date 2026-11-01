@@ -95,6 +95,72 @@ export class MarketEngine {
     this.state = state;
     this.rng = createRng(state.seed);
     if (state.rngState) this.rng.setState(state.rngState);
+    if (!state.etfDivisors) state.etfDivisors = {};
+    this._ensureEtfQuotes();
+    this._syncEtfDivisors();
+  }
+
+  /**
+   * Keeps one divisor per ETF so its quote is a fixed multiple of the weighted
+   * component basket. Existing divisors are preserved across reloads, otherwise
+   * every load would reset the fund back to its launch price.
+   */
+  _syncEtfDivisors() {
+    const st = this.state;
+    for (const etf of COMPANIES.filter((company) => company.isEtf)) {
+      if (st.etfDivisors[etf.ticker]) continue;
+      const quote = st.quotes[etf.ticker];
+      if (!quote) continue;
+      const basket = etf.components.reduce((sum, component) => (
+        sum + component.weight * (st.quotes[component.ticker] ? st.quotes[component.ticker].last : 0)
+      ), 0);
+      st.etfDivisors[etf.ticker] = basket > 0 ? quote.last / basket : 1;
+    }
+  }
+
+  /** Adds ETF quotes/history when loading an older save that predates the products. */
+  _ensureEtfQuotes() {
+    const st = this.state;
+    for (const etf of COMPANIES.filter((company) => company.isEtf)) {
+      if (st.quotes[etf.ticker] && st.history[etf.ticker]) continue;
+      const components = etf.components.map((component) => ({
+        weight: component.weight,
+        series: st.history[component.ticker] || [],
+      }));
+      if (!components.length || components.some((component) => !component.series.length)) continue;
+      const length = Math.min(90, ...components.map((component) => component.series.length));
+      const candles = [];
+      for (let index = 0; index < length; index += 1) {
+        const at = (series) => series[series.length - length + index];
+        const value = components.reduce((sum, component) => sum + component.weight * at(component.series).c, 0);
+        const previous = index > 0
+          ? components.reduce((sum, component) => (
+            sum + component.weight * component.series[component.series.length - length + index - 1].c
+          ), 0)
+          : value;
+        candles.push({
+          d: at(components[0].series).d,
+          o: round2(previous),
+          h: round2(Math.max(previous, value) * 1.003),
+          l: round2(Math.min(previous, value) * 0.997),
+          c: round2(value),
+          v: etf.avgVolume,
+        });
+      }
+      const factor = etf.startPrice / candles[candles.length - 1].c;
+      for (const candle of candles) {
+        candle.o = round2(candle.o * factor);
+        candle.h = round2(candle.h * factor);
+        candle.l = round2(candle.l * factor);
+        candle.c = round2(candle.c * factor);
+      }
+      st.history[etf.ticker] = candles;
+      const lastClose = candles[candles.length - 1].c;
+      const quote = newQuote(etf, lastClose);
+      quote.prevClose = candles[candles.length - 2].c;
+      quote.changePct = ((lastClose - quote.prevClose) / quote.prevClose) * 100;
+      st.quotes[etf.ticker] = quote;
+    }
   }
 
   static create(seed = 'academy-2026', initialCapitalUnused = 0) {
@@ -105,6 +171,7 @@ export class MarketEngine {
     let currentCap = 0;
 
     for (const company of COMPANIES) {
+      if (company.isEtf) continue;
       const candles = buildHistory(company, rng);
       history[company.ticker] = candles;
       const lastClose = candles[candles.length - 1].c;
@@ -114,6 +181,50 @@ export class MarketEngine {
       quotes[company.ticker] = quote;
       baseCap += candles[0].c * company.sharesOutstanding;
       currentCap += quote.last * company.sharesOutstanding;
+    }
+
+    const etfDivisors = {};
+    for (const etf of COMPANIES.filter((company) => company.isEtf)) {
+      const componentHistory = etf.components.map((component) => ({
+        weight: component.weight,
+        candles: history[component.ticker],
+      }));
+      const candles = [];
+      for (let index = 0; index < HISTORY_DAYS; index += 1) {
+        const value = componentHistory.reduce((sum, component) => (
+          sum + component.weight * component.candles[index].c
+        ), 0);
+        const previous = index > 0
+          ? componentHistory.reduce((sum, component) => (
+            sum + component.weight * component.candles[index - 1].c
+          ), 0)
+          : value;
+        candles.push({
+          d: index - HISTORY_DAYS,
+          o: round2(previous),
+          h: round2(Math.max(previous, value) * 1.003),
+          l: round2(Math.min(previous, value) * 0.997),
+          c: round2(value),
+          v: Math.round(etf.avgVolume * rng.range(0.6, 1.4)),
+        });
+      }
+      const factor = etf.startPrice / candles[candles.length - 1].c;
+      for (const candle of candles) {
+        candle.o = round2(candle.o * factor);
+        candle.h = round2(candle.h * factor);
+        candle.l = round2(candle.l * factor);
+        candle.c = round2(candle.c * factor);
+      }
+      history[etf.ticker] = candles;
+      const lastClose = candles[candles.length - 1].c;
+      const quote = newQuote(etf, lastClose);
+      quote.prevClose = candles[candles.length - 2].c;
+      quote.changePct = ((lastClose - quote.prevClose) / quote.prevClose) * 100;
+      quotes[etf.ticker] = quote;
+      const basket = etf.components.reduce((sum, component) => (
+        sum + component.weight * quotes[component.ticker].last
+      ), 0);
+      etfDivisors[etf.ticker] = basket > 0 ? etf.startPrice / basket : 1;
     }
 
     const indexHistory = [];
@@ -127,6 +238,7 @@ export class MarketEngine {
       tick: 0,
       quotes,
       history,
+      etfDivisors,
       index: {
         baseCap,
         value: round2(indexValue),
@@ -152,6 +264,7 @@ export class MarketEngine {
     const st = this.state;
     let changed = false;
     for (const company of COMPANIES) {
+      if (company.isEtf) continue;
       if (st.history[company.ticker] && st.quotes[company.ticker]) continue;
       const candles = buildHistory(company, this.rng);
       st.history[company.ticker] = candles;
@@ -162,6 +275,8 @@ export class MarketEngine {
       st.quotes[company.ticker] = quote;
       changed = true;
     }
+    this._ensureEtfQuotes();
+    this._syncEtfDivisors();
     if (!changed) {
       st.rngState = this.rng.getState();
       return false;
@@ -169,6 +284,7 @@ export class MarketEngine {
 
     let baseCap = 0;
     for (const company of COMPANIES) {
+      if (company.isEtf) continue;
       const candles = st.history[company.ticker];
       if (candles && candles.length) baseCap += candles[0].c * company.sharesOutstanding;
       const quote = st.quotes[company.ticker];
@@ -200,6 +316,7 @@ export class MarketEngine {
   _recomputeIndex() {
     let cap = 0;
     for (const company of COMPANIES) {
+      if (company.isEtf) continue;
       const q = this.state.quotes[company.ticker];
       cap += q.last * company.sharesOutstanding;
     }
@@ -230,6 +347,7 @@ export class MarketEngine {
     }
 
     for (const company of COMPANIES) {
+      if (company.isEtf) continue;
       const q = st.quotes[company.ticker];
       const idio = company.dailyVol / Math.sqrt(TICKS_PER_DAY);
       const ret = company.beta * marketRet + sectorRet[company.sector] + rng.normal() * idio;
@@ -238,6 +356,18 @@ export class MarketEngine {
       q.low = Math.min(q.low, q.last);
       q.volume += Math.round(company.avgVolume * rng.range(0.05, 0.2) * (1 + Math.abs(ret) * 20));
       this._refreshQuoteDerived(company);
+    }
+
+    for (const etf of COMPANIES.filter((company) => company.isEtf)) {
+      const q = st.quotes[etf.ticker];
+      const basket = etf.components.reduce((sum, component) => (
+        sum + component.weight * st.quotes[component.ticker].last
+      ), 0);
+      q.last = clampPrice(basket * (st.etfDivisors[etf.ticker] || 1));
+      q.high = Math.max(q.high, q.last);
+      q.low = Math.min(q.low, q.last);
+      q.volume += Math.round(etf.avgVolume * rng.range(0.05, 0.2));
+      this._refreshQuoteDerived(etf);
     }
 
     this._recomputeIndex();
@@ -289,7 +419,7 @@ export class MarketEngine {
 
   _applyShock(ticker, pct) {
     const company = getCompany(ticker);
-    if (!company) return;
+    if (!company || company.isEtf) return;
     const q = this.state.quotes[ticker];
     q.last = clampPrice(q.last * (1 + pct / 100));
     q.high = Math.max(q.high, q.last);
@@ -309,7 +439,7 @@ export class MarketEngine {
     if (rng.next() < 0.22) {
       const kind = rng.pick(MACRO_EVENTS);
       const pct = rng.range(kind.min, kind.max);
-      for (const company of COMPANIES) {
+      for (const company of COMPANIES.filter((entry) => !entry.isEtf)) {
         this._applyShock(company.ticker, pct * Math.max(0.5, company.beta));
       }
       this._pushNews({
@@ -325,7 +455,7 @@ export class MarketEngine {
     if (rng.next() < 0.5) {
       const count = rng.next() < 0.18 ? 2 : 1;
       for (let i = 0; i < count; i += 1) {
-        const company = rng.pick(COMPANIES);
+        const company = rng.pick(COMPANIES.filter((entry) => !entry.isEtf));
         const kind = rng.pick(COMPANY_EVENTS);
         const pct = rng.range(kind.min, kind.max);
         this._applyShock(company.ticker, pct);

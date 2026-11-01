@@ -32,31 +32,38 @@ const PHASES = [
   },
   {
     id: 2,
-    status: 'planned',
+    status: 'shipped',
     titleKey: 'roadmap.p2.title',
     textKey: 'roadmap.p2.text',
     items: ['roadmap.p2.i1', 'roadmap.p2.i2', 'roadmap.p2.i3', 'roadmap.p2.i4'],
   },
   {
     id: 3,
-    status: 'planned',
+    status: 'shipped',
     titleKey: 'roadmap.p3.title',
     textKey: 'roadmap.p3.text',
     items: ['roadmap.p3.i1', 'roadmap.p3.i2', 'roadmap.p3.i3'],
   },
   {
     id: 4,
-    status: 'planned',
+    status: 'shipped',
     titleKey: 'roadmap.p4.title',
     textKey: 'roadmap.p4.text',
     items: ['roadmap.p4.i1', 'roadmap.p4.i2', 'roadmap.p4.i3', 'roadmap.p4.i4'],
   },
   {
     id: 5,
-    status: 'planned',
+    status: 'shipped',
     titleKey: 'roadmap.p5.title',
     textKey: 'roadmap.p5.text',
     items: ['roadmap.p5.i1', 'roadmap.p5.i2', 'roadmap.p5.i3'],
+  },
+  {
+    id: 6,
+    status: 'shipped',
+    titleKey: 'roadmap.p6.title',
+    textKey: 'roadmap.p6.text',
+    items: ['roadmap.p6.i1', 'roadmap.p6.i2', 'roadmap.p6.i3', 'roadmap.p6.i4'],
   },
 ];
 

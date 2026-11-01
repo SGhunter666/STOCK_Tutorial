@@ -1663,6 +1663,76 @@ export const QUIZ_BANKS = {
   ],
 };
 
+/* -------------------------------------------------------------------------- */
+/* Professional branch banks: six questions each, all referenced by locale keys. */
+/* -------------------------------------------------------------------------- */
+
+function branchBank(unitId, specs) {
+  return specs.map((spec, index) => {
+    const id = `${unitId}-q${index + 1}`;
+    const base = `quiz.${unitId}.q${index + 1}`;
+    const options = [1, 2, 3, 4].map((number) => ({
+      key: `${base}.o${number}`,
+      correct: spec.correct.includes(number),
+    }));
+    if (spec.multi) {
+      return multi(id, `${base}.prompt`, options, `${base}.explain`);
+    }
+    return single(id, `${base}.prompt`, options, `${base}.explain`);
+  });
+}
+
+Object.assign(QUIZ_BANKS, {
+  b1: branchBank('b1', [
+    { correct: [2] },
+    { correct: [3] },
+    { correct: [1] },
+    { correct: [4] },
+    { correct: [2] },
+    { correct: [1, 3], multi: true },
+  ]),
+  b2: branchBank('b2', [
+    { correct: [3] },
+    { correct: [2] },
+    { correct: [1] },
+    { correct: [4] },
+    { correct: [2] },
+    { correct: [1, 2, 3], multi: true },
+  ]),
+  b3: branchBank('b3', [
+    { correct: [2] },
+    { correct: [1] },
+    { correct: [3] },
+    { correct: [4] },
+    { correct: [1] },
+    { correct: [1, 2, 3], multi: true },
+  ]),
+  b4: branchBank('b4', [
+    { correct: [3] },
+    { correct: [2] },
+    { correct: [1] },
+    { correct: [4] },
+    { correct: [2] },
+    { correct: [1, 2], multi: true },
+  ]),
+  b5: branchBank('b5', [
+    { correct: [2] },
+    { correct: [1] },
+    { correct: [3] },
+    { correct: [4] },
+    { correct: [2] },
+    { correct: [1, 3, 4], multi: true },
+  ]),
+  b6: branchBank('b6', [
+    { correct: [1] },
+    { correct: [3] },
+    { correct: [2] },
+    { correct: [4] },
+    { correct: [1] },
+    { correct: [1, 2, 3], multi: true },
+  ]),
+});
+
 export function buildQuizSession(unitId, attempt = 1) {
   const bank = QUIZ_BANKS[unitId];
   if (!bank) return null;

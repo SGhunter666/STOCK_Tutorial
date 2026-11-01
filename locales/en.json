@@ -15,7 +15,9 @@
     "glossary": "Glossary",
     "settings": "Settings",
     "history": "Historical Lab",
-    "futures": "Futures"
+    "futures": "Futures",
+    "branches": "Branches",
+    "sandbox": "Sandbox"
   },
   "common": {
     "close": "Close",
@@ -129,7 +131,11 @@
     "futureOpened": "Opened {qty} {side} {ticker} contract(s), margin {margin}",
     "futureClosed": "Futures closed with realised P&L {pnl}",
     "futuresVariation": "Futures daily settlement: {amount}",
-    "futuresSettled": "{count} futures contract(s) settled, P&L {amount}"
+    "futuresSettled": "{count} futures contract(s) settled, P&L {amount}",
+    "challengeStarted": "Challenge started: {challenge}",
+    "challengeCompleted": "Challenge completed: {challenge} · +{xp} XP",
+    "challengeFailed": "Challenge timed out: {challenge}",
+    "optionAssignedEarly": "{count} short {ticker} option(s) were assigned early and settled by stock delivery at the strike."
   },
   "stage": {
     "stage1": {
@@ -293,6 +299,30 @@
     "u32": {
       "title": "Final Trading Challenge",
       "summary": "Combine stocks, options and futures inside a risk budget."
+    },
+    "b1": {
+      "title": "Asset management: NAV, risk budget and clients",
+      "summary": "From fund NAV to investment mandates, learn to run a portfolio that can be explained and delivered."
+    },
+    "b2": {
+      "title": "Quant finance: test ideas with data",
+      "summary": "Statistics, time series, backtesting, factors, optimisation and the limits of machine learning."
+    },
+    "b3": {
+      "title": "Derivatives: volatility, Greeks and hedging",
+      "summary": "From the volatility smile to dynamic hedging, understand options market making and complex strategy risk."
+    },
+    "b4": {
+      "title": "Investment banking: valuation, capital and deals",
+      "summary": "Understand corporate finance decisions through DCF, relative valuation, IPOs and M&A."
+    },
+    "b5": {
+      "title": "Macroeconomics: rates, curves and global flows",
+      "summary": "From monetary policy to yield curves, FX and capital flows, understand how macro transmits to markets."
+    },
+    "b6": {
+      "title": "Market microstructure: how orders become prices",
+      "summary": "Order books, spreads, market making, liquidity, price impact and algorithmic execution."
     }
   },
   "sector": {
@@ -306,7 +336,8 @@
     "discretionary": "Discretionary",
     "realestate": "Real estate",
     "energy": "Energy",
-    "communication": "Communication services"
+    "communication": "Communication services",
+    "etf": "ETF"
   },
   "stockStyle": {
     "growth": "Growth",
@@ -478,6 +509,26 @@
     "SPRK": {
       "name": "Sparkline Systems",
       "desc": "A fictional high-performance computing company highly sensitive to growth expectations."
+    },
+    "MKT": {
+      "name": "Broad Market ETF",
+      "desc": "A broad-market ETF holding ten fictional large-cap companies by weight, with a low expense ratio."
+    },
+    "TECH": {
+      "name": "Innovation ETF",
+      "desc": "A thematic technology ETF concentrated in high-growth software, robotics and health-tech companies."
+    },
+    "DIV": {
+      "name": "Dividend Income ETF",
+      "desc": "An income-oriented ETF tilted toward staples, utilities and financials with stable cash flow."
+    },
+    "SMAL": {
+      "name": "Small Cap ETF",
+      "desc": "A basket of smaller fictional companies; volatility is usually higher than a broad-market fund."
+    },
+    "DEF": {
+      "name": "Defensive Sectors ETF",
+      "desc": "A defensive ETF concentrated in healthcare, utilities and staples that tends to hold up better in downturns."
     }
   },
   "lesson": {
@@ -970,7 +1021,7 @@
         },
         "warn": {
           "title": "Risk note",
-          "text": "Diversification is not the absence of risk. Sector ETFs can be highly concentrated, and broad ETFs still fall with the overall market. This build does not offer a tradable ETF product; Unit 7 uses a self-built stock basket to demonstrate the same principle."
+          "text": "Diversification is not the absence of risk. Sector ETFs can be highly concentrated, and broad ETFs still fall with the overall market. Completing Unit 7 unlocks five tradable ETFs with live quotes that can be bought, sold and shorted like stocks."
         }
       },
       "s2": {
@@ -2039,6 +2090,498 @@
           "text": "Graduation is not about making the most money; it is about a repeatable, explainable process that controls risk."
         }
       }
+    },
+    "b1": {
+      "s1": {
+        "title": "Fund NAV, subscriptions and redemptions",
+        "p1": "NAV = (market value of assets − liabilities) / fund shares. It measures what one fund share is worth, not how large the fund is.",
+        "p2": "Subscriptions add shares and assets; redemptions remove both. Market moves change asset value, so NAV changes when the share count is unchanged.",
+        "list": {
+          "title": "Three checks",
+          "i1": "Valuation frequency: mark to market at each close",
+          "i2": "Dealing price: usually today’s or next-day NAV",
+          "i3": "Liquidity buffer: hold cash or liquid assets for redemptions"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Assets 120m, liabilities 10m and 10m shares give NAV = (120 − 10) / 10 = 11.",
+          "l2": "If assets rise 10% with unchanged liabilities, NAV becomes 12.1. A 1m-share subscription raises AUM but leaves NAV broadly unchanged."
+        },
+        "key": {
+          "title": "The key distinction",
+          "text": "Return comes from asset performance, not from a larger AUM; growth in size is not investment return."
+        }
+      },
+      "s2": {
+        "title": "Risk budgeting and rebalancing",
+        "p1": "A risk budget allocates total portfolio risk across assets or strategies. It looks at each position’s contribution to volatility, not only at capital weights.",
+        "p2": "Rebalancing pulls weights back to their target range, systematically selling what has risen and buying what has fallen to control concentration.",
+        "list": {
+          "title": "Three tools",
+          "i1": "Volatility target: keep portfolio risk inside the budget",
+          "i2": "Weight bands: allow small drifts and avoid pointless trades",
+          "i3": "Cash and liquidity buffer: room for redemptions and opportunities"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "A 60/40 portfolio drifts to 70% stocks; rebalancing sells stocks and buys bonds.",
+          "l2": "With ±5% bands, weights between 55% and 65% can be left alone, reducing turnover cost."
+        },
+        "key": {
+          "title": "The trade-off",
+          "text": "Rebalancing reduces concentration risk but can give up trend returns and create trading costs; more frequent rebalancing costs more."
+        }
+      },
+      "s3": {
+        "title": "Attribution, fees and redemptions",
+        "p1": "Performance attribution splits return into allocation, selection, interaction and fee drag, answering where the return came from.",
+        "p2": "Expense ratios are deducted from NAV over time; client redemptions force asset sales and can amplify trading costs and taxes.",
+        "list": {
+          "title": "Three sources",
+          "i1": "Allocation effect: overweighting or underweighting an asset class",
+          "i2": "Selection effect: stock picking within a class",
+          "i3": "Fees and cash drag: expenses, taxes and uninvested cash"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "The portfolio returns 8% versus a 6% benchmark; 1.2% comes from a tech overweight and 0.8% from selection, with the rest from interaction and fees.",
+          "l2": "A 0.75% annual fee can cost roughly 7%–8% of terminal value over ten years, depending on the return path."
+        },
+        "key": {
+          "title": "Judge against the benchmark",
+          "text": "High return is not proof of good management; evaluate against the mandate, benchmark and risk limits."
+        }
+      },
+      "s4": {
+        "title": "Investment mandates and career path",
+        "p1": "A mandate defines the investable universe, benchmark, risk limits, liquidity requirements and reporting frequency; the manager is a fiduciary.",
+        "p2": "The usual path runs from analyst to portfolio manager to multi-strategy fund or fund founder. More senior roles own risk, attribution and client communication.",
+        "list": {
+          "title": "Four constraints",
+          "i1": "Mandate and IPS: what may and may not be held",
+          "i2": "Risk limits: volatility, drawdown and concentration caps",
+          "i3": "Compliance and disclosure: records and conflicts"
+        },
+        "example": {
+          "title": "Scenario",
+          "l1": "If the mandate prohibits leverage, a high-conviction stock must be bought with cash rather than margin.",
+          "l2": "During a concentrated redemption, sell the most liquid assets first instead of dumping core holdings at the worst price."
+        },
+        "key": {
+          "title": "Respect the boundary first",
+          "text": "Stay inside the mandate, then pursue excess return; returns earned by breaking the boundary do not persist."
+        }
+      }
+    },
+    "b2": {
+      "s1": {
+        "title": "Probability and statistics: from sample to conclusion",
+        "p1": "Returns are random variables. Describe them with mean, standard deviation, skew and correlation, then infer the population from a sample.",
+        "p2": "Sharpe ratio = (annual return − risk-free rate) / annual volatility. It measures excess return per unit of risk but ignores tail risk.",
+        "list": {
+          "title": "Three checks",
+          "i1": "Sample size: short samples give unstable conclusions",
+          "i2": "Distribution: returns are not normal and tails can be fat",
+          "i3": "Survivorship bias: only surviving companies remain in the sample"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "With 12% return, 3% risk-free rate and 18% volatility, Sharpe = (12 − 3) / 18 = 0.5.",
+          "l2": "The same return with 30% volatility gives Sharpe 0.3, a weaker risk-adjusted result."
+        },
+        "key": {
+          "title": "Check the sample first",
+          "text": "Ask whether the sample represents the population before trusting a metric; pretty data may come from a biased sample."
+        }
+      },
+      "s2": {
+        "title": "Time series and backtesting",
+        "p1": "Time series analysis focuses on autocorrelation, volatility clustering and mean reversion; regressing non-stationary data can produce spurious relationships.",
+        "p2": "Backtests must avoid look-ahead bias, survivorship bias and ignored trading costs, then validate out-of-sample or with walk-forward tests.",
+        "list": {
+          "title": "Three biases",
+          "i1": "Look-ahead bias: using information not available at the time",
+          "i2": "Survivorship bias: only still-listed companies remain",
+          "i3": "Trading costs: commissions, spreads and impact"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Generating today’s signal from the next 20 days of returns makes an absurdly good backtest that cannot be traded.",
+          "l2": "Adding 0.1% cost and slippage per trade can turn a high-turnover strategy from profit to loss."
+        },
+        "key": {
+          "title": "The purpose of a backtest",
+          "text": "A backtest is for falsifying an idea early, not for proving it works; respect out-of-sample failure."
+        }
+      },
+      "s3": {
+        "title": "Factor models and portfolio optimisation",
+        "p1": "Factor models split return into common exposures such as market, industry and style plus idiosyncratic return; alpha is what the factors cannot explain.",
+        "p2": "Portfolio optimisation trades expected return against risk and constraints such as no shorting, turnover and sector caps; estimation error gets amplified.",
+        "list": {
+          "title": "Three inputs",
+          "i1": "Factor exposures: value, momentum, size and others",
+          "i2": "Covariance matrix: how assets move together",
+          "i3": "Constraints and turnover: real portfolios cannot adjust freely"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "A portfolio has 0.8 value exposure and −0.3 momentum; it gains when value rebounds and loses when momentum persists.",
+          "l2": "When covariance estimates are unstable, the optimiser can produce extreme weights; constraints and shrinkage help."
+        },
+        "key": {
+          "title": "The optimiser is an amplifier",
+          "text": "An optimiser amplifies your assumptions; bad estimates become extreme positions."
+        }
+      },
+      "s4": {
+        "title": "Machine learning, overfitting and algorithmic trading",
+        "p1": "Machine learning can fit nonlinear relationships, but financial data has a low signal-to-noise ratio and is non-stationary, so overfitting risk is high.",
+        "p2": "Cross-validate by time, then monitor drift, trading costs and capacity after deployment.",
+        "list": {
+          "title": "Three disciplines",
+          "i1": "Time-series cross-validation: never shuffle time",
+          "i2": "Regularisation and simpler models: robustness before complexity",
+          "i3": "Live monitoring and capacity: impact rises with capital"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "A model with 90% training accuracy and 52% out-of-sample accuracy memorised noise rather than a pattern.",
+          "l2": "Strategy capacity is limited: as capital grows, impact costs can consume the original alpha."
+        },
+        "key": {
+          "title": "Out-of-sample first",
+          "text": "Prove out-of-sample performance before discussing live trading; training performance has no decision value."
+        }
+      }
+    },
+    "b3": {
+      "s1": {
+        "title": "Volatility smile and surface",
+        "p1": "Black-Scholes assumes one volatility, but the market quotes different implied volatilities for different strikes, creating a smile or skew.",
+        "p2": "Plotting IV across strikes and expiries gives the volatility surface; it reflects tail risk, supply and demand, and event expectations.",
+        "list": {
+          "title": "Three observations",
+          "i1": "Skew: low-strike puts are usually more expensive",
+          "i2": "Term structure: IV changes around events",
+          "i3": "Surface arbitrage: neighbouring points should not offer riskless profit"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "For one expiry, a strike-80 put shows 35% IV while a strike-100 put shows 22%, a downward slope.",
+          "l2": "Short-dated IV rises before earnings; if the move is small, IV falls afterwards and time value decays quickly."
+        },
+        "key": {
+          "title": "Do not use one volatility",
+          "text": "Do not price every strike with one volatility; the surface is the market’s actual quote structure."
+        }
+      },
+      "s2": {
+        "title": "Greeks and dynamic hedging",
+        "p1": "Delta measures the option price change for a 1-unit move in the underlying; Gamma measures the change in Delta; Vega is volatility sensitivity and Theta is time sensitivity.",
+        "p2": "A delta-neutral book buys or sells the underlying to set total Delta to zero; as the underlying moves, the hedge must be rebalanced.",
+        "list": {
+          "title": "Three sensitivities",
+          "i1": "Delta hedging: offset directional exposure",
+          "i2": "Gamma risk: Delta changes as price moves",
+          "i3": "Hedging cost: slippage, commissions and frequent adjustments"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Ten calls with 0.5 Delta and a 100 multiplier carry 500 shares of Delta; shorting 500 shares makes the book temporarily neutral.",
+          "l2": "If Delta rises to 0.6 after a rally, short another 100 shares; frequent rebalancing creates costs."
+        },
+        "key": {
+          "title": "Only instantaneously neutral",
+          "text": "Delta neutrality is instantaneous; Gamma pulls the book away and requires continuous hedging."
+        }
+      },
+      "s3": {
+        "title": "Gamma scalping and spreads",
+        "p1": "Buying options and dynamically delta hedging can profit when realised volatility exceeds implied volatility; this is gamma scalping.",
+        "p2": "Spread strategies combine different strikes or expiries to cap risk and reduce cost; calendar spreads are more sensitive to term structure.",
+        "list": {
+          "title": "Three structures",
+          "i1": "Vertical spread: same expiry, different strikes",
+          "i2": "Calendar spread: same strike, different expiries",
+          "i3": "Ratio spread: unequal quantities"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "A bull call spread long 95 and short 105 has maximum loss equal to net premium and capped maximum gain.",
+          "l2": "A calendar spread long the front month and short the back month benefits when front-month IV falls relative to the back month."
+        },
+        "key": {
+          "title": "Limited risk is not no risk",
+          "text": "Spreads cap risk but also cap reward; do not treat limited risk as risk-free."
+        }
+      },
+      "s4": {
+        "title": "Stress testing and career path",
+        "p1": "Derivative risk is nonlinear: when price, volatility, time and rates move together, the Greeks themselves change.",
+        "p2": "Stress tests should shock price and volatility together and include liquidity haircuts, higher margin and counterparty risk.",
+        "list": {
+          "title": "Three shocks",
+          "i1": "Joint shocks: price and volatility move together",
+          "i2": "Liquidity haircut: spreads widen under stress",
+          "i3": "Model risk: assumptions fail and parameters become unstable"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "With the underlying down 10% and IV up 15 points, a short-put book can lose far more than a Delta-only estimate suggests.",
+          "l2": "When volatility spikes, margin requirements rise and forced liquidation can amplify losses."
+        },
+        "key": {
+          "title": "Test survival",
+          "text": "A stress test is not a forecast; it checks whether the book survives the worst case."
+        }
+      }
+    },
+    "b4": {
+      "s1": {
+        "title": "Corporate valuation and DCF",
+        "p1": "DCF discounts future free cash flow to today; the discount rate is usually WACC, reflecting the opportunity cost of equity and debt.",
+        "p2": "Terminal value often dominates a DCF; growth, margin and capex assumptions must be internally consistent.",
+        "list": {
+          "title": "Three inputs",
+          "i1": "Cash flow forecast: revenue, margin and capex",
+          "i2": "WACC: weighted cost of equity and debt",
+          "i3": "Terminal value and sensitivity: perpetual growth or exit multiple"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Year-1 FCF of 100, 3% growth and 9% WACC give terminal value 100 × 1.03 / (0.09 − 0.03) = 1717.",
+          "l2": "Raising WACC from 9% to 10% cuts terminal value to 1471; valuation is highly sensitive to the discount rate."
+        },
+        "key": {
+          "title": "Assumptions drive the output",
+          "text": "DCF output quality depends on assumptions, not the formula; run sensitivity on the key inputs."
+        }
+      },
+      "s2": {
+        "title": "Relative valuation and IPOs",
+        "p1": "Relative valuation uses comparable-company multiples such as P/E, EV/EBITDA or P/S to place the target inside a market pricing framework.",
+        "p2": "An IPO runs through preparation, roadshow, bookbuilding and pricing; the underwriter balances demand and valuation, and first-day premiums are common.",
+        "list": {
+          "title": "Three steps",
+          "i1": "Comparable companies: similar business and growth",
+          "i2": "Precedent transactions: multiples paid in M&A",
+          "i3": "Bookbuilding and allocation: price from demand"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "A peer average P/E of 18 and target EPS of 2 imply an indicative value near 36 per share.",
+          "l2": "Pricing at 30 and closing at 36 on day one is a 20% first-day premium; the underwriter may have underestimated demand."
+        },
+        "key": {
+          "title": "Relative, not absolute",
+          "text": "Multiples give a relative price, not a guarantee of absolute value; peer selection drives the conclusion."
+        }
+      },
+      "s3": {
+        "title": "Debt financing, M&A and dilution",
+        "p1": "Debt financing uses leverage to magnify shareholder returns but adds fixed interest and refinancing risk; leverage ratios and covenants are key constraints.",
+        "p2": "Whether an acquisition is EPS-accretive depends on synergies, financing and the exchange ratio; issuing new shares dilutes existing owners.",
+        "list": {
+          "title": "Three variables",
+          "i1": "Leverage and interest coverage: can cash flow service debt?",
+          "i2": "Synergies: can cost and revenue benefits be delivered?",
+          "i3": "Exchange ratio and dilution: how many new shares are issued?"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Acquirer net income 100, target 30 and synergies 10; an all-stock deal issuing 20 new shares requires comparing merged EPS with standalone EPS.",
+          "l2": "High-interest debt can offset synergies and turn an accretive deal into a dilutive one."
+        },
+        "key": {
+          "title": "Accretion is not value creation",
+          "text": "EPS accretion is not value creation; examine cash flow, risk and integration cost."
+        }
+      },
+      "s4": {
+        "title": "Deal negotiation and career path",
+        "p1": "The IB deal process covers valuation, diligence, structuring, negotiation, board approval and closing; a fairness opinion supports the board’s decision.",
+        "p2": "The career path runs analyst → associate → vice president → director/managing director; modelling, industry insight and communication are core skills.",
+        "list": {
+          "title": "Three stages",
+          "i1": "Deal structure: price, consideration and conditions",
+          "i2": "Diligence and documents: representations, warranties and indemnities",
+          "i3": "Negotiation and conflicts: who bears the risk?"
+        },
+        "example": {
+          "title": "Scenario",
+          "l1": "A seller wants a higher price while a buyer demands stronger representations and warranties; the deal balances price against risk allocation.",
+          "l2": "Advising both buyer and seller creates conflicts that must be disclosed or walled off."
+        },
+        "key": {
+          "title": "Beyond price",
+          "text": "Deals are not only about price; they also allocate and price risk."
+        }
+      }
+    },
+    "b5": {
+      "s1": {
+        "title": "Monetary policy and interest rates",
+        "p1": "Central banks influence funding costs through policy rates, reserve requirements and asset purchases; cuts usually lower discount rates and support risk assets.",
+        "p2": "Transmission is lagged: corporate funding, mortgages, FX and asset prices react through different channels, sometimes over months.",
+        "list": {
+          "title": "Three variables",
+          "i1": "Policy rate: the central bank’s short-rate anchor",
+          "i2": "Inflation target: the anchor for policy reaction",
+          "i3": "Transmission lag: from policy to the real economy and markets"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "A 50bp rate cut saves about 5,000 of annual interest on a 1m floating-rate loan.",
+          "l2": "If inflation stays high, a cut can push long yields higher, steepen the curve and produce a mixed equity response."
+        },
+        "key": {
+          "title": "Surprises drive prices",
+          "text": "Policy direction is not market direction; prices respond to the surprise versus expectations, not headlines."
+        }
+      },
+      "s2": {
+        "title": "Yield curve, inflation and government bonds",
+        "p1": "The yield curve connects government bond yields across maturities; a normal curve slopes upward, while inversion is often read as a recession signal.",
+        "p2": "Inflation expectations push nominal yields higher; real yield = nominal yield − expected inflation, affecting bond and equity valuation.",
+        "list": {
+          "title": "Three concepts",
+          "i1": "Curve shape: normal, flat or inverted",
+          "i2": "Breakeven inflation: the market’s inflation expectation",
+          "i3": "Duration: sensitivity to yield changes"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Two-year 4.5% and ten-year 3.8% is a 70bp inversion; the market is pricing future cuts or a slowdown.",
+          "l2": "A bond with duration 6 loses about 6% in price for a 1% rise in yield."
+        },
+        "key": {
+          "title": "The curve contains expectations",
+          "text": "The curve embeds growth and inflation expectations, not just the current rate; inversion is not a precise timing signal."
+        }
+      },
+      "s3": {
+        "title": "FX and global capital flows",
+        "p1": "Exchange rates are driven by rate differentials, inflation, trade balances, capital flows and risk appetite; carry trades borrow in low-yield currencies and invest in high-yield ones.",
+        "p2": "When risk appetite falls, capital often returns to the dollar and safe assets, pressuring high-yield currencies and emerging markets.",
+        "list": {
+          "title": "Three drivers",
+          "i1": "Rate differential: the gap between two countries’ rates",
+          "i2": "Carry trade: borrow low-yield, invest high-yield",
+          "i3": "Risk appetite: risk-on versus risk-off"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Borrowing at 1% to invest at 5% implies 4% annual carry, but a 5% currency depreciation turns it into a loss.",
+          "l2": "In a global risk-off, a high-yield currency can suffer both narrowing rate differentials and capital outflows."
+        },
+        "key": {
+          "title": "Carry is not free",
+          "text": "Carry earns a premium for bearing tail risk; losses accelerate when the exchange rate reverses."
+        }
+      },
+      "s4": {
+        "title": "Macro trading and career path",
+        "p1": "Macro traders judge the regime across growth, inflation, policy and liquidity, then express views through bonds, FX, equities or commodities.",
+        "p2": "The path runs macro research → strategist → macro fund or multi-asset portfolio manager; data interpretation, models and risk management matter.",
+        "list": {
+          "title": "Four dimensions",
+          "i1": "Growth: expanding or slowing",
+          "i2": "Inflation: rising or cooling",
+          "i3": "Policy: easing or tightening"
+        },
+        "example": {
+          "title": "Scenario",
+          "l1": "With slower growth, cooling inflation and a dovish central bank, a portfolio may overweight long-duration bonds and underweight cyclicals.",
+          "l2": "If cuts are fully priced, assets can still fall on the news as the market sells the fact."
+        },
+        "key": {
+          "title": "Express the view",
+          "text": "A macro view must be expressed through assets, with exits and risk controls for being wrong."
+        }
+      }
+    },
+    "b6": {
+      "s1": {
+        "title": "Order book and bid-ask spread",
+        "p1": "The order book ranks limit orders by price then time; the gap between the best bid and best ask is the spread.",
+        "p2": "A market order crosses the spread and pays for immediacy; a limit order provides liquidity but may not fill.",
+        "list": {
+          "title": "Three concepts",
+          "i1": "Best bid and ask: the closest quotes",
+          "i2": "Depth: quantity available at each price",
+          "i3": "Queue position: order priority at the same price"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Bid 99.95 and ask 100.05 give a 0.10 spread; buying 100 shares immediately costs about 10 extra.",
+          "l2": "An order larger than the best-level depth walks to worse prices and creates impact cost."
+        },
+        "key": {
+          "title": "Liquidity has a price",
+          "text": "The spread is the price of immediacy; liquidity is not free, so trade off waiting against certainty."
+        }
+      },
+      "s2": {
+        "title": "Market makers and liquidity",
+        "p1": "Market makers quote both bid and ask to earn the spread while bearing inventory and adverse-selection risk.",
+        "p2": "When inventory deviates from target, they skew quotes or hedge; informed traders pick off their quotes.",
+        "list": {
+          "title": "Three risks",
+          "i1": "Inventory risk: holding unwanted positions",
+          "i2": "Adverse selection: being filled by informed traders",
+          "i3": "Quote skewing: using prices to manage inventory"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "After buying 10,000 shares, a long-inventory maker may lower the bid and raise the ask to encourage selling.",
+          "l2": "If the counterparty has bullish information, the price rises right after the maker buys and the spread is eaten by adverse selection."
+        },
+        "key": {
+          "title": "The spread compensates risk",
+          "text": "Market-maker profit compensates for risk and liquidity provision; it is not risk-free income."
+        }
+      },
+      "s3": {
+        "title": "Price impact and algorithmic execution",
+        "p1": "Large orders consume order-book depth and move prices; impact cost varies with size, speed and liquidity.",
+        "p2": "Execution algorithms slice large orders into child orders, using VWAP, TWAP or participation rates to balance impact against timing risk.",
+        "list": {
+          "title": "Three tools",
+          "i1": "Impact model: size, volatility and depth",
+          "i2": "VWAP/TWAP: slice by volume or time",
+          "i3": "Participation rate: control your share of market volume"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "With daily volume of 1m shares and a 100k order, a 10% participation rate needs about one trading day.",
+          "l2": "Rushing raises impact cost; waiting too long exposes the order to price drift and news risk."
+        },
+        "key": {
+          "title": "Impact versus time",
+          "text": "Optimal execution trades impact cost against timing risk; no single algorithm is always best."
+        }
+      },
+      "s4": {
+        "title": "Market quality and career path",
+        "p1": "Market quality is measured by spreads, depth, speed, price stability and trading costs; fragmented markets add routing complexity.",
+        "p2": "The path runs trader → execution consultant → market-structure research or market making; rules, data and matching engines matter.",
+        "list": {
+          "title": "Three dimensions",
+          "i1": "Fragmentation: one stock traded in many venues",
+          "i2": "High-frequency trading: speed and liquidity as a double-edged sword",
+          "i3": "Regulation and fairness: how rules shape execution"
+        },
+        "example": {
+          "title": "Scenario",
+          "l1": "With the same stock quoted in several venues, a router must choose the best execution while avoiding information leakage.",
+          "l2": "High-frequency market making adds liquidity in calm markets but can withdraw quickly under stress, amplifying volatility."
+        },
+        "key": {
+          "title": "Liquidity is state-dependent",
+          "text": "Liquidity is state-dependent: abundant in calm markets and can vanish under stress."
+        }
+      }
     }
   },
   "practice": {
@@ -2252,6 +2795,42 @@
       "requirement": "Complete at least one stock, one option and one futures trade.",
       "hint": "Each tool needs one real trade; profitability is not required.",
       "action": "Go trading"
+    },
+    "b1": {
+      "title": "Build a multi-asset portfolio",
+      "requirement": "Hold long positions in at least three different sectors at the same time to practise allocation rather than a single bet.",
+      "hint": "Use the market page to buy small positions in technology, healthcare, utilities or other sectors.",
+      "action": "Open the market"
+    },
+    "b2": {
+      "title": "Run the risk and volatility lab",
+      "requirement": "Use the risk demo to change position size or correlation and watch how portfolio risk metrics respond.",
+      "hint": "Open the risk demo, change position size or correlation, and note how Sharpe and drawdown move.",
+      "action": "Open the risk demo"
+    },
+    "b3": {
+      "title": "Build an option spread",
+      "requirement": "Use the strategy demo to build a vertical spread and inspect maximum profit and loss.",
+      "hint": "Pick different strikes with the same expiry and compare cost and payoff.",
+      "action": "Open the strategy demo"
+    },
+    "b4": {
+      "title": "Run a DCF valuation",
+      "requirement": "Use the DCF demo to change growth or the discount rate and watch the valuation move.",
+      "hint": "Change WACC and terminal growth and compare the sensitivity.",
+      "action": "Open the DCF demo"
+    },
+    "b5": {
+      "title": "Run a macro scenario",
+      "requirement": "Use the macro demo to change rates or inflation and watch asset prices respond.",
+      "hint": "Change the policy rate and inflation, then note the direction of bonds and equities.",
+      "action": "Open the macro demo"
+    },
+    "b6": {
+      "title": "Inspect the order book",
+      "requirement": "Use the order-book demo to send different market-order sizes and compare average fill and slippage.",
+      "hint": "Compare the impact cost of a small order with a large one.",
+      "action": "Open the order-book demo"
     }
   },
   "quiz": {
@@ -3375,6 +3954,306 @@
         "work": "Risk amount = {account} × {risk}%; risk per share = {entry} − {stop}; shares = risk amount ÷ risk per share = {answer}.",
         "explain": "Shares = risk amount ÷ risk per share, rounded down."
       }
+    },
+    "b1": {
+      "q1": {
+        "prompt": "What is the correct formula for fund NAV?",
+        "o1": "Total assets / shares",
+        "o2": "(Asset value − liabilities) / shares",
+        "o3": "Total assets / number of funds",
+        "o4": "Share price × shares outstanding",
+        "explain": "NAV is per-share net value: subtract liabilities, then divide by shares."
+      },
+      "q2": {
+        "prompt": "What usually happens after a large subscription?",
+        "o1": "NAV must rise",
+        "o2": "NAV must fall",
+        "o3": "AUM rises, but NAV does not change from the subscription itself",
+        "o4": "Fund shares fall",
+        "explain": "A subscription adds shares and assets at NAV, so AUM grows while NAV itself does not change from the subscription alone."
+      },
+      "q3": {
+        "prompt": "What is the core of risk budgeting?",
+        "o1": "Allocate by risk contribution, not only by capital weight",
+        "o2": "Buy only low-volatility assets",
+        "o3": "Split all capital equally",
+        "o4": "Hold only cash",
+        "explain": "Risk budgeting looks at each position’s contribution to portfolio volatility."
+      },
+      "q4": {
+        "prompt": "A 60/40 portfolio drifts to 70% stocks. Disciplined rebalancing usually means:",
+        "o1": "Buy more stocks",
+        "o2": "Do nothing",
+        "o3": "Sell all stocks",
+        "o4": "Sell some stocks and buy bonds",
+        "explain": "Rebalancing pulls weights back to the target range."
+      },
+      "q5": {
+        "prompt": "In attribution, return from overweighting the technology sector is:",
+        "o1": "Selection effect",
+        "o2": "Allocation effect",
+        "o3": "Fee drag",
+        "o4": "Cash drag",
+        "explain": "Allocation effect comes from deviations in asset-class or sector weights."
+      },
+      "q6": {
+        "prompt": "When evaluating a fund, which items should be considered together?",
+        "o1": "Excess return versus the benchmark",
+        "o2": "Risk limits and drawdown",
+        "o3": "Expense ratio and turnover cost",
+        "o4": "AUM size alone",
+        "explain": "Size is not performance; look at relative return, risk and cost."
+      }
+    },
+    "b2": {
+      "q1": {
+        "prompt": "What is look-ahead bias?",
+        "o1": "Using only historical prices",
+        "o2": "Ignoring trading costs",
+        "o3": "Using information that was unavailable at the time",
+        "o4": "Including delisted companies",
+        "explain": "Look-ahead bias lets a backtest see the future, which cannot be reproduced live."
+      },
+      "q2": {
+        "prompt": "Survivorship bias most often appears when:",
+        "o1": "Using only intraday data",
+        "o2": "Analysing only companies that survive today",
+        "o3": "Using adjusted prices",
+        "o4": "Using monthly data",
+        "explain": "Delisted or bankrupt companies are excluded, overstating historical returns."
+      },
+      "q3": {
+        "prompt": "What is the numerator of the Sharpe ratio?",
+        "o1": "Annual return minus the risk-free rate",
+        "o2": "Annual volatility",
+        "o3": "Maximum drawdown",
+        "o4": "Turnover",
+        "explain": "Sharpe measures excess return per unit of volatility."
+      },
+      "q4": {
+        "prompt": "What is the classic sign of overfitting?",
+        "o1": "Good in and out of sample",
+        "o2": "Bad in sample, good out of sample",
+        "o3": "No fit at all",
+        "o4": "Very good in sample, much worse out of sample",
+        "explain": "The model memorises training noise and deteriorates out of sample."
+      },
+      "q5": {
+        "prompt": "In a factor model, alpha usually means:",
+        "o1": "Market return",
+        "o2": "Excess return not explained by factors",
+        "o3": "Trading cost",
+        "o4": "Risk-free rate",
+        "explain": "Alpha is the residual return beyond factor exposures."
+      },
+      "q6": {
+        "prompt": "A credible backtest should include:",
+        "o1": "Out-of-sample testing",
+        "o2": "Trading costs and slippage",
+        "o3": "Survivorship-bias treatment",
+        "o4": "Only the best parameter run",
+        "explain": "Backtests should try to falsify the idea rather than pick the prettiest curve."
+      }
+    },
+    "b3": {
+      "q1": {
+        "prompt": "What is the volatility smile?",
+        "o1": "All strikes have the same IV",
+        "o2": "Different strikes have different implied volatilities",
+        "o3": "Historical volatility is always below implied",
+        "o4": "Option prices change linearly with expiry",
+        "explain": "The market quotes different implied volatilities for different strikes."
+      },
+      "q2": {
+        "prompt": "Delta measures:",
+        "o1": "The option price change for a 1-unit underlying move",
+        "o2": "The option price change for a 1-point volatility move",
+        "o3": "The change after one day",
+        "o4": "The change for a 1% rate move",
+        "explain": "Delta is the first-order sensitivity of option price to the underlying."
+      },
+      "q3": {
+        "prompt": "The core of gamma scalping is:",
+        "o1": "Buy and hold to expiry",
+        "o2": "Only sell options for premium",
+        "o3": "Dynamic delta hedging to profit when realised volatility exceeds implied",
+        "o4": "Use only fundamental stock picking",
+        "explain": "Repeated delta hedging converts realised volatility into P&L."
+      },
+      "q4": {
+        "prompt": "A bull call spread usually has:",
+        "o1": "Unlimited risk and unlimited reward",
+        "o2": "Unlimited risk and limited reward",
+        "o3": "Limited risk and unlimited reward",
+        "o4": "Limited risk and limited reward",
+        "explain": "Long a low-strike call and short a high-strike call, both risk and reward are capped."
+      },
+      "q5": {
+        "prompt": "The main risk of a short straddle is:",
+        "o1": "A large one-sided move causes expanding losses",
+        "o2": "Only the premium is at risk",
+        "o3": "Time value is always negative",
+        "o4": "Falling volatility always loses",
+        "explain": "Short calls and puts can both lose heavily if the underlying makes a large move."
+      },
+      "q6": {
+        "prompt": "Derivative stress tests should consider:",
+        "o1": "Underlying price shocks",
+        "o2": "Volatility shocks",
+        "o3": "Liquidity and margin changes",
+        "o4": "Only historical average volatility",
+        "explain": "Nonlinear books need joint shocks and liquidity assumptions."
+      }
+    },
+    "b4": {
+      "q1": {
+        "prompt": "What discount rate is most commonly used in a DCF?",
+        "o1": "Risk-free rate",
+        "o2": "Loan rate",
+        "o3": "WACC (weighted average cost of capital)",
+        "o4": "Dividend yield",
+        "explain": "WACC reflects the cost of equity and debt capital."
+      },
+      "q2": {
+        "prompt": "How is terminal value usually estimated?",
+        "o1": "Book value",
+        "o2": "Gordon growth model or exit multiple",
+        "o3": "Historical share price",
+        "o4": "Cash balance",
+        "explain": "Terminal value commonly uses perpetual growth or an exit multiple."
+      },
+      "q3": {
+        "prompt": "What is the core of relative valuation?",
+        "o1": "Price the target using peer multiples",
+        "o2": "Only forecast future cash flow",
+        "o3": "Only study company history",
+        "o4": "Use only book value",
+        "explain": "Relative valuation places the target in a comparable-company framework."
+      },
+      "q4": {
+        "prompt": "A first-day IPO premium usually means:",
+        "o1": "The offer price is above the first-day close",
+        "o2": "The first-day close equals the offer price",
+        "o3": "No trading on day one",
+        "o4": "The first-day close is above the offer price",
+        "explain": "First-day premiums are common when demand is strong or pricing is conservative."
+      },
+      "q5": {
+        "prompt": "A deal described as EPS-accretive means:",
+        "o1": "Merged EPS falls",
+        "o2": "Merged EPS rises",
+        "o3": "Cash flow must be negative",
+        "o4": "Shareholders must be diluted",
+        "explain": "Accretion means EPS rises, but it does not necessarily create economic value."
+      },
+      "q6": {
+        "prompt": "What should an acquirer focus on?",
+        "o1": "Whether synergies can be delivered",
+        "o2": "Financing and dilution",
+        "o3": "The price alone",
+        "o4": "Seller promises alone",
+        "explain": "Price, financing, synergies and integration all affect deal success."
+      }
+    },
+    "b5": {
+      "q1": {
+        "prompt": "A central-bank rate cut usually has what effect on bond prices?",
+        "o1": "Bond prices fall",
+        "o2": "Bond prices rise",
+        "o3": "No effect",
+        "o4": "Only equities are affected",
+        "explain": "Lower rates make existing fixed coupons more attractive, so prices rise."
+      },
+      "q2": {
+        "prompt": "An inverted yield curve means:",
+        "o1": "Short-term yields are above long-term yields",
+        "o2": "Long-term yields are above short-term yields",
+        "o3": "All maturities have the same yield",
+        "o4": "All yields are negative",
+        "explain": "Inversion is often read as a slowdown or recession signal."
+      },
+      "q3": {
+        "prompt": "The approximate real yield is:",
+        "o1": "Nominal yield + inflation",
+        "o2": "Nominal yield × inflation",
+        "o3": "Nominal yield − expected inflation",
+        "o4": "Nominal yield / inflation",
+        "explain": "Real yield measures purchasing-power return after inflation."
+      },
+      "q4": {
+        "prompt": "The core risk of a carry trade is:",
+        "o1": "Rates never change",
+        "o2": "The currency must appreciate",
+        "o3": "There are no trading costs",
+        "o4": "A high-yield currency suddenly depreciates or the rate differential narrows",
+        "explain": "Carry has limited upside, but FX and risk-appetite reversals can cause large losses."
+      },
+      "q5": {
+        "prompt": "Bond duration measures:",
+        "o1": "The remaining maturity",
+        "o2": "Sensitivity to yield changes",
+        "o3": "Coupon level",
+        "o4": "Issue size",
+        "explain": "Longer duration means a larger price response to yield changes."
+      },
+      "q6": {
+        "prompt": "A macro regime framework usually tracks:",
+        "o1": "Growth",
+        "o2": "Equity prices alone",
+        "o3": "Inflation",
+        "o4": "Policy and liquidity",
+        "explain": "Growth, inflation, policy and liquidity together define the regime."
+      }
+    },
+    "b6": {
+      "q1": {
+        "prompt": "The bid-ask spread is essentially:",
+        "o1": "The cost of immediate execution",
+        "o2": "A company dividend",
+        "o3": "An exchange fee",
+        "o4": "The risk-free rate",
+        "explain": "The spread is the price of liquidity."
+      },
+      "q2": {
+        "prompt": "Market-maker risks include:",
+        "o1": "Only interest-rate risk",
+        "o2": "Only FX risk",
+        "o3": "Inventory risk and adverse selection",
+        "o4": "No risk",
+        "explain": "Market makers hold inventory and can be picked off by informed traders."
+      },
+      "q3": {
+        "prompt": "Price impact of a large order usually:",
+        "o1": "Falls as order size grows",
+        "o2": "Rises as order size grows",
+        "o3": "Is unrelated to liquidity",
+        "o4": "Is unrelated to speed",
+        "explain": "Larger and faster orders consume more depth."
+      },
+      "q4": {
+        "prompt": "A VWAP algorithm usually aims to:",
+        "o1": "Fill at the open",
+        "o2": "Fill at the close",
+        "o3": "Minimise commissions",
+        "o4": "Match the volume-weighted average price",
+        "explain": "VWAP slices orders according to the volume profile."
+      },
+      "q5": {
+        "prompt": "Adverse selection means:",
+        "o1": "Market makers are picked off by informed traders, eroding spread income",
+        "o2": "Investors trade in reverse",
+        "o3": "Exchanges match in reverse",
+        "o4": "Prices always reverse",
+        "explain": "Information asymmetry makes market makers bear unfavorable fills."
+      },
+      "q6": {
+        "prompt": "Market quality can be measured by:",
+        "o1": "Spreads",
+        "o2": "Depth",
+        "o3": "Price impact and speed",
+        "o4": "The number of letters in the ticker",
+        "explain": "Liquidity, cost and stability together determine market quality."
+      }
     }
   },
   "demo": {
@@ -4157,6 +5036,101 @@
         "name": "Systemic risk",
         "def": "Risk that spreads through leverage, liquidity and counterparty chains across the market.",
         "example": "Forced selling pushes prices down and triggers more liquidation and liquidity stress."
+      },
+      "nav": {
+        "name": "Net asset value (NAV)",
+        "def": "Fund assets minus liabilities divided by fund shares, showing what one fund share is worth.",
+        "example": "Assets 120m, liabilities 10m and 10m shares give NAV = 11."
+      },
+      "riskBudget": {
+        "name": "Risk budget",
+        "def": "A method that allocates total portfolio risk across assets or strategies, focusing on risk contribution rather than capital weight alone.",
+        "example": "Two strategies each hold 50% of capital but one contributes 80% of volatility; risk budgeting cuts its weight."
+      },
+      "attribution": {
+        "name": "Performance attribution",
+        "def": "An analysis that decomposes portfolio return into allocation, selection, interaction and fee sources.",
+        "example": "The portfolio beats its benchmark by 2%, with 1.2% attributed to a technology overweight."
+      },
+      "sharpeRatio": {
+        "name": "Sharpe ratio",
+        "def": "Excess return divided by volatility, measuring reward per unit of risk.",
+        "example": "With 12% return, 3% risk-free rate and 18% volatility, Sharpe = 0.5."
+      },
+      "lookAheadBias": {
+        "name": "Look-ahead bias",
+        "def": "Using information that was not available at the time in a backtest, inflating results.",
+        "example": "Generating today’s signal from the next 20 days of returns cannot be traded live."
+      },
+      "factorModel": {
+        "name": "Factor model",
+        "def": "A model that explains asset returns with common factors such as market, industry and style.",
+        "example": "A portfolio with 0.8 value exposure benefits when value rebounds."
+      },
+      "overfitting": {
+        "name": "Overfitting",
+        "def": "A model fits noise in the training data and performs much worse out of sample.",
+        "example": "A 90% training accuracy and 52% out-of-sample accuracy means the model memorised noise."
+      },
+      "volatilitySmile": {
+        "name": "Volatility smile",
+        "def": "Implied volatility differs by strike, often forming a smile or skew.",
+        "example": "Low-strike puts show higher IV than at-the-money options, producing a downward slope."
+      },
+      "deltaHedge": {
+        "name": "Delta hedging",
+        "def": "Using the underlying to offset an option book’s Delta exposure, making it temporarily neutral to small price moves.",
+        "example": "A book with 500 shares of Delta is temporarily neutral after shorting 500 shares."
+      },
+      "gammaScalping": {
+        "name": "Gamma scalping",
+        "def": "Buying options and dynamically delta hedging to profit when realised volatility exceeds implied volatility.",
+        "example": "When realised volatility exceeds IV, repeated hedge adjustments can cover the option cost."
+      },
+      "wacc": {
+        "name": "WACC",
+        "def": "The weighted average cost of equity and debt capital, commonly used as the DCF discount rate.",
+        "example": "With 12% equity cost, 5% debt cost and 50/50 weights, after-tax WACC is about 8.5%."
+      },
+      "comps": {
+        "name": "Comparable company analysis",
+        "def": "Pricing a target using valuation multiples from similar companies.",
+        "example": "A peer average P/E of 18 and target EPS of 2 imply about 36 per share."
+      },
+      "dilution": {
+        "name": "Dilution",
+        "def": "Issuing new shares reduces existing shareholders’ ownership percentage.",
+        "example": "A 20% share issuance dilutes existing owners’ stakes."
+      },
+      "ipo": {
+        "name": "Initial public offering (IPO)",
+        "def": "A company’s first public share sale and listing.",
+        "example": "Priced at 30 and closing at 36 on day one is a 20% first-day premium."
+      },
+      "yieldCurve": {
+        "name": "Yield curve",
+        "def": "The relationship between government bond yields across maturities.",
+        "example": "Two-year 4.5% and ten-year 3.8% is an inverted curve."
+      },
+      "carryTrade": {
+        "name": "Carry trade",
+        "def": "Borrowing in a low-yield currency and investing in a high-yield currency to earn the rate differential.",
+        "example": "Borrowing at 1% to invest at 5% implies 4% carry, but currency depreciation can wipe it out."
+      },
+      "marketMaker": {
+        "name": "Market maker",
+        "def": "A firm that continuously quotes bid and ask prices to provide liquidity.",
+        "example": "After buying 10,000 shares, a long-inventory maker lowers the bid to encourage selling."
+      },
+      "priceImpact": {
+        "name": "Price impact",
+        "def": "A large order consumes order-book depth and moves the price.",
+        "example": "Buying more than the best-level depth worsens the average fill."
+      },
+      "adverseSelection": {
+        "name": "Adverse selection",
+        "def": "Information asymmetry makes market makers more likely to trade with informed counterparties.",
+        "example": "The price rises right after a maker buys, eroding spread income."
       }
     }
   },
@@ -4305,6 +5279,10 @@
       "frontier": {
         "name": "Energy & frontier",
         "desc": "Utilities, materials and volatile technology where risk and opportunity meet."
+      },
+      "etf": {
+        "name": "Tradable ETFs",
+        "desc": "Five simulated ETFs priced from weighted baskets of their components; unlocked after Unit 7."
       }
     }
   },
@@ -4370,6 +5348,20 @@
     "spreadCost": "Current spread per share {value}",
     "companyTitle": "Company profile",
     "companySubtitle": "Fictional fundamentals",
+    "etfTitle": "ETF profile",
+    "etfSubtitle": "Simulated fund data · priced from its component basket",
+    "etfProductType": "Product type",
+    "etfTypeLabel": "Exchange-traded fund (ETF)",
+    "etfExpenseRatio": "Annual expense ratio",
+    "etfComponents": "Number of holdings",
+    "etfAum": "Simulated fund size",
+    "etfBasket": "Basket NAV",
+    "etfPremium": "Premium / discount",
+    "etfWeight": "Weight",
+    "etfHoldings": "Holdings and weights",
+    "etfFinancialsNote": "An ETF is a fund, not a company, so it has no corporate income statement. It holds its components by weight; returns come from the basket and dividends, net of fees.",
+    "etfNote": "ETFs trade, short and cover like stocks; their quote is derived from a weighted basket of the components rather than from standalone company earnings.",
+    "etfPricingNote": "This simulation prices ETFs at basket NAV, so the premium or discount is zero; real markets can trade slightly above or below NAV.",
     "sharesOutstanding": "Shares outstanding",
     "revenue": "Revenue",
     "netIncome": "Net income",
@@ -4600,24 +5592,24 @@
     "resetProgress": "Reset progress",
     "dataHint": "Importing a save overwrites current progress. Resetting clears local academy progress and the simulated account.",
     "scopeTitle": "Current build scope",
-    "scopeSubtitle": "What Phase 1 implements and what comes later",
-    "scopeText": "This is the first complete playable version of Stock Market Academy. The rule is simple: never present an unfinished feature as available.",
+    "scopeSubtitle": "Implemented in Phases 1–6, and what remains planned",
+    "scopeText": "This is the current complete playable build. The lists below show what is implemented and what remains for later versions.",
     "scopeIncluded": "Implemented",
     "scopePlanned": "Not implemented",
     "scope": {
-      "p1a": "Bilingual interface, lessons and glossary",
-      "p1b": "Stage 1: four units, demos, practice tasks and quizzes",
-      "p1c": "Simulated market, daily candlesticks, basic trading, orders and positions",
-      "p1d": "Learning progress, achievements and local saves",
+      "p1a": "Bilingual UI, 32 core units and six professional branches",
+      "p1b": "Simulated stock, ETF, option and futures trading and settlement",
+      "p1c": "Interactive demos, practice tasks, quizzes, XP, achievements and unlocks",
+      "p1d": "Sandbox with a separate save and six Challenge goals",
       "future": {
-        "a": "ETFs, financial statements, indicators and macro lessons (Phase 2)",
-        "b": "Short selling, margin and advanced orders (Phase 3)",
-        "c": "Option chains, pricing, Greeks and multi-leg strategies (Phase 4)",
-        "d": "Futures, hedging and the capstone challenge (Phase 5)",
-        "e": "Sandbox Mode: custom starting capital, fees and market settings (future build)"
+        "a": "Full Career Mode with employers, KPIs, salaries and promotion",
+        "b": "Fund operations with AUM, clients, staff and operating costs",
+        "c": "Standalone quant lab and strategy editor",
+        "d": "Full macro economy and global market linkages",
+        "e": "Live quotes and broader real-market data"
       },
-      "p1e": "Real US historical lab (2008 / 2015–2026 75 symbols / 2020 / 2022, 11 sector packs)",
-      "p1f": "First-run language choice and game creation; dark / light themes"
+      "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
+      "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes"
     },
     "disclaimer": "This game uses fictional companies and virtual money. Everything is for education only, not investment, legal or tax advice, and it is not a formal financial qualification.",
     "resetTitle": "Reset learning progress?",
@@ -4627,7 +5619,7 @@
   "roadmap": {
     "eyebrow": "Roadmap",
     "title": "Development Roadmap",
-    "subtitle": "The current build completes Phase 1 only. The rest is planned and will never be presented as available early.",
+    "subtitle": "Phases 1–6 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
     "statusShipped": "Shipped",
     "statusPlanned": "Planned",
     "note": "The roadmap may change. This build implements no options, short selling, margin or futures trading.",
@@ -4669,6 +5661,14 @@
       "i1": "Futures contracts, mark-to-market and delivery",
       "i2": "Delta hedging and imperfect hedges",
       "i3": "Financial crisis scenarios and the completion certificate"
+    },
+    "p6": {
+      "title": "Phase 6 · Branches and simulation modes",
+      "text": "Adds optional professional tracks, product ETFs, a free sandbox and goal-driven challenges after the 32 core units.",
+      "i1": "Five tradable ETFs with basket-derived quotes, weights and expense ratios",
+      "i2": "Six professional branches: asset management, quant, derivatives, IB, macro, microstructure",
+      "i3": "Sandbox with independent cash, seed and difficulty; six Challenge goals",
+      "i4": "Explicit boundaries: cash-settled futures, early assignment and survivorship bias"
     }
   },
   "locked": {
@@ -5089,7 +6089,9 @@
     "coveredShares": "Covered shares {value}",
     "longPosition": "Long",
     "shortPosition": "Short",
-    "sellLockedHint": "Selling unlocks after section 1 of Unit 25."
+    "sellLockedHint": "Selling unlocks after section 1 of Unit 25.",
+    "boundaryTitle": "Assignment boundary",
+    "boundaryText": "Deep in-the-money short options close to expiry can be assigned early and deliver stock at the strike; this is not a full assignment-probability model."
   },
   "strategies": {
     "title": "Strategy cards",
@@ -5166,6 +6168,195 @@
     "noPositions": "No futures positions yet.",
     "educationTitle": "Daily mark-to-market",
     "educationText": "Margin in use is {margin}. Each close moves floating P&L into cash; expiry cash-settles at spot.",
-    "noContract": "Pick a valid contract."
+    "noContract": "Pick a valid contract.",
+    "boundaryTitle": "Settlement boundary",
+    "boundaryText": "Futures in this simulation are cash settled and never deliver shares at expiry."
+  },
+  "branches": {
+    "title": "Professional branches",
+    "subtitle": "After the 32 core units, choose a direction to go deeper. Each branch is independent; you do not need to complete all six.",
+    "lockedPill": "Locked",
+    "lockedTitle": "Finish the core path first",
+    "lockedSubtitle": "Branches unlock after Unit 32",
+    "lockedText": "Professional branches build on stocks, options, futures and portfolio management. Complete the Unit 32 capstone to enter.",
+    "career": "Career path",
+    "lessons": "Four lessons",
+    "outcomeLabel": "After this branch",
+    "review": "Review",
+    "continue": "Continue",
+    "start": "Start branch",
+    "quiz": "Branch quiz",
+    "practice": "Practice task",
+    "goCore": "Go to Unit 32",
+    "backAcademy": "Back to academy",
+    "note": "Branches are optional and do not affect core 32-unit completion."
+  },
+  "branch": {
+    "asset": {
+      "name": "Asset management",
+      "desc": "Portfolio management, risk budgeting and client mandates",
+      "career": "Analyst → Portfolio manager → Fund founder",
+      "outcome": "Explain NAV, drawdowns and return sources while staying inside the mandate."
+    },
+    "quant": {
+      "name": "Quantitative finance",
+      "desc": "Statistics, backtesting, factors and machine learning",
+      "career": "Quant researcher → Strategist → Quant fund manager",
+      "outcome": "Spot backtest biases, control overfitting and judge strategies with risk metrics."
+    },
+    "derivatives": {
+      "name": "Derivatives",
+      "desc": "Volatility, Greeks and dynamic hedging",
+      "career": "Options trader → Volatility trader → Derivatives market maker",
+      "outcome": "Build spreads, manage Greeks and stress-test nonlinear books."
+    },
+    "banking": {
+      "name": "Investment banking",
+      "desc": "Valuation, capital raising, IPOs and M&A",
+      "career": "Analyst → Associate → Managing director",
+      "outcome": "Complete DCF and relative valuation, and understand financing, dilution and deal negotiation."
+    },
+    "macro": {
+      "name": "Macroeconomics",
+      "desc": "Monetary policy, yield curves and global capital flows",
+      "career": "Macro researcher → Strategist → Multi-asset portfolio manager",
+      "outcome": "Build a regime framework and express views through bonds, FX and equities."
+    },
+    "microstructure": {
+      "name": "Market microstructure",
+      "desc": "Order books, market making, liquidity and algorithmic execution",
+      "career": "Trader → Execution consultant → Market structure researcher",
+      "outcome": "Read an order book, estimate impact and choose an execution algorithm."
+    }
+  },
+  "sandbox": {
+    "eyebrow": "Simulation mode",
+    "title": "Sandbox mode",
+    "subtitle": "Independent capital, a custom market seed and free trading without touching your career save.",
+    "setupTitle": "Create a sandbox",
+    "setupSubtitle": "Choose starting cash, market seed and difficulty",
+    "cashLabel": "Starting cash",
+    "cashHint": "1,000 – 10,000,000, used only by the sandbox account.",
+    "seedLabel": "Market seed",
+    "seedHint": "The same seed produces the same history and subsequent path.",
+    "difficultyLabel": "Difficulty",
+    "difficultyHint": "Difficulty sets commission: easy 0, normal 1, hard 3.",
+    "difficulty": {
+      "easy": "Easy",
+      "normal": "Normal",
+      "hard": "Hard"
+    },
+    "start": "Start sandbox",
+    "note": "The sandbox uses a separate save; course unlocks are copied from the career save, while trades, orders and achievements never write back to the career account.",
+    "currentTitle": "Current sandbox",
+    "currentSubtitle": "Every trade in this mode writes only to the sandbox save.",
+    "equityLabel": "Sandbox equity",
+    "restart": "Restart sandbox",
+    "exit": "Exit sandbox",
+    "activeNote": "Exiting returns to the career save; the sandbox save is kept for later.",
+    "activePill": "Sandbox active",
+    "careerPill": "Career save",
+    "rulesTitle": "Sandbox rules",
+    "rulesSubtitle": "Experiment freely without polluting career progress",
+    "ruleIndependent": "Trades and orders write to a separate sandbox save and never change the career account.",
+    "ruleCourse": "Course progress and unlocked tools are copied from the career save into this sandbox.",
+    "ruleReset": "Restarting clears only the sandbox; the career save is untouched.",
+    "ruleDifficulty": "Difficulty sets commission; the seed fixes the market path for repeatable experiments.",
+    "modeBadge": "SANDBOX",
+    "storageUnavailable": "Browser storage is unavailable, so the sandbox cannot start.",
+    "commission": "Commission"
+  },
+  "challenges": {
+    "eyebrow": "Challenge mode",
+    "title": "Trading challenges",
+    "subtitle": "Hit return, risk or strategy goals within a fixed number of days. Each run starts from the equity at launch.",
+    "badge": "{done} / {total} completed",
+    "note": "Challenges do not reset the account; goals use trades and equity changes after launch. Failures and timeouts can be retried.",
+    "noActiveTitle": "No challenge in progress",
+    "noActiveSubtitle": "Pick a goal below to begin",
+    "noActiveText": "A challenge records starting equity, trade sequence numbers and the launch day, then counts only what happens afterwards.",
+    "activeTitle": "Challenge in progress",
+    "activeNote": "The run ends automatically when completed or timed out; you can also abandon it.",
+    "daysLeft": "{days} days left",
+    "abandon": "Abandon challenge",
+    "openPortfolio": "Open portfolio",
+    "equityLabel": "Current equity",
+    "completed": "Completed",
+    "inProgress": "In progress",
+    "days": "{days} days",
+    "retry": "Retry",
+    "start": "Start challenge",
+    "alreadyActive": "Another challenge is active",
+    "lockedByUnit": "Complete “{unit}” to unlock",
+    "goUnlock": "Go unlock",
+    "yes": "Yes",
+    "no": "No",
+    "minRequirement": "At least {value}",
+    "maxRequirement": "No more than {value}",
+    "booleanRequirement": "Condition required",
+    "booleanTarget": "Met",
+    "progressValue": "Current {current} / target {target}",
+    "metric": {
+      "return": "Return",
+      "drawdownMax": "Maximum drawdown",
+      "trades": "Stock trades",
+      "optionTrades": "Option trades",
+      "futuresTrades": "Futures trades",
+      "hedge": "Long stock + short future hedge",
+      "income": "Covered call or cash-secured put",
+      "volatility": "Long call + long put, same expiry",
+      "allRound": "Traded stocks, options and futures"
+    },
+    "errorUnknown": "Challenge not found.",
+    "errorLocked": "This challenge is still locked.",
+    "errorActive": "Finish or abandon the current challenge first.",
+    "firstProfit": {
+      "title": "First profit",
+      "desc": "Earn a 3% return within 15 trading days and complete at least 2 stock trades."
+    },
+    "riskManager": {
+      "title": "Risk manager",
+      "desc": "Earn 2% within 30 days, keep maximum drawdown under 6% and complete at least 8 trades."
+    },
+    "hedger": {
+      "title": "Hedger",
+      "desc": "Hold a long stock position and a short future at the same time to complete a real hedge."
+    },
+    "incomeDesk": {
+      "title": "Option income desk",
+      "desc": "Open a covered call or cash-secured put and experience premium income versus assignment risk."
+    },
+    "volatilityDesk": {
+      "title": "Volatility desk",
+      "desc": "Hold a long call and a long put with the same expiry to express a long-volatility view."
+    },
+    "allRound": {
+      "title": "All-round trader",
+      "desc": "Earn 5% within 40 days and trade stocks, options and futures at least once each."
+    }
+  },
+  "boundaries": {
+    "eyebrow": "Simulation boundaries",
+    "title": "Real-data and matching boundaries",
+    "subtitle": "This game is a teaching simulation, not an exchange. The boundaries below are stated explicitly instead of hidden.",
+    "intro": "Accounting and risk logic are built to be verifiable, but the simulation still simplifies. Understanding the boundaries matters more than memorising conclusions.",
+    "futures": {
+      "title": "Futures: cash settled, no stock delivery",
+      "body": "Single-stock futures in this simulation settle in cash at expiry and never deliver shares. Margin, daily mark-to-market and cash settlement all move the account cash balance.",
+      "detail": "Real futures may be physically settled or cash settled; this simulation uses cash settlement to avoid stock inventory and delivery workflows."
+    },
+    "options": {
+      "title": "Options: approximated American early assignment",
+      "body": "Short options can be assigned early when deep in the money and close to expiry, delivering shares at the strike; this is not a full assignment-probability model.",
+      "detail": "Real early assignment depends on dividends, rates, liquidity and counterparty behaviour. This simulation uses a deterministic rule to teach assignment risk, not to predict real assignment frequency."
+    },
+    "history": {
+      "title": "Historical data: survivorship bias is present",
+      "body": "Historical prices and company samples include only fictional companies that still exist today; delisted, bankrupt or acquired names are absent.",
+      "detail": "Historical returns, factor backtests and “buy and hold” results can therefore be overstated. Real research needs delisted companies and survivorship-bias adjustments."
+    },
+    "note": "These boundaries apply across stocks, ETFs, options, futures, history scenarios and challenge mode.",
+    "back": "Back to settings",
+    "settingsLink": "View simulation boundaries"
   }
 }

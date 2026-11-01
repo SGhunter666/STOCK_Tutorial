@@ -69,6 +69,26 @@ export const GLOSSARY_TERMS = [
   { id: 'basis', unitId: 'u29', related: ['futuresContract', 'interestRate'] },
   { id: 'hedge', unitId: 'u30', related: ['futuresContract', 'diversification', 'drawdown'] },
   { id: 'systemicRisk', unitId: 'u31', related: ['drawdown', 'marginCall', 'liquidity'] },
+  // Professional branch vocabulary
+  { id: 'nav', unitId: 'b1', related: ['assetAllocation', 'etf'] },
+  { id: 'riskBudget', unitId: 'b1', related: ['positionSizing', 'drawdown'] },
+  { id: 'attribution', unitId: 'b1', related: ['returnRate', 'riskBudget'] },
+  { id: 'sharpeRatio', unitId: 'b2', related: ['returnRate', 'drawdown'] },
+  { id: 'lookAheadBias', unitId: 'b2', related: ['factorModel', 'overfitting'] },
+  { id: 'factorModel', unitId: 'b2', related: ['momentum', 'sharpeRatio'] },
+  { id: 'overfitting', unitId: 'b2', related: ['factorModel', 'lookAheadBias'] },
+  { id: 'volatilitySmile', unitId: 'b3', related: ['impliedVolatility', 'optionPremium'] },
+  { id: 'deltaHedge', unitId: 'b3', related: ['greeks', 'hedge'] },
+  { id: 'gammaScalping', unitId: 'b3', related: ['deltaHedge', 'impliedVolatility'] },
+  { id: 'wacc', unitId: 'b4', related: ['dcf', 'interestRate'] },
+  { id: 'comps', unitId: 'b4', related: ['marketCap', 'dcf'] },
+  { id: 'dilution', unitId: 'b4', related: ['ipo', 'shareholder'] },
+  { id: 'ipo', unitId: 'b4', related: ['dilution', 'comps'] },
+  { id: 'yieldCurve', unitId: 'b5', related: ['interestRate', 'inflation'] },
+  { id: 'carryTrade', unitId: 'b5', related: ['interestRate', 'yieldCurve'] },
+  { id: 'marketMaker', unitId: 'b6', related: ['orderBook', 'liquidity'] },
+  { id: 'priceImpact', unitId: 'b6', related: ['slippage', 'liquidity'] },
+  { id: 'adverseSelection', unitId: 'b6', related: ['marketMaker', 'spread'] },
 ];
 
 export function getGlossaryTerm(termId) {

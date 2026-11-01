@@ -6,7 +6,9 @@
 import { ALL_UNITS } from './curriculum.js';
 import { getCompany } from '../data/companies.js';
 import { styleOf } from '../data/stockTypes.js';
-import { ensureUnitProgress, recordPracticeCompletion } from './lessonEngine.js';
+import {
+  ensureUnitProgress, isUnitUnlocked, recordPracticeCompletion,
+} from './lessonEngine.js';
 
 export function evaluatePractice(state, unit) {
   const task = unit.practice;
@@ -198,6 +200,8 @@ export function syncPractice(store, bus) {
   const completed = [];
   for (const unit of ALL_UNITS) {
     if (!unit.implemented || !unit.practice) continue;
+    // Optional branch assignments only count once the core path has unlocked them.
+    if (unit.optional && !isUnitUnlocked(state, unit)) continue;
     const progress = ensureUnitProgress(state, unit.id);
     if (progress.practiceDone) continue;
     const result = evaluatePractice(state, unit);

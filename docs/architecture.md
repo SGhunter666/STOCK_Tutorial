@@ -1,6 +1,6 @@
 # Stock Market Academy — 架构设计说明（Phase 1–3 完成・Stage 8 基线）
 
-本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 1–3（Stage 1–8）已完成，Phase 4 起为后续扩展。
+本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 1–3（Stage 1–8）与扩展层（可交易 ETF、6 个专业分支、Sandbox / Challenge、模拟边界）均已完成。
 
 ## 1. 技术栈与约束
 
@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | 应用组合根 | `js/app.js` | 启动、路由、时钟、动作（actions）、存档调度、历史回放联动 |
 | 核心 | `js/core/` | 事件总线、状态容器、随机数、格式化、持久化 |
-| 数据 | `js/data/` | 40 家虚构公司、板块定义、历史场景元数据 |
+| 数据 | `js/data/` | 40 家虚构公司 + 5 只 ETF、板块定义、历史场景元数据 |
 | 市场 | `js/market/` | 价格模拟、交易日历、市场时钟、板块解锁 |
 | 交易 | `js/trading/` | 账户数学、订单撮合、组合估值 |
 | 教学 | `js/education/` | 课程、章节引擎、练习校验、测验评分、解锁、成就、词典 |
@@ -29,8 +29,8 @@
 ## 3. 启动时序
 
 1. `boot()` 渲染启动屏，加载 `locales/zh-CN.json` 与 `locales/en.json`。
-2. 读取存档（`SAVE_KEY`）：校验失败则记录原因并丢弃；成功则 `hydrateState()` 迁移。
-3. 无有效存档时显示首启引导（`js/ui/onboarding.js`）：选择语言 → 创建游戏。
+2. 读取当前模式存档：职业模式为 `SAVE_KEY = career-v1`，沙盒模式为 `SANDBOX_KEY = sandbox-v1`；校验失败则记录原因并丢弃；成功则 `hydrateState()` 迁移。
+3. 无有效存档时：职业模式显示首启引导（`js/ui/onboarding.js`）选择语言并创建游戏；沙盒模式按 `sma.sandbox-config` 创建独立账户，并从职业存档复制课程解锁，不显示引导。
 4. 创建/恢复 `GameState`，设置语言、主题、减少动画。
 5. 建立 `store`、`MarketEngine`，创建 Router 与组件库，挂载 Shell。
 6. 订阅状态变化：非 tick 事件刷新 Shell；可持久化事件进入节流保存队列。
@@ -47,6 +47,8 @@ market { day, tick, quotes, history, index, events, news, rngState }
 account { cash, initialCash, positions, trades, realizedPnl, feesPaid, equityHistory }
 orders[], orderSeq
 historyRuns { scenarioId: { dayIndex, account, selectedTicker, ... } }
+challenges { active { id, startDay, startEquity, startTradeSeq, ... }, completed[], failed[] }
+sandbox { cash, seed, difficulty, commission }   // 仅沙盒状态
 education { units, xp, achievements, practice, inspections, quizAttempts, ... }
 ```
 
@@ -135,7 +137,7 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | --- | --- | --- |
 | 股息 | `market/dividends.js` + `account.dividends` 台账 + 除息日结算 | 已实现（Unit 5）：按持股 × 每股股息入账，不重复发放，不改变成本基础 |
 | 股票类型 | `data/stockTypes.js` 标签 + 课程解释 + 交易页展示 | 已实现（Unit 6）：40 家公司全部有且只有一个风格标签 |
-| ETF / 分散投资 | `data/` 新增 ETF 标的与成分权重；`market` 按成分合成报价 | 教学已实现（Unit 7）：用自建 3–5 只股票组合 + 波动率演示；可交易 ETF 产品待后续 |
+| ETF / 分散投资 | `data/etfs.js` 5 只 ETF 与成分权重；`market/marketEngine.js` 按成分篮子合成报价；`market/marketAccess.js` 新增第 6 个板块 | 已实现（Unit 7 解锁）：ETF 价格 = 成分股加权篮子 × 固定 divisor，随成分股逐 tick 变动；可买卖与做空；交易页显示费用率、成分权重与 ETF 资料卡 |
 | 复利 | 教学演示 + 组合长期曲线 | 已实现（Unit 8）：复利计算器与长期持有实战任务 |
 | 技术指标 | `market/indicators.js` 纯函数（SMA / RSI / 波动 / 回撤） | 已实现（Unit 10）：交易页进阶布局与指标实验室，只读取当前及历史数据 |
 | 财报 | `data/financials.js` 由公司基础数据生成利润表 / 资产负债表 / 现金流 | 已实现（Unit 11）：保持资产 = 负债 + 权益，明确标注为教学模拟 |
@@ -172,7 +174,7 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 账户权益 | `trading/account.js`：`optionValue` / `optionUnrealizedPnl` 计入 `equity` 与组合汇总 | 期权市值影响保证金检查、组合市值与未实现盈亏；期权不参与股票持仓行 |
 | 界面 | `ui/views/options.js` + `#/options` | 期权链、买入票、Greeks、持仓与平仓；未解锁时显示第 21 单元解锁说明 |
 
-边界：Stage 6 只覆盖买入；卖出、指派与多腿策略在 Stage 7 实现；欧式期权只在到期日结算；模型价格不是真实报价。
+边界：Stage 6 只覆盖买入；卖出、指派与多腿策略在 Stage 7 实现；到期按现金内在价值结算；扩展层再加入深度实值期权的近似提前指派；模型价格不是真实报价。
 
 ## 16. Phase 3 Stage 7 实现状态
 
@@ -186,7 +188,7 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 多腿成交 | `executeOptionLegs` + `actions.openOptionStrategy` | 先卖后买以减少现金峰值；任一条腿失败即整体失败；按净支出 / 担保校验 |
 | 界面 | `ui/views/options.js` 的卖出模式、策略卡片与策略损益实验室 | 卖出与策略在 Unit 25 第一节后解锁；未解锁时显示提示 |
 
-边界：空头期权按内在价值现金结算，不模拟真实股票交割；价差担保为简化规则；策略仅限预设的 6 种；提前指派不模拟。
+边界：到期时空头期权按内在价值现金结算；扩展层 `assignEarlyOptions` 对深度实值且 10 天内到期的空头期权做确定性提前指派并按行权价交割股票；价差担保为简化规则；策略仅限预设的 6 种；提前指派不是概率模型。
 
 ## 17. Phase 3 Stage 8 实现状态
 
@@ -202,3 +204,15 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 对冲 / 压力测试 | 演示 `hedge`、`stressTest` + Unit 29–32 课程 | 对冲比率、残余暴露、杠杆冲击与生存检查；毕业任务要求股票 / 期权 / 期货各一笔真实交易 |
 
 边界：期货为现金结算、不交割股票；保证金率与持有成本固定；对冲演示假设完全相关；毕业任务只检查真实交易记录，不评价收益。
+
+## 18. 扩展层（ETF、专业分支、模式与边界）
+
+| 能力 | 扩展位置 | 关键约束 |
+| --- | --- | --- |
+| 可交易 ETF | `data/etfs.js`、`data/companies.js`、`market/marketEngine.js`、`market/marketAccess.js` | 5 只 ETF、权重合计 100%；ETF 不参与独立随机游走或公司新闻冲击；`etfDivisors` 固定比例，重载后保留累计价格变化；旧存档自动补齐 ETF 报价与历史 |
+| ETF 交易页 | `ui/views/trading.js` 的 `etfProfileCard` / `etfHoldingsCard` | 显示费用率、模拟 AUM、成分权重与篮子净值；ETF 不调用公司财报模型；风格演示过滤 ETF |
+| 专业分支 | `education/curriculum.js` 的 `BRANCHES / BRANCH_UNITS`、`ui/views/branches.js`、`#/branches` | 6 个可选单元（b1–b6），各 4 节 + 演示 + 实践 + 6 题测验；先修 Unit 32；`optional` 单元不计入核心 32 单元完成度；分支导航在 u32 前显示锁定 |
+| 分支术语 | `education/glossary.js` 新增 19 个术语 | NAV、风险预算、归因、夏普、前视偏差、因子模型、过拟合、波动率微笑、Delta 对冲、Gamma Scalping、WACC、Comps、稀释、IPO、收益率曲线、套息、做市商、价格冲击、逆向选择 |
+| Sandbox | `core/persistence.js` 的 `SANDBOX_KEY`、`app.js` 的 `appMode` / `readSandboxConfig`、`ui/views/sandbox.js` | 独立存档与账户；可配置资金、种子、难度（佣金）；职业课程解锁复制到沙盒；交易、订单、成就不会写回职业账户；退出 / 重开通过切换存档键并刷新 |
+| Challenge | `education/challenges.js`、`ui/views/challenges.js`、`app.js` 的 `checkChallenge` | 6 个目标；启动时记录权益、日期与股票 / 期权 / 期货交易序号；按启动后的活动计算收益、回撤、对冲、收入、波动率与全能目标；完成 XP 只发一次；超时或放弃后清空进行中状态 |
+| 模拟边界 | `ui/views/boundaries.js` + `#/boundaries`、期货 / 期权页提示 | 期货现金结算不交割股票；空头期权深度实值 + 10 天内到期时确定性提前指派并按行权价交割股票；历史样本包含幸存者偏差并在界面与文档中明示 |

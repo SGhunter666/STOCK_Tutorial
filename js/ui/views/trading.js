@@ -299,7 +299,29 @@ export function createTradeView(ctx, { ticker }) {
     });
   }
 
+  function etfHoldingsCard(state) {
+    const rows = company.components.map((component) => {
+      const quote = state.market.quotes[component.ticker];
+      return `<tr>
+        <td><span class="mono">${component.ticker}</span> · ${companyName(ctx, component.ticker)}</td>
+        <td class="num">${pct(component.weight * 100, i18n.locale, 1, false)}</td>
+        <td class="num">${quote ? money(quote.last, i18n.locale) : '—'}</td>
+      </tr>`;
+    }).join('');
+    return card({
+      title: t('trade.etfHoldings'),
+      subtitle: t('trade.etfSubtitle'),
+      body: `
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>${t('trade.ticker')}</th><th>${t('trade.etfWeight')}</th><th>${t('trade.price')}</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+        <p class="chart-note muted">${t('trade.etfFinancialsNote')}</p>`,
+    });
+  }
+
   function financialsCard(state) {
+    if (company.isEtf) return etfHoldingsCard(state);
     const f = financialsFor(company);
     return card({
       title: t('trade.financialsTitle'),
@@ -319,7 +341,34 @@ export function createTradeView(ctx, { ticker }) {
     });
   }
 
+  function etfProfileCard(state) {
+    const quote = state.market.quotes[symbol];
+    const advanced = layout() === 'advanced';
+    const aum = quote.last * company.sharesOutstanding;
+    return card({
+      title: t('trade.etfTitle'),
+      subtitle: t('trade.etfSubtitle'),
+      body: `
+        <p class="company-desc">${companyDesc(ctx, symbol)}</p>
+        <dl class="kv">
+          <div class="kv__row"><dt>${t('trade.etfProductType')}</dt><dd>${t('trade.etfTypeLabel')}</dd></div>
+          <div class="kv__row"><dt>${t('market.sector')}</dt><dd>${sectorLabel(ctx, company.sector)}</dd></div>
+          <div class="kv__row"><dt>${t('trade.etfExpenseRatio')}</dt><dd>${pct(company.expenseRatio, i18n.locale, 2, false)}</dd></div>
+          <div class="kv__row"><dt>${t('trade.etfComponents')}</dt><dd>${num(company.components.length, i18n.locale, 0)}</dd></div>
+          <div class="kv__row"><dt>${t('trade.dividendYield')}</dt><dd>${company.dividendYield ? pct(company.dividendYield, i18n.locale, 2, false) : t('trade.noDividend')}</dd></div>
+          <div class="kv__row"><dt>${t('trade.etfAum')}</dt><dd>${moneyCompact(aum, i18n.locale)}</dd></div>
+          ${advanced ? `
+          <div class="kv__row"><dt>${t('trade.sharesOutstanding')}</dt><dd>${compactNumber(company.sharesOutstanding, i18n.locale)}</dd></div>
+          <div class="kv__row"><dt>${t('trade.etfBasket')}</dt><dd>${money(quote.last, i18n.locale)}</dd></div>
+          <div class="kv__row"><dt>${t('trade.etfPremium')}</dt><dd>${pct(0, i18n.locale, 2, false)}</dd></div>` : ''}
+        </dl>
+        ${advanced ? `<p class="chart-note muted">${t('trade.etfPricingNote')}</p>` : ''}
+        <p class="chart-note muted">${t('trade.etfNote')}</p>`,
+    });
+  }
+
   function companyCard(state) {
+    if (company.isEtf) return etfProfileCard(state);
     const quote = state.market.quotes[symbol];
     const f = fundamentalsFor(company, quote.last);
     const advanced = layout() === 'advanced';

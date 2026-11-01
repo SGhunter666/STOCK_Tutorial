@@ -5,6 +5,8 @@
  * The exchange is released in segments: the core 8 are available immediately and
  * further 8-company segments unlock as the Stage 1 units are completed.
  */
+import { ETF_COMPANIES } from './etfs.js';
+
 export const COMPANIES = [
   // ------------------------------- core market -------------------------------
   {
@@ -575,6 +577,7 @@ export const COMPANIES = [
     dividendYield: 0,
     avgVolume: 1_100_000,
   },
+  ...ETF_COMPANIES,
 ];
 
 export const SECTORS = [
@@ -586,6 +589,7 @@ export const SECTORS = [
   'materials',
   'financials',
   'discretionary',
+  'etf',
 ];
 
 export const TICKERS = COMPANIES.map((c) => c.ticker);
