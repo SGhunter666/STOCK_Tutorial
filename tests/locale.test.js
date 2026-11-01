@@ -12,6 +12,9 @@ import { COMPANIES, SECTORS, getCompany } from '../js/data/companies.js';
 import { MARKET_SEGMENTS } from '../js/market/marketAccess.js';
 import { HISTORY_SCENARIOS, HISTORY_SECTOR_PACKS } from '../js/data/historyScenarios.js';
 import { CAREER_RANKS } from '../js/education/career.js';
+import {
+  FUND_STRATEGIES, FUND_RISK_PROFILES, FUND_ROLES,
+} from '../js/fund/fundEngine.js';
 
 const zhResponse = await fetch('../locales/zh-CN.json');
 const enResponse = await fetch('../locales/en.json');
@@ -607,6 +610,10 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'roadmap.p4.title', 'roadmap.p4.text', 'roadmap.p4.i1', 'roadmap.p4.i2', 'roadmap.p4.i3',
     'roadmap.p4.i4',
     'roadmap.p5.title', 'roadmap.p5.text', 'roadmap.p5.i1', 'roadmap.p5.i2', 'roadmap.p5.i3',
+    'roadmap.p6.title', 'roadmap.p6.text', 'roadmap.p6.i1', 'roadmap.p6.i2', 'roadmap.p6.i3',
+    'roadmap.p6.i4',
+    'roadmap.p7.title', 'roadmap.p7.text', 'roadmap.p7.i1', 'roadmap.p7.i2', 'roadmap.p7.i3',
+    'roadmap.p7.i4',
     'locked.eyebrow', 'locked.subtitle', 'locked.options.title', 'locked.options.text',
     'locked.options.i1', 'locked.options.i2', 'locked.options.i3', 'locked.options.i4',
     'locked.challenges.title', 'locked.challenges.text', 'locked.challenges.i1',
@@ -643,6 +650,83 @@ test('career rank names, requirements and salary UI are localised', () => {
     check(`career.rank.${rank.id}.title`);
     check(`career.rank.${rank.id}.desc`);
   }
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
+suite('Fund management copy');
+
+test('fund management UI, roles, strategies and events are localised', () => {
+  const { check, missing } = required();
+  check('nav.fund');
+  [
+    'fund.eyebrow', 'fund.title', 'fund.subtitle', 'fund.note', 'fund.status.active',
+    'fund.status.closed', 'fund.careerOnly', 'fund.careerOnlyNote', 'fund.lockedTitle',
+    'fund.lockedText', 'fund.lockedHint', 'fund.goCareer', 'fund.setupTitle',
+    'fund.setupSubtitle', 'fund.nameLabel', 'fund.namePlaceholder', 'fund.strategyLabel',
+    'fund.riskLabel', 'fund.aumLabel', 'fund.managementFeeLabel', 'fund.managementFeeOption',
+    'fund.performanceFeeLabel', 'fund.performanceFeeOption', 'fund.create', 'fund.setupNote',
+    'fund.errorCareerOnly', 'fund.errorLocked', 'fund.errorAlreadyActive', 'fund.errorName',
+    'fund.errorNotActive', 'fund.errorPositionCap', 'fund.errorCashFloor', 'fund.errorNoNav',
+    'fund.errorUnknownRole', 'fund.errorRoleFilled', 'fund.errorCannotAfford',
+    'fund.errorNoEmployee', 'fund.errorNoCandidate', 'fund.errorNoRedemption',
+    'fund.errorRedemptionCash', 'fund.errorNoCompanyCash',
+    'fund.stats.aum', 'fund.stats.aumSub', 'fund.stats.navPerUnit', 'fund.stats.navSub',
+    'fund.stats.totalReturn', 'fund.stats.vsBenchmark', 'fund.stats.drawdown',
+    'fund.stats.drawdownSub', 'fund.stats.cashRatio', 'fund.stats.cashSub',
+    'fund.stats.companyCash', 'fund.stats.companyCashSub', 'fund.stats.managementFees',
+    'fund.stats.feeSub', 'fund.stats.performanceFees', 'fund.stats.hwmSub',
+    'fund.chart.title', 'fund.chart.subtitle', 'fund.chart.note',
+    'fund.risk.title', 'fund.risk.subtitle', 'fund.risk.cash', 'fund.risk.minCash',
+    'fund.risk.topPosition', 'fund.risk.maxPosition', 'fund.risk.noPosition',
+    'fund.risk.drawdown', 'fund.risk.maxDrawdown', 'fund.risk.benchmark', 'fund.risk.alpha',
+    'fund.risk.warning', 'fund.risk.healthy', 'fund.risk.days', 'fund.risk.breach', 'fund.risk.ok',
+    'fund.trade.title', 'fund.trade.subtitle', 'fund.trade.cash', 'fund.trade.ticker',
+    'fund.trade.qty', 'fund.trade.buy', 'fund.trade.sell', 'fund.trade.quote',
+    'fund.trade.maxBuy', 'fund.trade.avgCost', 'fund.trade.value', 'fund.trade.pnl',
+    'fund.trade.weight', 'fund.trade.noPositions', 'fund.trade.note',
+    'fund.clients.title', 'fund.clients.subtitle', 'fund.clients.cash', 'fund.clients.name',
+    'fund.clients.value', 'fund.clients.risk', 'fund.clients.trust', 'fund.clients.status',
+    'fund.clients.action', 'fund.clients.requestPending', 'fund.clients.active',
+    'fund.clients.settle', 'fund.clients.none', 'fund.clients.candidates',
+    'fund.clients.principal', 'fund.clients.accept', 'fund.clients.noCandidates',
+    'fund.clients.note',
+    'fund.team.title', 'fund.team.subtitle', 'fund.team.payroll', 'fund.team.hired',
+    'fund.team.open', 'fund.team.salary', 'fund.team.skill', 'fund.team.hire', 'fund.team.fire',
+    'fund.team.note',
+    'fund.ops.title', 'fund.ops.subtitle', 'fund.ops.managementRate', 'fund.ops.perYear',
+    'fund.ops.performanceRate', 'fund.ops.hwm', 'fund.ops.nextFee', 'fund.ops.inDays',
+    'fund.ops.payrollDue', 'fund.ops.feePayable', 'fund.ops.companyCash', 'fund.ops.withdrawn',
+    'fund.ops.withdraw', 'fund.ops.note',
+    'fund.leaderboard.title', 'fund.leaderboard.subtitle', 'fund.leaderboard.fund',
+    'fund.leaderboard.return', 'fund.leaderboard.aum', 'fund.leaderboard.you',
+    'fund.leaderboard.note',
+    'fund.insights.title', 'fund.insights.subtitle', 'fund.insights.empty',
+    'fund.insight.research', 'fund.insight.quant', 'fund.insight.macro', 'fund.insight.risk',
+    'fund.events.title', 'fund.events.subtitle', 'fund.events.empty',
+    'fund.close.title', 'fund.close.finalAum', 'fund.close.finalReturn',
+    'fund.close.finalDrawdown', 'fund.close.note',
+    'toast.fundCreated', 'toast.fundHired', 'toast.fundFired', 'toast.fundClientJoined',
+    'toast.fundRedemptionPaid', 'toast.fundCashWithdrawn', 'toast.fundRedemptionRequest',
+    'toast.fundPayrollShort', 'toast.fundClosed',
+  ].forEach((key) => check(key));
+  for (const strategy of Object.values(FUND_STRATEGIES)) {
+    check(strategy.nameKey);
+    check(strategy.descKey);
+  }
+  for (const risk of Object.values(FUND_RISK_PROFILES)) check(risk.nameKey);
+  for (const role of FUND_ROLES) {
+    check(role.nameKey);
+    check(role.descKey);
+  }
+  ['pension', 'endowment', 'familyOffice', 'insurance', 'fundOfFunds', 'privateClient', 'trust', 'foundation']
+    .forEach((type) => check(`fund.clientType.${type}`));
+  ['low', 'medium', 'high'].forEach((risk) => check(`fund.clientRisk.${risk}`));
+  ['northstar', 'quantedge', 'macroline', 'cedarrock', 'steady'].forEach((peer) => check(`fund.peer.${peer}`));
+  ['drawdown', 'liquidity', 'payroll', 'risk', 'redeemed'].forEach((reason) => check(`fund.closeReason.${reason}`));
+  ['buy', 'hold', 'avoid'].forEach((rating) => check(`fund.rating.${rating}`));
+  ['created', 'subscription', 'redemption', 'redemptionRequest', 'dividend', 'managementFee',
+    'performanceFee', 'payroll', 'payrollShort', 'candidate', 'closed', 'other']
+    .forEach((event) => check(`fund.event.${event}`));
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 

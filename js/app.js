@@ -47,6 +47,11 @@ import { evaluateAchievements, achievementById } from './education/progress.js';
 import {
   careerProgress, promoteCareer, applyCareerSalary, careerRankByNumber,
 } from './education/career.js';
+import {
+  createFundState, setupFund, fundMetrics, fundBuy, fundSell,
+  hireEmployee, fireEmployee, acceptClient, settleRedemption,
+  advanceFundDay, withdrawCompanyCash,
+} from './fund/fundEngine.js';
 import { getUnit } from './education/curriculum.js';
 import { getCompany } from './data/companies.js';
 import { createShell } from './ui/shell.js';
@@ -57,6 +62,7 @@ import { createDashboardView } from './ui/views/dashboard.js';
 import { createAcademyView } from './ui/views/academy.js';
 import { createBranchesView } from './ui/views/branches.js';
 import { createCareerView } from './ui/views/career.js';
+import { createFundView } from './ui/views/fund.js';
 import { createLessonView } from './ui/views/lesson.js';
 import { createQuizView } from './ui/views/quiz.js';
 import { createPracticeView } from './ui/views/practice.js';
@@ -127,6 +133,7 @@ function buildSandboxState(config, careerState, locale) {
   const state = createGameState({ locale, seed: config.seed, initialCash: config.cash });
   state.settings.commission = config.commission;
   state.sandbox = { ...config };
+  state.fund = createFundState();
   if (careerState) {
     state.education = careerState.education;
     state.career = careerState.career;
@@ -869,6 +876,136 @@ const actions = {
   getCareerProgress() {
     return careerProgress(store.get());
   },
+  createFund(input) {
+    if (appMode !== 'career') {
+      toast(i18n.t('fund.errorCareerOnly'), 'warning');
+      return { ok: false, error: 'fund.errorCareerOnly' };
+    }
+    const state = store.get();
+    const result = setupFund(state, input, state.market.day);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.fund = result.fund; }, { type: 'fund:created' });
+    scheduleSave();
+    toast(i18n.t('toast.fundCreated', { name: result.fund.name }), 'success', 4600);
+    return { ok: true, fund: result.fund };
+  },
+  fundBuy(input) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    if (!state.fund || state.fund.status !== 'active') {
+      toast(i18n.t('fund.errorNotActive'), 'warning');
+      return { ok: false, error: 'fund.errorNotActive' };
+    }
+    if (!isCompanyUnlocked(state, input.ticker)) {
+      toast(i18n.t('error.marketLocked'), 'warning');
+      return { ok: false, error: 'error.marketLocked' };
+    }
+    const result = fundBuy(state.fund, state.market.quotes, {
+      ...input,
+      day: state.market.day,
+      tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.fund = result.fund; }, { type: 'fund:trade' });
+    scheduleSave();
+    return result;
+  },
+  fundSell(input) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    if (!state.fund || state.fund.status !== 'active') {
+      toast(i18n.t('fund.errorNotActive'), 'warning');
+      return { ok: false, error: 'fund.errorNotActive' };
+    }
+    const result = fundSell(state.fund, state.market.quotes, {
+      ...input,
+      day: state.market.day,
+      tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.fund = result.fund; }, { type: 'fund:trade' });
+    scheduleSave();
+    return result;
+  },
+  fundHire(roleId) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    const result = hireEmployee(state.fund, roleId);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.fund = result.fund; }, { type: 'fund:team' });
+    scheduleSave();
+    toast(i18n.t('toast.fundHired', { role: i18n.t(result.employee.nameKey) }), 'success', 4200);
+    return result;
+  },
+  fundFire(roleId) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    const result = fireEmployee(state.fund, roleId);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.fund = result.fund; }, { type: 'fund:team' });
+    scheduleSave();
+    toast(i18n.t('toast.fundFired'), 'info');
+    return result;
+  },
+  fundAcceptClient(candidateId) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    const metrics = { ...fundMetrics(state.fund, state), day: state.market.day };
+    const result = acceptClient(state.fund, candidateId, metrics);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.fund = result.fund; }, { type: 'fund:client' });
+    scheduleSave();
+    toast(i18n.t('toast.fundClientJoined', { name: result.client.name }), 'success', 4400);
+    return result;
+  },
+  fundSettleRedemption(clientId) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    const metrics = { ...fundMetrics(state.fund, state), day: state.market.day };
+    const result = settleRedemption(state.fund, clientId, metrics);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.fund = result.fund; }, { type: 'fund:redemption' });
+    scheduleSave();
+    toast(i18n.t('toast.fundRedemptionPaid', { amount: money(result.amount, i18n.locale) }), 'success', 4200);
+    return result;
+  },
+  fundWithdrawCompanyCash() {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    const result = withdrawCompanyCash(state.fund, state.account);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => {
+      s.fund = result.fund;
+      s.account = result.account;
+    }, { type: 'fund:withdraw' });
+    scheduleSave();
+    toast(i18n.t('toast.fundCashWithdrawn', { amount: money(result.amount, i18n.locale) }), 'success', 4200);
+    return result;
+  },
   getAppMode() {
     return appMode;
   },
@@ -948,6 +1085,8 @@ function runSimulation(ticks) {
   let orders = state.orders;
   let career = state.career;
   let careerSalary = 0;
+  let fund = state.fund;
+  let fundEvents = [];
   let fills = [];
   let dividends = [];
   let optionSettlements = [];
@@ -1003,6 +1142,16 @@ function runSimulation(ticks) {
         account = salary.account;
         career = salary.career;
         careerSalary += salary.amount;
+        if (fund && fund.status === 'active') {
+          const advancedFund = advanceFundDay(fund, {
+            day: Math.max(0, prevDay),
+            quotes: state.market.quotes,
+            seed: state.seed,
+            marketHistory: state.market.history,
+          });
+          fund = advancedFund.fund;
+          fundEvents = [...fundEvents, ...advancedFund.events];
+        }
       }
       if (allowDebit || (account.positions && Object.keys(account.positions).length)) {
         const status = marginStatus(account, state.market.quotes);
@@ -1038,6 +1187,7 @@ function runSimulation(ticks) {
     s.account = account;
     s.orders = orders;
     s.career = career;
+    s.fund = fund;
   }, {
     type: 'market:tick',
     fills: fills.length,
@@ -1072,6 +1222,24 @@ function runSimulation(ticks) {
       amount: money(careerSalary, i18n.locale),
       rank: i18n.t(careerRankByNumber(career.rank).titleKey),
     }), 'success', 4600);
+  }
+  if (fundEvents.length) {
+    const closed = fundEvents.find((event) => event.type === 'closed');
+    if (closed) {
+      toast(i18n.t('toast.fundClosed', {
+        reason: i18n.t(`fund.closeReason.${closed.reason}`),
+      }), 'warning', 6200);
+    } else {
+      const request = fundEvents.find((event) => event.type === 'redemptionRequest');
+      if (request) {
+        toast(i18n.t('toast.fundRedemptionRequest', { name: request.name }), 'warning', 5200);
+      }
+      if (fundEvents.some((event) => event.type === 'payrollShort')) {
+        toast(i18n.t('toast.fundPayrollShort', {
+          amount: money(fund.payrollDue || 0, i18n.locale),
+        }), 'warning', 5200);
+      }
+    }
   }
   if (optionSettlements.length) {
     const pnl = optionSettlements.reduce((sum, row) => sum + row.realized, 0);
@@ -1238,6 +1406,9 @@ function renderRoute(route) {
       break;
     case 'career':
       view = createCareerView(ctx);
+      break;
+    case 'fund':
+      view = createFundView(ctx);
       break;
     case 'market':
       view = createMarketView(ctx);

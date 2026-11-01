@@ -1,6 +1,6 @@
 # Stock Market Academy — 架构设计说明（Phase 1–7 完成・Stage 8 基线）
 
-本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 1–3（Stage 1–8）与扩展层（可交易 ETF、6 个专业分支、Sandbox / Challenge、模拟边界、Career Mode）均已完成。
+本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 1–3（Stage 1–8）与扩展层（可交易 ETF、6 个专业分支、Sandbox / Challenge、模拟边界、Career Mode、基金经营）均已完成。
 
 ## 1. 技术栈与约束
 
@@ -133,8 +133,8 @@ P(t+1) = P(t) × exp(r(t))
 ## 12. 测试体系
 
 - `tests/index.html` 浏览器内运行，`tests/harness.js` 提供 suite / test / assert。
-- 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、日内 tick 路径与成交、回放成交与无未来数据、事件时间线、职业晋升与薪资、双语结构与页面键覆盖。
-- 当前 150 项全部通过。新增能力必须同时补逻辑测试与双语键。
+- 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、日内 tick 路径与成交、回放成交与无未来数据、事件时间线、职业晋升与薪资、基金成立与净值、基金仓位 / 现金限制、管理费与高水位业绩报酬、申购赎回、员工薪资、清盘条件、基金排行榜、双语结构与页面键覆盖。
+- 当前 168 项全部通过。新增能力必须同时补逻辑测试与双语键。
 
 ## 13. Phase 2 实现状态
 
@@ -238,4 +238,28 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 界面 | `ui/views/career.js` + `#/career` + 导航项 | 当前职级、下一职级条件进度、薪资倒计时、职业收入、总 XP 与 8 级职业阶梯；沙盒模式显示「不发放薪资」提示 |
 
 边界：薪资是教学用固定金额，不代表真实薪酬；晋升只看可验证的记录，不评价收益率；职业收入计入现金与权益，但不计入交易已实现盈亏。
+
+## 20. 基金经营（Fund Management）
+
+基金经营建立在 Career Mode 之上：职业等级 5（Portfolio Manager）解锁 `/fund`，基金与个人学院账户完全隔离，不共享现金、持仓或订单。
+
+| 能力 | 扩展位置 | 关键约束 |
+| --- | --- | --- |
+| 解锁与成立 | `fund/fundEngine.js` 的 `fundUnlocked` / `setupFund` | 要求 `career.rank >= 5`；名称 2–24 字符且不能与现有基金重复；同一时间只能有一只活动基金 |
+| 基金账户 | `createFundState` 内的独立 `account`（`createAccount`） | AUM 进入基金账户现金；基金交易不写入 `state.account`，个人账户也不受基金盈亏影响 |
+| 资料来源 | `FUND_STRATEGIES`、`FUND_RISK_PROFILES`、`FUND_AUM_OPTIONS` | 4 个策略模板各自给出 `maxPosition` 与 `minCash`；3 档 AUM（25 万 / 100 万 / 500 万）；风险偏好收紧单票上限、抬高现金下限，并影响初始客户信任度 |
+| 单位净值 | `fundMetrics(fund, state)` | `NAV = 现金 + 持仓市值`，`NAV per unit = NAV / units`；`units` 为客户份额总量，成立时为 1:1 |
+| 交易 | `fundBuy` / `fundSell` | 复用市场 `quotes` 的 ask / bid；每笔固定 $1 交易费；买入前检查单票仓位上限与最低现金比例，卖出释放现金 |
+| 管理费 | `advanceFundDay` 每 `FUND_FEE_INTERVAL = 21` 个交易日 | 年费率 × NAV × (21/252)，从基金账户划入管理公司现金，记录 `managementFees` |
+| 业绩报酬 | 同 `advanceFundDay` | 仅在 `navPerUnit` 高于 `highWaterMark` 时按超额部分 × 费率计提；计提后更新高水位，平盘或回撤不重复收费 |
+| 客户 | `CLIENT_POOL`、`acceptClient`、`settleRedemption` | 客户按当前单位净值申购 / 赎回；申购增加 `units` 与现金、不改变单位净值；赎回按份额折算并支付现金；客户带信任度与赎回请求 |
+| 赎回流程 | `advanceFundDay` | 到期赎回自动结算；新请求有 `FUND_REDEMPTION_DAYS = 5` 持有期与 `FUND_REDEMPTION_GRACE = 3` 宽限；现金不足时记录流动性事件 |
+| 团队 | `FUND_ROLES`、`hireEmployee` / `fireEmployee` | 6 类角色各有人名、月薪与能力分；员工按确定性规则提供研究观点、降低交易费或加快信任度增长；薪资每日计提、每 21 日支付 |
+| 风险限制 | `FUND_MAX_DRAWDOWN = 40`、`FUND_MAX_UNPAID_DAYS = 10`、`FUND_MAX_RISK_DAYS = 15` | 单票上限与现金下限在交易时拒绝；回撤、连续风险触线、欠薪、客户全部赎回都会触发清盘 |
+| 清盘 | `advanceFundDay` 的 `closeReason` | `drawdown` / `liquidity` / `payroll` / `risk` / `redeemed`；清盘后基金变为 `closed`，不再交易或收费，但保留历史与统计 |
+| 排行榜 | `fundLeaderboard(fund, state)` + `PEER_FUNDS` | 5 只确定性同类模拟基金作为基准，按累计收益排序；玩家基金标为 `is-player`，不生成随机排名 |
+| 界面 | `ui/views/fund.js` + `#/fund` + 导航项 | 未解锁显示职业条件；未成立显示创建表单；成立后显示净值卡、净值曲线、风险条、交易区、客户、团队、运营、排行榜、研究观点与事件日志 |
+| 存档 | `gameState.js` 的 `fund` 字段与 `normalizeFund` | 旧存档自动补默认值；损坏的 `status` / `account` / 数值会被钳制回安全态，避免 NaN 进入存档 |
+
+边界：基金是教学用简化模型，不模拟真实监管、托管、杠杆、侧袋或投资者适当性；同类基金收益是确定性基准，不是真实业绩；管理费与业绩报酬仅用于解释费用结构，不代表真实费率谈判。
 

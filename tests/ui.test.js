@@ -11,6 +11,8 @@ import { createBranchesView } from '../js/ui/views/branches.js';
 import { createChallengesView } from '../js/ui/views/challenges.js';
 import { createSandboxView } from '../js/ui/views/sandbox.js';
 import { createCareerView } from '../js/ui/views/career.js';
+import { createFundView } from '../js/ui/views/fund.js';
+import { setupFund, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
 
 const fakeI18n = {
   locale: 'en',
@@ -92,6 +94,46 @@ test('career view shows the ladder and a ready promotion button', () => {
   assert(!promote.disabled, 'promotion button is enabled when requirements are met');
   view.destroy();
   host.remove();
+});
+
+test('fund view gates, launches and renders an active fund', () => {
+  const lockedState = createGameState({ seed: 'ui-fund-locked' });
+  lockedState.career.rank = 1;
+  const locked = createFundView(makeCtx(lockedState).ctx);
+  const lockedHost = mountView(locked);
+  assert(lockedHost.textContent.includes('fund.lockedTitle'), 'locked card is shown before rank 5');
+  assert(!lockedHost.querySelector('[data-fund-form]'), 'setup form is hidden while locked');
+  locked.destroy();
+  lockedHost.remove();
+
+  const setupState = createGameState({ seed: 'ui-fund-setup' });
+  setupState.career.rank = 5;
+  const setup = createFundView(makeCtx(setupState).ctx);
+  const setupHost = mountView(setup);
+  assert(setupHost.querySelector('[data-fund-form]'), 'setup form renders once unlocked');
+  assert(setupHost.querySelector('[data-fund-ticker]') === null, 'no trading UI before a fund exists');
+  setup.destroy();
+  setupHost.remove();
+
+  const activeState = createGameState({ seed: 'ui-fund-active' });
+  activeState.career.rank = 5;
+  const result = setupFund(activeState, {
+    name: 'Atlas Capital',
+    strategy: 'longOnly',
+    riskProfile: 'balanced',
+    initialAum: FUND_AUM_OPTIONS[1],
+  }, 0);
+  assert(result.ok, 'fund setup succeeds in the UI test');
+  activeState.fund = result.fund;
+  const active = createFundView(makeCtx(activeState).ctx);
+  const activeHost = mountView(active);
+  assert(activeHost.querySelector('#fund-aum'), 'AUM stat card renders');
+  assert(activeHost.querySelector('#fund-nav-chart'), 'NAV chart renders');
+  assert(activeHost.querySelector('[data-fund-buy]'), 'fund buy button renders');
+  assert(activeHost.querySelector('[data-fund-ticker]'), 'fund ticker selector renders');
+  assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 6, 'six team roles render');
+  active.destroy();
+  activeHost.remove();
 });
 
 test('challenge board and sandbox setup mount without errors', () => {

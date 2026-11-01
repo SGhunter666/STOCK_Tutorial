@@ -7,6 +7,7 @@ import { createAccount } from '../trading/account.js';
 import { ALL_UNITS } from '../education/curriculum.js';
 import { ensureUnitProgress } from '../education/lessonEngine.js';
 import { normalizeCareer } from '../education/career.js';
+import { createFundState, normalizeFund } from '../fund/fundEngine.js';
 
 export const SAVE_VERSION = 2;
 export const DEFAULT_CASH = 10000;
@@ -33,6 +34,7 @@ export function createGameState({ locale = 'en', seed = DEFAULT_SEED, initialCas
     historyRuns: {},
     challenges: { active: null, completed: [], failed: [] },
     career: normalizeCareer(null, 0),
+    fund: createFundState(),
     education: {
       units: {},
       inspectedTickers: [],
@@ -97,6 +99,7 @@ export function hydrateState(saved) {
   state.challenges.completed = Array.isArray(state.challenges.completed) ? state.challenges.completed : [];
   state.challenges.failed = Array.isArray(state.challenges.failed) ? state.challenges.failed : [];
   state.career = normalizeCareer(state.career, state.market.day);
+  state.fund = normalizeFund(state.fund, state.market.day, state.seed);
   state.education = {
     units: isPlainObject(state.education.units) ? state.education.units : {},
     inspectedTickers: Array.isArray(state.education.inspectedTickers) ? state.education.inspectedTickers : [],
