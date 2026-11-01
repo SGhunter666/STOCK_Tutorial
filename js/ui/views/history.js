@@ -188,6 +188,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
   function controls(sum) {
     const running = Boolean(clock && clock.running);
     const speed = clock ? clock.speed : (store.get().settings.speed || 1);
+    const atLastDay = sum.dayIndex >= sum.totalDays - 1;
     return `
       <div class="history-strip">
         <div class="history-strip__date">
@@ -211,10 +212,10 @@ export function createHistoryScenarioView(ctx, scenarioId) {
         </div>
         <div class="history-strip__controls">
           <span class="field-label">${t('history.jumpLabel')}</span>
-          <button class="btn btn--ghost btn--sm" type="button" data-advance="1" ${sum.reachedEnd ? 'disabled' : ''}>+1 ${t('history.day')}</button>
-          <button class="btn btn--ghost btn--sm" type="button" data-advance="5" ${sum.reachedEnd ? 'disabled' : ''}>+5 ${t('history.dayShort')}</button>
-          <button class="btn btn--ghost btn--sm" type="button" data-advance="20" ${sum.reachedEnd ? 'disabled' : ''}>+20 ${t('history.dayShort')}</button>
-          <button class="btn btn--ghost btn--sm" type="button" data-advance="event" ${sum.reachedEnd ? 'disabled' : ''}>${t('history.nextEvent')}</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-advance="1" ${sum.reachedEnd || atLastDay ? 'disabled' : ''}>+1 ${t('history.day')}</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-advance="5" ${sum.reachedEnd || atLastDay ? 'disabled' : ''}>+5 ${t('history.dayShort')}</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-advance="20" ${sum.reachedEnd || atLastDay ? 'disabled' : ''}>+20 ${t('history.dayShort')}</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-advance="event" ${sum.reachedEnd || atLastDay ? 'disabled' : ''}>${t('history.nextEvent')}</button>
           ${sum.reachedEnd ? `<span class="pill pill--warn">${t('history.atEnd')}</span>` : ''}
         </div>
       </div>
@@ -231,8 +232,8 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       </div>`;
   }
 
-  function chartCard(sum) {
-    const currentRun = run(store.get());
+  function chartNoteText(state) {
+    const currentRun = run(state);
     const quote = quoteAtTick(dataset, selectedTicker, currentRun.dayIndex, currentRun.tick || 0);
     const info = historyCandles(
       dataset, selectedTicker, currentRun.dayIndex, currentRun.tick || 0, timeframe, quote?.last,
@@ -241,6 +242,11 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     const note = info.intraday
       ? t('history.chartNoteIntraday', { count: info.candles.length, tf: t(`history.tf.${timeframe}`) })
       : t('history.chartNote', { count: info.candles.length, tf: t(`history.tf.${timeframe}`) });
+    return `${note}${position ? ` · ${t('history.avgCostLine', { cost: money(position.costBasis / position.qty, i18n.locale) })}` : ''}`;
+  }
+
+  function chartCard(sum) {
+    const note = chartNoteText(store.get());
     return card({
       title: `${selectedTicker} · ${t('history.chartTitle')}`,
       subtitle: t('history.chartSubtitle'),
@@ -253,7 +259,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
         <span class="pill">${t(scenario.periodKey)}</span>`,
       body: `
         <div class="chart-wrap"><canvas id="history-chart" style="height:340px"></canvas></div>
-        <p class="chart-note muted">${note}${position ? ` · ${t('history.avgCostLine', { cost: money(position.costBasis / position.qty, i18n.locale) })}` : ''}</p>`,
+        <p class="chart-note muted" id="history-chart-note">${note}</p>`,
     });
   }
 
@@ -621,6 +627,8 @@ export function createHistoryScenarioView(ctx, scenarioId) {
         total: TICKS_PER_DAY,
       })}`;
     }
+    const note = container.querySelector('#history-chart-note');
+    if (note) note.textContent = chartNoteText(state);
   }
 
   function onClockTick() {
@@ -634,6 +642,13 @@ export function createHistoryScenarioView(ctx, scenarioId) {
 
   function onClockFastForward() {
     if (!dataset) return;
+    const current = run(store.get());
+    const currentSum = summaryAtTick(current, dataset);
+    if (currentSum.reachedEnd || current.dayIndex >= currentSum.totalDays - 1) {
+      if (clock && clock.running) actions.toggleClock();
+      render(store.get());
+      return;
+    }
     const next = advanceHistory(store, scenarioId, dataset, scenario, { days: 1 });
     if (summaryAtTick(next, dataset).reachedEnd) {
       if (clock && clock.running) actions.toggleClock();

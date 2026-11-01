@@ -186,6 +186,28 @@ test('tradeAtTick fills at the current intraday price', async () => {
   assert(Number.isFinite(sum.total), 'equity at tick is finite');
 });
 
+test('replay stops at the final tick without rewinding to the open', async () => {
+  const data = await loadDatasets();
+  const dataset = data['2008-crisis'];
+  const last = barCount(dataset) - 1;
+  let run = { ...createHistoryRun('2008-crisis'), dayIndex: last - 1, tick: TICKS_PER_DAY - 1 };
+  const closed = advanceHistoryTick(run, dataset);
+  assertEqual(closed.dayClosed, true, 'final day opens after the previous close');
+  assertEqual(closed.run.dayIndex, last, 'at the last day');
+  assertEqual(closed.run.tick, 0, 'starts at the open');
+  assertEqual(closed.reachedEnd, false, 'last day still has ticks');
+
+  run = { ...closed.run, tick: TICKS_PER_DAY - 1 };
+  const ended = advanceHistoryTick(run, dataset);
+  assertEqual(ended.reachedEnd, true, 'final tick ends the replay');
+  assertEqual(ended.run.tick, TICKS_PER_DAY - 1, 'stays on the close');
+  assertEqual(ended.run.dayIndex, last, 'stays on the last day');
+
+  const nextDay = advanceRun(ended.run, dataset, 1);
+  assertEqual(nextDay.tick, TICKS_PER_DAY - 1, 'next-day jump does not rewind the close');
+  assertEqual(nextDay.reachedEnd, true, 'still at the end');
+});
+
 test('history candles support 5m, 15m, 1h, daily, weekly, monthly and yearly views', async () => {
   const data = await loadDatasets();
   const dataset = data['2008-crisis'];

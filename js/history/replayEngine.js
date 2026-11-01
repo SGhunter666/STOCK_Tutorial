@@ -179,9 +179,27 @@ export function buildIntradayCandles(bar, symbol, tick, timeframe, currentPrice)
   const elapsed = Math.max(0, Number(tick) || 0) * 48;
   const visible = Math.min(
     INTRADAY_5M_BARS,
-    Math.max(1, Math.round(elapsed / MINUTES_PER_BAR) + 1),
+    Math.max(1, Math.floor(elapsed / MINUTES_PER_BAR) + 1),
   );
   let candles = bars.slice(0, visible);
+  // Do not reveal minutes later than the current tick inside the partial bar.
+  const lastIndex = candles.length - 1;
+  const minutesInto = Math.max(1, Math.min(
+    MINUTES_PER_BAR,
+    elapsed - lastIndex * MINUTES_PER_BAR + 1,
+  ));
+  if (lastIndex >= 0 && minutesInto < MINUTES_PER_BAR) {
+    const start = lastIndex * MINUTES_PER_BAR;
+    const group = minutePrices.slice(start, start + minutesInto);
+    candles[lastIndex] = {
+      ...candles[lastIndex],
+      o: group[0],
+      h: Math.max(...group),
+      l: Math.min(...group),
+      c: group[group.length - 1],
+      v: Math.round((candles[lastIndex].v || 0) * (minutesInto / MINUTES_PER_BAR)),
+    };
+  }
   if (timeframe === '15m') candles = aggregateCandles(candles, 3);
   else if (timeframe === '1h') candles = aggregateCandles(candles, 12);
   if (Number.isFinite(currentPrice) && candles.length) {
@@ -392,6 +410,10 @@ export function quotesAtTick(dataset, dayIndex, tick = 0) {
 
 export function advanceRun(run, dataset, days = 1) {
   const maxIndex = barCount(dataset) - 1;
+  const tick = Math.max(0, Math.min(TICKS_PER_DAY - 1, Number(run.tick) || 0));
+  if (run.dayIndex >= maxIndex && tick >= TICKS_PER_DAY - 1) {
+    return { ...run, reachedEnd: true };
+  }
   const nextIndex = Math.min(maxIndex, run.dayIndex + days);
   return {
     ...run,
@@ -405,7 +427,7 @@ export function advanceToNextEvent(run, dataset, scenario) {
   const date = currentDate(dataset, run.dayIndex);
   const bars = dataset.tickers[0].bars;
   const next = scenario.events.find((event) => event.date > date);
-  if (!next) return { ...run, tick: 0, reachedEnd: run.dayIndex >= barCount(dataset) - 1 };
+  if (!next) return { ...run, reachedEnd: run.dayIndex >= barCount(dataset) - 1 };
   let index = bars.findIndex((bar) => bar[0] >= next.date);
   if (index < 0) index = barCount(dataset) - 1;
   return {
