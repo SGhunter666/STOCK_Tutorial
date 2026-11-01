@@ -686,6 +686,16 @@
   color: var(--down);
 }
 
+.side-tag--short {
+  background: rgba(244, 114, 182, 0.14);
+  color: #f472b6;
+}
+
+.side-tag--cover {
+  background: rgba(245, 183, 80, 0.14);
+  color: #f5b750;
+}
+
 .status-pill {
   display: inline-block;
   padding: 3px 7px;

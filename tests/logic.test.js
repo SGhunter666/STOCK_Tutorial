@@ -9,11 +9,15 @@ import { createGameState, validateSave, hydrateState, serializeState } from '../
 import { MarketEngine } from '../js/market/marketEngine.js';
 import { TICKS_PER_DAY } from '../js/market/calendar.js';
 import {
-  buy, sell, equity, unrealizedPnl, positionOf, availableCash, availableShares, reservedCash,
+  buy, sell, short, cover, equity, unrealizedPnl, positionOf, availableCash, availableShares,
+  reservedCash, buyingPower, shortCapacity, availableShortShares,
 } from '../js/trading/account.js';
 import {
-  placeMarketOrder, placeLimitOrder, processOpenOrders, cancelOrder, estimateOrder, ORDER_STATUS,
+  placeMarketOrder, placeLimitOrder, placeConditionalOrder, processOpenOrders, cancelOrder,
+  estimateOrder, ORDER_STATUS,
 } from '../js/trading/orderEngine.js';
+import { financingCharge, applyFinancing, marginStatus, forceLiquidation } from '../js/trading/margin.js';
+import { buildOrderBook, estimateMarketFill } from '../js/market/orderBook.js';
 import { portfolioSummary } from '../js/trading/portfolio.js';
 import { buildQuizSession, gradeQuiz, TEST_OUT_SCORE, questionXp } from '../js/education/quizEngine.js';
 import {
@@ -21,7 +25,7 @@ import {
 } from '../js/education/lessonEngine.js';
 import { recordInspection, evaluatePractice } from '../js/education/practiceEngine.js';
 import { isToolUnlocked, lockReason } from '../js/education/unlockManager.js';
-import { STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, getUnit } from '../js/education/curriculum.js';
+import { STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, STAGE_5_UNITS, getUnit } from '../js/education/curriculum.js';
 import { COMPANIES } from '../js/data/companies.js';
 import { styleOf, STOCK_STYLES } from '../js/data/stockTypes.js';
 import {
@@ -105,6 +109,212 @@ test('rejects purchases without cash and sales without shares', () => {
   const noShares = sell(account, { ticker: 'AURA', qty: 1, price: 50 });
   assert(!noShares.ok);
   assertEqual(noShares.error, 'error.insufficientShares');
+});
+
+suite('Short selling and margin');
+
+test('short sale adds proceeds, cover realizes profit and clears the position', () => {
+  let account = createGameState({ seed: 'short' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const opened = short(account, { ticker: 'AURA', qty: 10, price: 100, fee: 1, day: 1, tick: 0 });
+  assert(opened.ok, 'short should open');
+  assertClose(opened.account.cash, 10999, 0.001, 'net proceeds increase cash');
+  const pos = positionOf(opened.account, 'AURA');
+  assertEqual(pos.qty, -10, 'position is negative');
+  assertEqual(pos.side, 'short', 'side is short');
+  assertClose(pos.costBasis, 999, 0.001, 'proceeds basis excludes fee');
+  assertClose(pos.avgCost, 99.9, 0.001, 'average short entry');
+
+  const quoted = { AURA: { last: 90 } };
+  assertClose(unrealizedPnl(opened.account, quoted), 99, 0.001, 'short profits when price falls');
+  account = opened.account;
+  const closed = cover(account, { ticker: 'AURA', qty: 10, price: 90, fee: 1, day: 2, tick: 0 });
+  assert(closed.ok, 'cover should succeed');
+  assertClose(closed.account.cash, 10098, 0.001, 'cash after covering');
+  assertClose(closed.account.realizedPnl, 98, 0.001, 'realized profit = 999 − 901');
+  assertEqual(positionOf(closed.account, 'AURA').qty, 0, 'position cleared');
+});
+
+test('partial cover keeps the remaining short basis proportional', () => {
+  let account = createGameState({ seed: 'short-partial' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const opened = short(account, { ticker: 'AURA', qty: 20, price: 50, fee: 0 });
+  const covered = cover(opened.account, { ticker: 'AURA', qty: 8, price: 40, fee: 0 });
+  assert(covered.ok, 'partial cover should succeed');
+  const pos = positionOf(covered.account, 'AURA');
+  assertEqual(pos.qty, -12, 'remaining short quantity');
+  assertClose(pos.costBasis, 600, 0.001, 'remaining basis is proportional');
+  assertClose(covered.account.realizedPnl, 80, 0.001, 'realized on 8 shares');
+});
+
+test('buy refuses to flip a short and cover refuses to flip a long', () => {
+  let account = createGameState({ seed: 'flip' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const opened = short(account, { ticker: 'AURA', qty: 5, price: 100, fee: 0 });
+  const flipped = buy(opened.account, { ticker: 'AURA', qty: 5, price: 90, fee: 0 });
+  assertEqual(flipped.ok, false, 'buy cannot cover a short');
+  assertEqual(flipped.error, 'error.positionIsShort', 'clear error code');
+
+  const longAccount = buy(account, { ticker: 'AURA', qty: 5, price: 100, fee: 0 }).account;
+  const badCover = cover(longAccount, { ticker: 'AURA', qty: 5, price: 90, fee: 0 });
+  assertEqual(badCover.ok, false, 'cover cannot sell a long');
+  assertEqual(badCover.error, 'error.noShortPosition', 'clear error code');
+});
+
+test('margin financing charges daily interest only on a debit balance', () => {
+  const account = createGameState({ seed: 'financing' }).account;
+  account.cash = -5000;
+  const charge = financingCharge(account);
+  assertClose(charge, 1.59, 0.01, '5000 × 8% / 252');
+  const applied = applyFinancing(account, 3);
+  assertClose(applied.account.cash, -5001.59, 0.01, 'interest is deducted');
+  assertClose(applied.account.financingPaid, 1.59, 0.01, 'interest is recorded');
+  const positive = applyFinancing({ ...account, cash: 1000 }, 3);
+  assertEqual(positive.charge, 0, 'no interest when cash is positive');
+});
+
+test('margin status flags a breach and forced liquidation closes positions', () => {
+  let account = createGameState({ seed: 'margin-call' }).account;
+  account.cash = -5000;
+  account.positions = { AURA: { qty: 100, costBasis: 10000 } };
+  const calm = marginStatus(account, { AURA: { last: 100 } });
+  assertClose(calm.equity, 5000, 0.001, 'equity at 100');
+  assertClose(calm.requirement, 2500, 0.001, '25% maintenance');
+  assertEqual(calm.breached, false, 'no breach at 50% equity');
+
+  const crashed = { AURA: { last: 40, bid: 39.99, ask: 40.01 } };
+  const status = marginStatus(account, crashed);
+  assertClose(status.equity, -1000, 0.001, 'equity goes negative');
+  assertEqual(status.breached, true, 'maintenance breached');
+  const liquidation = forceLiquidation(account, crashed, { fee: 1, day: 5 });
+  assertEqual(positionOf(liquidation.account, 'AURA').qty, 0, 'all positions closed');
+  assertEqual(liquidation.record.closed, 1, 'liquidation recorded');
+  assertEqual(liquidation.account.marginCalls.length, 1, 'margin call ledger');
+  assertClose(liquidation.account.cash, -1002, 1e-9, 'cash after selling at the bid and paying the fee');
+});
+
+test('margin buying power and short capacity respect collateral', () => {
+  const account = createGameState({ seed: 'power' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const quotes = { AURA: { last: 50, bid: 49.99, ask: 50.01 } };
+  assertClose(buyingPower(account, quotes, { marginEnabled: false }), 10000, 0.001, 'cash only without margin');
+  assertClose(buyingPower(account, quotes, { marginEnabled: true }), 15000, 0.001, '1.5:1 leverage with margin');
+  assertEqual(shortCapacity(account, quotes, 50), 400, 'short capacity = 2 × equity / price');
+});
+
+suite('Conditional orders and order book');
+
+test('sell stop rests, then fills at the bid when the price crosses', () => {
+  const seedState = createGameState({ seed: 'stop' });
+  let account = buy(seedState.account, {
+    ticker: 'AURA', qty: 10, price: 50, fee: 1, day: 0, tick: 0,
+  }).account;
+  const quote = { ticker: 'AURA', last: 50, bid: 49.99, ask: 50.01 };
+  const placed = placeConditionalOrder({
+    account,
+    orders: [],
+    input: { ticker: 'AURA', side: 'sell', type: 'stop', qty: 10, stopPrice: 45 },
+    quote,
+    fee: 1,
+    seq: 1,
+  });
+  assert(placed.ok, 'stop order placed');
+  assertEqual(placed.order.status, ORDER_STATUS.open, 'stop rests');
+  assertEqual(placed.order.stopPrice, 45, 'stop price kept');
+
+  const processed = processOpenOrders({
+    account,
+    orders: [placed.order],
+    quotes: { AURA: { last: 44, bid: 43.99, ask: 44.01 } },
+    fee: 1,
+    day: 1,
+    tick: 0,
+  });
+  assertEqual(processed.fills.length, 1, 'stop filled after crossing');
+  assertEqual(processed.fills[0].order.status, ORDER_STATUS.filled, 'filled status');
+  assertEqual(processed.fills[0].order.reason, 'order.stopTriggered', 'trigger reason');
+  assertClose(processed.fills[0].order.fillPrice, 43.99, 1e-9, 'fills at the bid');
+});
+
+test('trailing stop ratchets in the favourable direction before firing', () => {
+  const seedState = createGameState({ seed: 'trail' });
+  let account = buy(seedState.account, {
+    ticker: 'AURA', qty: 10, price: 100, fee: 1, day: 0, tick: 0,
+  }).account;
+  const placed = placeConditionalOrder({
+    account,
+    orders: [],
+    input: {
+      ticker: 'AURA', side: 'sell', type: 'trailing', qty: 10, trailAmount: 5,
+    },
+    quote: { ticker: 'AURA', last: 100, bid: 99.99, ask: 100.01 },
+    fee: 1,
+    seq: 1,
+  });
+  assert(placed.ok, 'trailing stop placed');
+  assertClose(placed.order.stopPrice, 95, 0.001, 'initial trail below last');
+
+  const higher = processOpenOrders({
+    account,
+    orders: [placed.order],
+    quotes: { AURA: { last: 110, bid: 109.99, ask: 110.01 } },
+    fee: 1,
+    day: 1,
+    tick: 0,
+  });
+  assertEqual(higher.fills.length, 0, 'rising price does not trigger');
+  assertClose(higher.orders[0].stopPrice, 105, 0.001, 'stop ratchets up');
+
+  const retreat = processOpenOrders({
+    account: higher.account,
+    orders: higher.orders,
+    quotes: { AURA: { last: 104, bid: 103.99, ask: 104.01 } },
+    fee: 1,
+    day: 1,
+    tick: 1,
+  });
+  assertEqual(retreat.fills.length, 1, 'trailing stop fires on the pullback');
+  assertClose(retreat.fills[0].order.fillPrice, 103.99, 1e-9, 'fills at the bid');
+});
+
+test('conditional orders reject a stop on the wrong side of the market', () => {
+  const account = createGameState({ seed: 'stop-direction' }).account;
+  const quote = { ticker: 'AURA', last: 50, bid: 49.99, ask: 50.01 };
+  const bad = placeConditionalOrder({
+    account,
+    orders: [],
+    input: { ticker: 'AURA', side: 'sell', type: 'stop', qty: 1, stopPrice: 55 },
+    quote,
+    fee: 1,
+    seq: 1,
+  });
+  assertEqual(bad.ok, false, 'sell stop above market rejected');
+  assertEqual(bad.error, 'error.stopDirection', 'direction error');
+});
+
+test('order book is monotonic and reports slippage for large orders', () => {
+  const quote = { ticker: 'AURA', last: 50, bid: 49.99, ask: 50.01, volume: 120000 };
+  const book = buildOrderBook(quote, { levels: 5 });
+  assertEqual(book.bids.length, 5, 'bid levels');
+  assertEqual(book.asks.length, 5, 'ask levels');
+  for (let index = 1; index < book.bids.length; index += 1) {
+    assert(book.bids[index].price < book.bids[index - 1].price, 'bids descend');
+  }
+  for (let index = 1; index < book.asks.length; index += 1) {
+    assert(book.asks[index].price > book.asks[index - 1].price, 'asks ascend');
+  }
+  assert(book.bids.every((level) => level.size > 0), 'sizes positive');
+  const small = estimateMarketFill(book, 'buy', 100);
+  assertEqual(small.complete, true, 'small order fully filled');
+  assertClose(small.avgPrice, book.asks[0].price, 0.011, 'small order near best ask');
+  const large = estimateMarketFill(book, 'buy', 5000);
+  assert(large.slippagePct > 0, 'large order slips');
+  const huge = estimateMarketFill(book, 'buy', 100000);
+  assertEqual(huge.complete, false, 'visible book cannot absorb an enormous order');
 });
 
 suite('Order engine');
@@ -612,8 +822,11 @@ test('valid save passes validation', () => {
 test('corrupted or incompatible saves are rejected', () => {
   const state = createGameState({ seed: 'save' });
   const badCash = serializeState(state);
-  badCash.account.cash = -50;
-  assert(!validateSave(badCash).ok, 'negative cash rejected');
+  badCash.account.cash = -2e6;
+  assert(!validateSave(badCash).ok, 'unbounded negative cash rejected');
+  const marginCash = serializeState(state);
+  marginCash.account.cash = -500;
+  assert(validateSave(marginCash).ok, 'margin debit inside the limit is accepted');
   const badVersion = serializeState(state);
   badVersion.version = 99;
   assert(!validateSave(badVersion).ok, 'version mismatch rejected');
@@ -815,6 +1028,43 @@ test('Stage 4 units are implemented and practice checks are demo-based', () => {
   STAGE_4_UNITS.forEach((unit) => {
     assertEqual(evaluatePractice(state, unit).done, true, `${unit.id} demo completes practice`);
   });
+});
+
+suite('Stage 5 advanced trading');
+
+test('Stage 5 units are implemented and practice checks use real activity', () => {
+  assertEqual(STAGE_5_UNITS.map((unit) => unit.id).join(','), 'u17,u18,u19,u20', 'four Stage 5 units');
+  assert(STAGE_5_UNITS.every((unit) => unit.implemented), 'all Stage 5 units are playable');
+
+  const state = createGameState({ seed: 'stage5-practice' });
+  state.education.demoRuns = ['margin', 'orderBook'];
+  assertEqual(evaluatePractice(state, getUnit('u18')).done, true, 'margin demo completes Unit 18');
+  assertEqual(evaluatePractice(state, getUnit('u20')).done, true, 'order book demo completes Unit 20');
+
+  state.account.trades = [
+    { side: 'short', ticker: 'AURA', qty: 5 },
+    { side: 'cover', ticker: 'AURA', qty: 5 },
+  ];
+  assertEqual(evaluatePractice(state, getUnit('u17')).done, true, 'short + cover completes Unit 17');
+
+  state.orders = [{ status: 'filled', type: 'stop', ticker: 'AURA' }];
+  assertEqual(evaluatePractice(state, getUnit('u19')).done, true, 'a filled stop completes Unit 19');
+});
+
+test('advanced trading tools unlock from the first section of their unit', () => {
+  const state = createGameState({ seed: 'stage5-unlocks' });
+  const mark = (unitId, sectionId) => {
+    state.education.units[unitId].sectionsRead[sectionId] = true;
+  };
+  assertEqual(isToolUnlocked(state, 'trade.short'), false, 'short starts locked');
+  mark('u17', 's1');
+  assertEqual(isToolUnlocked(state, 'trade.short'), true, 'short unlocks after u17 s1');
+  assertEqual(isToolUnlocked(state, 'trade.margin'), false, 'margin still locked');
+  mark('u18', 's1');
+  assertEqual(isToolUnlocked(state, 'trade.margin'), true, 'margin unlocks after u18 s1');
+  assertEqual(isToolUnlocked(state, 'order.stop'), false, 'stop orders still locked');
+  mark('u19', 's1');
+  assertEqual(isToolUnlocked(state, 'order.stop'), true, 'stop orders unlock after u19 s1');
 });
 
 suite('Formatting');

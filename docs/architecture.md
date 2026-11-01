@@ -1,6 +1,6 @@
-# Stock Market Academy — 架构设计说明（Phase 2 基线）
+# Stock Market Academy — 架构设计说明（Phase 2–3 Stage 5 基线）
 
-本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 2（Stage 2–4）已完成，未改变分层。
+本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 2（Stage 2–4）与 Phase 3 的 Stage 5 已完成，未改变分层。
 
 ## 1. 技术栈与约束
 
@@ -88,13 +88,13 @@ P(t+1) = P(t) × exp(r(t))
 
 ## 8. 教学引擎
 
-- `curriculum.js`：Stage 1–4 共十六个单元，章节由 block 组成（`paragraph / list / callout / formula / example / term / demo / table`），并附带练习定义与测验题库。
+- `curriculum.js`：Stage 1–5 共二十个单元，章节由 block 组成（`paragraph / list / callout / formula / example / term / demo / table`），并附带练习定义与测验题库。
 - `lessonEngine.js`：记录已读章节；只有读完必要章节 + 通过实战 + 测验 ≥ 80% 才完成单元。
 - `practiceEngine.js`：订阅交易 / 查看 / 课程事件，自动验证真实操作（例如完成一次买入、查看订单状态）。
 - `quizEngine.js`：评分、补考、跳级测试；答案与解析均来自双语词典。
 - `unlockManager.js` + `marketAccess.js`：工具与市场板块按单元完成度解锁；视图与下单接口都校验。
 - `progress.js`：XP、等级、成就评估。
-- `glossary.js`：43 个术语，含中英名称、定义、示例、所属单元、相关术语。
+- `glossary.js`：49 个术语，含中英名称、定义、示例、所属单元、相关术语。
 
 教学闭环：Learn（章节）→ Demonstrate（Canvas 互动演示）→ Practice（真实操作校验）→ Test（测验）→ Unlock（工具 / 板块 / 下一单元）。
 
@@ -125,7 +125,7 @@ P(t+1) = P(t) × exp(r(t))
 
 - `tests/index.html` 浏览器内运行，`tests/harness.js` 提供 suite / test / assert。
 - 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、回放成交与无未来数据、事件时间线、双语结构与页面键覆盖。
-- 当前 94 项全部通过。新增能力必须同时补逻辑测试与双语键。
+- 当前 106 项全部通过。新增能力必须同时补逻辑测试与双语键。
 
 ## 13. Phase 2 实现状态
 
@@ -146,3 +146,16 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 投资策略 | `data/stockTypes.js` 风格篮子 + 策略比较演示 | 已实现（Unit 16）：用当前模拟历史比较成长 / 价值 / 收益 / 周期等权组合在 30 / 60 / 90 日窗口的表现，并标注为模拟而非真实回测 |
 
 新增状态一律进入 `GameState` 并纳入 `validateSave()` / `hydrateState()`；新增 UI 一律通过 actions 修改状态，不允许直接写账户；新增文本一律同时进入中英词典。
+
+## 14. Phase 3 Stage 5 实现状态
+
+高级股票交易已在既有账户模型上扩展，持仓改为带符号数量（多头 qty > 0，空头 qty < 0）。
+
+| 能力 | 扩展位置 | 关键约束 |
+| --- | --- | --- |
+| 做空 / 平空 | `trading/account.js` 的 `short()` / `cover()`；`orderEngine` 方向扩展为 buy / sell / short / cover | 卖空按股数 × 价格 50% 抵押；空头成本基础为净卖出所得，回补时按比例确认已实现盈亏 |
+| 融资与保证金 | `trading/margin.js`：`financingCharge` / `applyFinancing` / `marginStatus` / `forceLiquidation` | 负现金按 8% 年化、252 交易日每日计息；维持保证金为多头 25% + 空头 30%；日结检查并强制平仓、取消未成交订单 |
+| 止损 / 追踪止损 | `trading/orderEngine.js`：`placeConditionalOrder`、`processOpenOrders` 的触发与追踪逻辑 | 止损触发后按市价（买价 / 卖价）成交；追踪止损只向有利方向收紧；条件单在下单时只校验方向与股份 |
+| 订单簿与滑点 | `market/orderBook.js`：`buildOrderBook` / `estimateMarketFill` | 五档深度由当前报价与 ticker 哈希确定性生成；大单逐档成交、计算加权均价与滑点；仅用于教学与进阶布局展示 |
+
+边界：借券费未单独收取；融资利率与维持保证金比例为固定教学假设；强制平仓在日结执行，不模拟盘中逐笔强平；订单簿不代表真实挂单。

@@ -358,6 +358,16 @@
   color: var(--down);
 }
 
+.ticket__side--short .segmented__item.is-active {
+  background: rgba(244, 114, 182, 0.16);
+  color: #f472b6;
+}
+
+.ticket__side--cover .segmented__item.is-active {
+  background: rgba(245, 183, 80, 0.16);
+  color: #f5b750;
+}
+
 .ticket__types { width: 100%; }
 
 .ticket__types .segmented__item { flex: 1; justify-content: center; }

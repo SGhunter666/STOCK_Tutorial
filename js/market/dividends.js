@@ -47,12 +47,12 @@ export function nextDividendDay(company, day) {
   return day + wait;
 }
 
-/** Dividends owed on `day` for the positions held at that close. */
+/** Dividends owed on `day` for the positions held at that close. Shorts owe them. */
 export function payableDividends(account, day) {
   const rows = [];
   const positions = account.positions || {};
   for (const [ticker, position] of Object.entries(positions)) {
-    if (!position || position.qty <= 0) continue;
+    if (!position || !position.qty) continue;
     const company = getCompany(ticker);
     if (!company || !isDividendDay(company, day)) continue;
     const perShare = dividendPerShare(company);
@@ -70,7 +70,7 @@ export function payableDividends(account, day) {
 export function applyDividends(account, rows) {
   const ledger = Array.isArray(account.dividends) ? account.dividends : [];
   const paid = new Set(ledger.map((entry) => `${entry.day}:${entry.ticker}`));
-  const fresh = (rows || []).filter((row) => row.amount > 0 && !paid.has(`${row.day}:${row.ticker}`));
+  const fresh = (rows || []).filter((row) => row.amount !== 0 && !paid.has(`${row.day}:${row.ticker}`));
   if (!fresh.length) return { account, dividends: [], total: 0 };
   const total = round2(fresh.reduce((sum, row) => sum + row.amount, 0));
   return {

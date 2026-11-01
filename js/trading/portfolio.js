@@ -12,7 +12,7 @@ export function portfolioSummary(account, quotes) {
 
   const withWeights = rows.map((row) => ({
     ...row,
-    weight: total > 0 ? (row.value / total) * 100 : 0,
+    weight: total > 0 ? (Math.abs(row.value) / total) * 100 : 0,
   }));
 
   return {
@@ -36,7 +36,7 @@ export function sectorAllocation(rows, companiesByTicker) {
     const company = companiesByTicker[row.ticker];
     const sector = company ? company.sector : 'unknown';
     const entry = map.get(sector) || { sector, value: 0, weight: 0 };
-    entry.value += row.value;
+    entry.value += Math.abs(row.value);
     entry.weight += row.weight;
     map.set(sector, entry);
   }

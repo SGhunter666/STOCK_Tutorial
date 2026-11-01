@@ -13,9 +13,13 @@ import { MarketClock } from './market/clock.js';
 import { TICKS_PER_DAY } from './market/calendar.js';
 import { payableDividends, applyDividends } from './market/dividends.js';
 import {
-  processOpenOrders, placeMarketOrder, placeLimitOrder, cancelOrder, ORDER_STATUS,
+  processOpenOrders, placeMarketOrder, placeLimitOrder, placeConditionalOrder,
+  cancelOrder, ORDER_STATUS,
 } from './trading/orderEngine.js';
-import { snapshotEquity } from './trading/account.js';
+import {
+  snapshotEquity, buyingPower, shortCapacity,
+} from './trading/account.js';
+import { marginStatus, applyFinancing, forceLiquidation } from './trading/margin.js';
 import { money } from './core/format.js';
 import {
   markSectionRead, recordQuizResult,
@@ -321,7 +325,16 @@ const actions = {
       toast(i18n.t('error.marketLocked'), 'error');
       return { ok: false, error: 'error.marketLocked' };
     }
+    if ((input.side === 'short' || input.side === 'cover') && !isToolUnlocked(state, 'trade.short')) {
+      toast(i18n.t('error.shortLocked'), 'error');
+      return { ok: false, error: 'error.shortLocked' };
+    }
+    if ((input.type === 'stop' || input.type === 'trailing') && !isToolUnlocked(state, 'order.stop')) {
+      toast(i18n.t('error.stopLocked'), 'error');
+      return { ok: false, error: 'error.stopLocked' };
+    }
     const fee = state.settings.commission;
+    const marginEnabled = isToolUnlocked(state, 'trade.margin');
     const args = {
       account: state.account,
       orders: state.orders,
@@ -331,8 +344,16 @@ const actions = {
       day: state.market.day,
       tick: state.market.tick,
       seq: state.orderSeq,
+      buyingPower: buyingPower(state.account, state.market.quotes, {
+        marginEnabled, fee, orders: state.orders,
+      }),
+      shortCapacity: shortCapacity(state.account, state.market.quotes, quote.bid),
+      allowDebit: marginEnabled,
     };
-    const result = input.type === 'market' ? placeMarketOrder(args) : placeLimitOrder(args);
+    let result;
+    if (input.type === 'market') result = placeMarketOrder(args);
+    else if (input.type === 'limit') result = placeLimitOrder(args);
+    else result = placeConditionalOrder(args);
     if (!result.ok) {
       toast(i18n.t(result.error), 'error');
       return result;
@@ -475,8 +496,11 @@ function runSimulation(ticks) {
   let orders = state.orders;
   let fills = [];
   let dividends = [];
+  let financing = 0;
+  let marginCall = null;
   let dayClosed = false;
   const fee = state.settings.commission;
+  const allowDebit = isToolUnlocked(state, 'trade.margin');
 
   for (let i = 0; i < ticks; i += 1) {
     const prevDay = state.market.day;
@@ -489,15 +513,42 @@ function runSimulation(ticks) {
       fee,
       day: prevDay,
       tick: prevTick,
+      allowDebit,
     });
     account = processed.account;
     orders = processed.orders;
     fills = [...fills, ...processed.fills];
     if (tickResult.dayClosed) {
       dayClosed = true;
+      const financed = applyFinancing(account, prevDay);
+      account = financed.account;
+      financing += financed.charge;
       const applied = applyDividends(account, payableDividends(account, prevDay));
       account = applied.account;
       dividends = [...dividends, ...applied.dividends];
+      if (allowDebit || (account.positions && Object.keys(account.positions).length)) {
+        const status = marginStatus(account, state.market.quotes);
+        if (status.breached) {
+          const liquidation = forceLiquidation(account, state.market.quotes, {
+            fee, day: Math.max(0, prevDay), tick: prevTick,
+          });
+          account = liquidation.account;
+          marginCall = liquidation;
+          orders = orders.map((order) => (
+            order.status === ORDER_STATUS.open ? { ...order, status: ORDER_STATUS.cancelled } : order
+          ));
+          fills = [...fills, ...liquidation.trades.map((trade) => ({
+            order: {
+              ticker: trade.ticker,
+              qty: trade.qty,
+              fillPrice: trade.price,
+              side: trade.side,
+            },
+            trade,
+            liquidation: true,
+          }))];
+        }
+      }
       account = {
         ...account,
         equityHistory: snapshotEquity(account, state.market.quotes, Math.max(0, prevDay)),
@@ -515,16 +566,30 @@ function runSimulation(ticks) {
   });
 
   if (fills.length) {
-    applyFillsEmails(fills);
+    applyFillsEmails(fills.filter((fill) => !fill.liquidation));
     syncPractice(store, bus);
   }
   if (dividends.length) {
     const total = dividends.reduce((sum, row) => sum + row.amount, 0);
-    toast(i18n.t('toast.dividendPaid', {
-      amount: money(total, i18n.locale),
-      count: dividends.length,
-    }), 'success', 4200);
+    if (total >= 0) {
+      toast(i18n.t('toast.dividendPaid', {
+        amount: money(total, i18n.locale),
+        count: dividends.length,
+      }), 'success', 4200);
+    } else {
+      toast(i18n.t('toast.dividendOwed', {
+        amount: money(-total, i18n.locale),
+        count: dividends.length,
+      }), 'warning', 4200);
+    }
     announceAchievements();
+  }
+  if (financing > 0) {
+    toast(i18n.t('toast.financingCharged', { amount: money(financing, i18n.locale) }), 'warning', 3600);
+  }
+  if (marginCall) {
+    toast(i18n.t('toast.marginCall', { count: marginCall.closed.length }), 'error', 5200);
+    syncPractice(store, bus);
   }
 }
 

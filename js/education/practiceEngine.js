@@ -75,6 +75,22 @@ export function evaluatePractice(state, unit) {
       }
       return { done: longest >= task.target, current: Math.min(longest, task.target), target: task.target };
     }
+    case 'short-round-trip': {
+      const opened = trades.some((trade) => trade.side === 'short');
+      const covered = trades.some((trade) => trade.side === 'cover');
+      return {
+        done: opened && covered,
+        current: (opened ? 1 : 0) + (covered ? 1 : 0),
+        target: 2,
+      };
+    }
+    case 'stop-fill': {
+      const match = orders.find((order) => (
+        order.status === 'filled'
+        && (order.type === 'stop' || order.type === 'trailing')
+      ));
+      return { done: Boolean(match), current: match ? 1 : 0, target: 1 };
+    }
     case 'demo': {
       const runs = education.demoRuns || [];
       return { done: runs.includes(task.demoId), current: runs.includes(task.demoId) ? 1 : 0, target: 1 };

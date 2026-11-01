@@ -2,7 +2,7 @@
  * Interactive teaching demonstrations. Every demo keeps its own local state and
  * never touches the player's simulated account.
  */
-import { money, num, pct } from '../core/format.js';
+import { money, num, pct, signedMoney } from '../core/format.js';
 import { LineChart, CandlestickChart } from './chart.js';
 import { createRng } from '../core/rng.js';
 import { companyName } from './labels.js';
@@ -12,6 +12,7 @@ import { sma, rsi } from '../market/indicators.js';
 import { financialsFor } from '../data/financials.js';
 import { dcf } from '../education/valuation.js';
 import { macroSnapshot, regimeKey } from '../market/macro.js';
+import { buildOrderBook, estimateMarketFill } from '../market/orderBook.js';
 
 function demoShell(title, desc, body) {
   return `
@@ -1106,6 +1107,197 @@ function mountStrategies(node, ctx) {
   return () => {};
 }
 
+function mountShortPnl(node, ctx) {
+  const { i18n } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  let entry = 50;
+  let exit = 40;
+  let shares = 100;
+
+  function render() {
+    const proceeds = entry * shares;
+    const coverCost = exit * shares;
+    const pnl = proceeds - coverCost;
+    const returnPct = proceeds > 0 ? (pnl / proceeds) * 100 : 0;
+    const collateral = proceeds * 0.5;
+    node.innerHTML = demoShell(
+      t('demo.shortPnl.title'),
+      t('demo.shortPnl.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.shortPnl.entry')}</span><input class="input" id="sp-entry" type="number" min="1" step="0.5" value="${entry}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.shortPnl.exit')}</span><input class="input" id="sp-exit" type="number" min="0.5" step="0.5" value="${exit}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.shortPnl.shares')}</span><input class="input" id="sp-shares" type="number" min="1" step="1" value="${shares}"></label>
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.shortPnl.proceeds')}</span><strong>${money(proceeds, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.shortPnl.coverCost')}</span><strong>${money(coverCost, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.shortPnl.pnl')}</span><strong class="${pnl > 0 ? 'up' : pnl < 0 ? 'down' : ''}">${signedMoney(pnl, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.shortPnl.return')}</span><strong>${pct(returnPct, i18n.locale, 2)}</strong></div>
+          <div class="demo-result"><span>${t('demo.shortPnl.collateral')}</span><strong>${money(collateral, i18n.locale)}</strong></div>
+        </div>
+        ${demoNote(t('demo.shortPnl.note'))}`,
+    );
+    ['#sp-entry', '#sp-exit', '#sp-shares'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        entry = Math.max(1, Number(node.querySelector('#sp-entry').value) || entry);
+        exit = Math.max(0.5, Number(node.querySelector('#sp-exit').value) || exit);
+        shares = Math.max(1, Math.floor(Number(node.querySelector('#sp-shares').value) || shares));
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {};
+}
+
+function mountMargin(node, ctx) {
+  const { i18n, actions } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  let cash = 10000;
+  let price = 50;
+  let shares = 300;
+
+  function render() {
+    const value = price * shares;
+    const loan = Math.max(0, value - cash);
+    const equity = value - loan;
+    const leverage = cash > 0 ? value / cash : 0;
+    const interest = loan * 0.08 / 252;
+    node.innerHTML = demoShell(
+      t('demo.margin.title'),
+      t('demo.margin.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.margin.cash')}</span><input class="input" id="mg-cash" type="number" min="100" step="100" value="${cash}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.margin.price')}</span><input class="input" id="mg-price" type="number" min="1" step="0.5" value="${price}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.margin.shares')}</span><input class="input" id="mg-shares" type="number" min="1" step="1" value="${shares}"></label>
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.margin.value')}</span><strong>${money(value, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.margin.loan')}</span><strong>${money(loan, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.margin.equity')}</span><strong>${money(equity, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.margin.leverage')}</span><strong>${num(leverage, i18n.locale, 2)}×</strong></div>
+          <div class="demo-result"><span>${t('demo.margin.interest')}</span><strong>${money(interest, i18n.locale)}</strong></div>
+        </div>
+        ${demoNote(t('demo.margin.note'))}`,
+    );
+    ['#mg-cash', '#mg-price', '#mg-shares'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        cash = Math.max(100, Number(node.querySelector('#mg-cash').value) || cash);
+        price = Math.max(1, Number(node.querySelector('#mg-price').value) || price);
+        shares = Math.max(1, Math.floor(Number(node.querySelector('#mg-shares').value) || shares));
+        if (actions && actions.completeDemo) actions.completeDemo('margin');
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {};
+}
+
+function mountStopOrder(node, ctx) {
+  const { i18n } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  let entry = 100;
+  let stop = 92;
+  let trail = 6;
+  let shares = 100;
+
+  function render() {
+    const perShare = entry - stop;
+    const risk = perShare * shares;
+    const distance = entry > 0 ? (perShare / entry) * 100 : 0;
+    const trailingStop = entry - trail;
+    node.innerHTML = demoShell(
+      t('demo.stopOrder.title'),
+      t('demo.stopOrder.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.stopOrder.entry')}</span><input class="input" id="so-entry" type="number" min="1" step="0.5" value="${entry}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.stopOrder.stop')}</span><input class="input" id="so-stop" type="number" min="0.1" step="0.5" value="${stop}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.stopOrder.trail')}</span><input class="input" id="so-trail" type="number" min="0.5" step="0.5" value="${trail}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.stopOrder.shares')}</span><input class="input" id="so-shares" type="number" min="1" step="1" value="${shares}"></label>
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.stopOrder.perShare')}</span><strong>${money(perShare, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.stopOrder.distance')}</span><strong>${pct(distance, i18n.locale, 1, false)}</strong></div>
+          <div class="demo-result"><span>${t('demo.stopOrder.risk')}</span><strong>${money(risk, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.stopOrder.trailing')}</span><strong>${money(trailingStop, i18n.locale)}</strong></div>
+        </div>
+        ${demoNote(t('demo.stopOrder.note'))}`,
+    );
+    ['#so-entry', '#so-stop', '#so-trail', '#so-shares'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        entry = Math.max(1, Number(node.querySelector('#so-entry').value) || entry);
+        stop = Math.max(0.1, Number(node.querySelector('#so-stop').value) || stop);
+        trail = Math.max(0.5, Number(node.querySelector('#so-trail').value) || trail);
+        shares = Math.max(1, Math.floor(Number(node.querySelector('#so-shares').value) || shares));
+        if (stop >= entry) stop = entry * 0.9;
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {};
+}
+
+function mountOrderBook(node, ctx) {
+  const { i18n, store, actions } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  const companies = unlockedCompanies(store.get());
+  let ticker = companies[0] ? companies[0].ticker : 'AURA';
+  let qty = 500;
+
+  function render() {
+    const quote = store.get().market.quotes[ticker];
+    const book = buildOrderBook(quote, { levels: 5 });
+    const fill = estimateMarketFill(book, 'buy', qty);
+    const rows = [
+      ...book.asks.slice().reverse().map((level) => ({ ...level, side: 'ask' })),
+      ...book.bids.map((level) => ({ ...level, side: 'bid' })),
+    ];
+    node.innerHTML = demoShell(
+      t('demo.orderBook.title'),
+      t('demo.orderBook.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.orderBook.ticker')}</span>
+            <select class="input" id="ob-ticker">
+              ${companies.map((company) => `<option value="${company.ticker}" ${company.ticker === ticker ? 'selected' : ''}>${company.ticker}</option>`).join('')}
+            </select>
+          </label>
+          <label class="demo-field"><span class="field-label">${t('demo.orderBook.qty')}</span><input class="input" id="ob-qty" type="number" min="1" step="50" value="${qty}"></label>
+        </div>
+        <div class="demo-book">
+          ${rows.map((row) => `<div class="demo-book__row demo-book__row--${row.side}"><span>${row.side === 'ask' ? t('demo.orderBook.ask') : t('demo.orderBook.bid')}</span><strong>${money(row.price, i18n.locale)}</strong><span>${num(row.size, i18n.locale, 0)}</span></div>`).join('')}
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.orderBook.avgPrice')}</span><strong>${fill.filledQty ? money(fill.avgPrice, i18n.locale) : '—'}</strong></div>
+          <div class="demo-result"><span>${t('demo.orderBook.slippage')}</span><strong>${pct(fill.slippagePct, i18n.locale, 2, false)}</strong></div>
+          <div class="demo-result"><span>${t('demo.orderBook.filled')}</span><strong>${num(fill.filledQty, i18n.locale, 0)} / ${num(qty, i18n.locale, 0)}</strong></div>
+        </div>
+        ${demoNote(t('demo.orderBook.note'))}`,
+    );
+    node.querySelector('#ob-ticker')?.addEventListener('change', (event) => {
+      ticker = event.target.value;
+      if (actions && actions.completeDemo) actions.completeDemo('orderBook');
+      render();
+    });
+    node.querySelector('#ob-qty')?.addEventListener('change', () => {
+      qty = Math.max(1, Math.floor(Number(node.querySelector('#ob-qty').value) || qty));
+      if (actions && actions.completeDemo) actions.completeDemo('orderBook');
+      render();
+    });
+  }
+
+  render();
+  return () => {};
+}
+
 const DEMOS = {
   marketCap: mountMarketCap,
   spread: mountSpread,
@@ -1123,6 +1315,10 @@ const DEMOS = {
   allocation: mountAllocation,
   risk: mountRisk,
   strategies: mountStrategies,
+  shortPnl: mountShortPnl,
+  margin: mountMargin,
+  stopOrder: mountStopOrder,
+  orderBook: mountOrderBook,
 };
 
 export function mountDemo(demoId, node, ctx) {

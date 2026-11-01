@@ -1623,6 +1623,36 @@
   gap: 10px;
 }
 
+.demo-book {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.demo-book__row {
+  display: grid;
+  grid-template-columns: 48px 1fr 1fr;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.demo-book__row strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.demo-book__row--ask {
+  background: rgba(251, 113, 133, 0.06);
+}
+
+.demo-book__row--bid {
+  background: rgba(52, 211, 153, 0.06);
+}
+
 .demo-result-grid--four {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }

@@ -30,16 +30,28 @@ export const TOOL_DEFS = {
     categoryKey: 'unlock.category.trading',
   },
   'trade.short': {
-    phase: 3,
+    rule: { unitId: 'u17', sectionId: 's1' },
     titleKey: 'unlock.short.title',
     descKey: 'unlock.short.desc',
     categoryKey: 'unlock.category.trading',
   },
   'trade.margin': {
-    phase: 3,
+    rule: { unitId: 'u18', sectionId: 's1' },
     titleKey: 'unlock.margin.title',
     descKey: 'unlock.margin.desc',
     categoryKey: 'unlock.category.trading',
+  },
+  'order.stop': {
+    rule: { unitId: 'u19', sectionId: 's1' },
+    titleKey: 'unlock.stop.title',
+    descKey: 'unlock.stop.desc',
+    categoryKey: 'unlock.category.trading',
+  },
+  'market.depth': {
+    rule: { unitId: 'u20', sectionId: 's1' },
+    titleKey: 'unlock.depth.title',
+    descKey: 'unlock.depth.desc',
+    categoryKey: 'unlock.category.market',
   },
   'options.trade': {
     phase: 4,

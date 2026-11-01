@@ -12,9 +12,11 @@ import { icon } from '../icons.js';
 import { CandlestickChart } from '../chart.js';
 import { getCompany, fundamentalsFor } from '../../data/companies.js';
 import {
-  availableCash, availableShares, positionOf, reservedCash,
+  availableShares, availableShortShares, positionOf, reservedCash,
+  buyingPower, shortCapacity,
 } from '../../trading/account.js';
 import { estimateOrder, ORDER_STATUS } from '../../trading/orderEngine.js';
+import { buildOrderBook, estimateMarketFill } from '../../market/orderBook.js';
 import { formatMarketDate } from '../../market/calendar.js';
 import { nextDividendDay, dividendPerShare } from '../../market/dividends.js';
 import { indicatorSnapshot } from '../../market/indicators.js';
@@ -48,9 +50,14 @@ export function createTradeView(ctx, { ticker }) {
         type: 'market',
         qty: '10',
         limit: (Math.round(quote.last * 0.99 * 100) / 100).toFixed(2),
+        stop: (Math.round(quote.last * 0.95 * 100) / 100).toFixed(2),
+        trail: '5.00',
       });
     }
-    return drafts.get(symbol);
+    const d = drafts.get(symbol);
+    if (d.stop === undefined) d.stop = (Math.round(store.get().market.quotes[symbol].last * 0.95 * 100) / 100).toFixed(2);
+    if (d.trail === undefined) d.trail = '5.00';
+    return d;
   }
 
   function marketState(state) {
@@ -59,26 +66,56 @@ export function createTradeView(ctx, { ticker }) {
     const fee = state.settings.commission;
     const d = draft();
     const unlockedLimit = isToolUnlocked(state, 'order.limit');
-    const buyingPower = availableCash(state.account, state.orders, fee);
+    const shortUnlocked = isToolUnlocked(state, 'trade.short');
+    const stopUnlocked = isToolUnlocked(state, 'order.stop');
+    const marginUnlocked = isToolUnlocked(state, 'trade.margin');
+    const power = buyingPower(state.account, state.market.quotes, {
+      marginEnabled: marginUnlocked, fee, orders: state.orders,
+    });
     const sellable = availableShares(state.account, state.orders, symbol);
-    return { quote, position, fee, d, unlockedLimit, buyingPower, sellable };
+    const shortable = shortCapacity(state.account, state.market.quotes, quote.bid);
+    const shortShares = availableShortShares(state.account, symbol);
+    return {
+      quote, position, fee, d, unlockedLimit, shortUnlocked, stopUnlocked, marginUnlocked,
+      buyingPower: power, sellable, shortable, shortShares,
+    };
   }
 
   function ticketEstimate(state) {
-    const { quote, fee, d, buyingPower, sellable } = marketState(state);
+    const {
+      quote, fee, d, buyingPower, sellable, shortable, shortShares, position,
+    } = marketState(state);
     const qty = Math.max(0, Math.floor(Number(d.qty) || 0));
     const limit = Number(d.limit) || 0;
-    const input = { ticker: symbol, side: d.side, type: d.type, qty, limitPrice: limit };
+    const stop = Number(d.stop) || 0;
+    const trail = Number(d.trail) || 0;
+    const input = {
+      ticker: symbol, side: d.side, type: d.type, qty, limitPrice: limit, stopPrice: stop, trailAmount: trail,
+    };
     const estimate = estimateOrder({ input, quote, fee });
     let error = '';
+    const conditional = d.type === 'stop' || d.type === 'trailing';
     if (qty <= 0) error = t('trade.validation.qty');
     else if (d.type === 'limit' && limit <= 0) error = t('trade.validation.limit');
-    else if (d.side === 'buy' && estimate.total > (d.type === 'market' ? state.account.cash : buyingPower) + 1e-9) {
-      error = t('trade.validation.cash');
-    } else if (d.side === 'sell' && qty > sellable) {
-      error = t('trade.validation.shares');
+    else if (d.type === 'stop' && stop <= 0) error = t('trade.validation.stop');
+    else if (d.type === 'trailing' && trail <= 0) error = t('trade.validation.trail');
+    else if (d.type === 'stop' && ((d.side === 'buy' || d.side === 'cover') ? stop < quote.last : stop > quote.last)) {
+      error = t('trade.validation.stopDirection');
+    } else if (!conditional) {
+      if (d.side === 'buy' || d.side === 'cover') {
+        const required = d.type === 'limit' ? qty * limit + fee : qty * quote.ask + fee;
+        if (required > buyingPower + 1e-9) error = t('trade.validation.cash');
+      } else if (d.side === 'sell' && qty > sellable) {
+        error = t('trade.validation.shares');
+      } else if (d.side === 'short' && qty > shortable) {
+        error = t('trade.validation.margin');
+      }
+      if (!error && d.side === 'cover' && qty > shortShares) error = t('trade.validation.shortShares');
     }
-    return { qty, limit, estimate, error, buyingPower, sellable, quote, fee, d };
+    return {
+      qty, limit, stop, trail, estimate, error, buyingPower, sellable, shortable, shortShares,
+      quote, fee, d, position,
+    };
   }
 
   function quoteStrip(state) {
@@ -109,7 +146,7 @@ export function createTradeView(ctx, { ticker }) {
       actions: `<span class="pill">${t('trade.chartRange', { days })}</span>`,
       body: `
         <div class="chart-wrap"><canvas id="price-chart" style="height:${advanced ? 300 : 250}px"></canvas></div>
-        ${position.qty > 0 ? `<p class="chart-note">${t('trade.avgCostLine', { cost: money(position.avgCost, i18n.locale), qty: num(position.qty, i18n.locale, 0) })}</p>` : ''}
+        ${position.qty !== 0 ? `<p class="chart-note">${t('trade.avgCostLine', { cost: money(position.avgCost, i18n.locale), qty: num(Math.abs(position.qty), i18n.locale, 0) })}</p>` : ''}
         <p class="chart-note muted">${t('trade.candleNote')}</p>`,
     });
   }
@@ -119,7 +156,33 @@ export function createTradeView(ctx, { ticker }) {
     const d = est.d;
     const quote = est.quote;
     const unlockedLimit = isToolUnlocked(state, 'order.limit');
-    const buy = d.side === 'buy';
+    const shortUnlocked = isToolUnlocked(state, 'trade.short');
+    const stopUnlocked = isToolUnlocked(state, 'order.stop');
+    const position = est.position;
+    if (!shortUnlocked && (d.side === 'short' || d.side === 'cover')) d.side = 'buy';
+    if (!stopUnlocked && (d.type === 'stop' || d.type === 'trailing')) d.type = 'market';
+    if (!unlockedLimit && d.type === 'limit') d.type = 'market';
+    const sideOptions = [
+      { value: 'buy', label: t('trade.buy') },
+      { value: 'sell', label: t('trade.sell') },
+    ];
+    if (shortUnlocked) sideOptions.push({ value: 'short', label: t('trade.short') });
+    if (shortUnlocked && position.side === 'short') sideOptions.push({ value: 'cover', label: t('trade.cover') });
+    const typeOptions = [
+      { value: 'market', label: t('trade.marketOrder') },
+      { value: 'limit', label: `${t('trade.limitOrder')} ${unlockedLimit ? '' : icon('lock', { size: 12 })}`, title: unlockedLimit ? '' : t('trade.limitLocked') },
+    ];
+    if (stopUnlocked) {
+      typeOptions.push({ value: 'stop', label: t('trade.stopOrder') });
+      typeOptions.push({ value: 'trailing', label: t('trade.trailingOrder') });
+    }
+    const hint = d.side === 'buy'
+      ? t('trade.buyingPower', { value: money(est.buyingPower, i18n.locale) })
+      : d.side === 'sell'
+        ? t('trade.sellable', { value: num(est.sellable, i18n.locale, 0) })
+        : d.side === 'short'
+          ? t('trade.shortable', { value: num(est.shortable, i18n.locale, 0) })
+          : t('trade.shortPositionHint', { value: num(est.shortShares, i18n.locale, 0) });
     return card({
       className: 'ticket-card',
       title: t('trade.orderTicket'),
@@ -127,22 +190,21 @@ export function createTradeView(ctx, { ticker }) {
       body: `
         <div class="ticket">
           ${segmented({
-            options: [{ value: 'buy', label: t('trade.buy') }, { value: 'sell', label: t('trade.sell') }],
+            options: sideOptions,
             active: d.side,
             attr: 'side',
             className: `ticket__side ticket__side--${d.side}`,
           })}
+          ${!shortUnlocked ? `<p class="field-hint">${t('trade.shortLockedHint')}</p>` : ''}
           <div class="ticket__field">
             <span class="field-label">${t('trade.orderType')}</span>
             ${segmented({
-              options: [
-                { value: 'market', label: t('trade.marketOrder') },
-                { value: 'limit', label: `${t('trade.limitOrder')} ${unlockedLimit ? '' : icon('lock', { size: 12 })}`, title: unlockedLimit ? '' : t('trade.limitLocked') },
-              ],
+              options: typeOptions,
               active: d.type,
               attr: 'type',
               className: 'ticket__types',
             })}
+            ${!stopUnlocked ? `<p class="field-hint">${t('trade.stopLockedHint')}</p>` : ''}
           </div>
           <div class="ticket__field">
             <span class="field-label">${t('trade.quantity')}</span>
@@ -150,7 +212,7 @@ export function createTradeView(ctx, { ticker }) {
               <input class="input" id="order-qty" type="number" min="1" step="1" value="${d.qty}" inputmode="numeric">
               <button class="btn btn--ghost btn--sm" type="button" data-qty="max">${t('trade.max')}</button>
             </div>
-            <span class="field-hint">${buy ? t('trade.buyingPower', { value: money(est.buyingPower, i18n.locale) }) : t('trade.sellable', { value: num(est.sellable, i18n.locale, 0) })}</span>
+            <span class="field-hint">${hint}</span>
           </div>
           ${d.type === 'limit' ? `
           <div class="ticket__field">
@@ -161,9 +223,25 @@ export function createTradeView(ctx, { ticker }) {
               <button class="btn btn--ghost btn--sm" type="button" data-limit="ask">${t('market.ask')}</button>
             </div>
           </div>` : ''}
+          ${d.type === 'stop' ? `
+          <div class="ticket__field">
+            <span class="field-label">${t('trade.stopPrice')}</span>
+            <div class="qty-row">
+              <input class="input" id="order-stop" type="number" min="0.01" step="0.01" value="${d.stop}" inputmode="decimal">
+              <button class="btn btn--ghost btn--sm" type="button" data-stop="last">${t('market.last')}</button>
+            </div>
+          </div>` : ''}
+          ${d.type === 'trailing' ? `
+          <div class="ticket__field">
+            <span class="field-label">${t('trade.trailAmount')}</span>
+            <div class="qty-row">
+              <input class="input" id="order-trail" type="number" min="0.01" step="0.01" value="${d.trail}" inputmode="decimal">
+            </div>
+            <span class="field-hint">${t('trade.trailHint')}</span>
+          </div>` : ''}
           <div class="estimate" id="order-estimate">${estimateHtml(state)}</div>
           <p class="ticket__message" id="order-message"></p>
-          <button class="btn btn--primary btn--block" type="button" id="order-submit" ${est.error ? 'disabled' : ''}>${buy ? t('trade.submitBuy') : t('trade.submitSell')}</button>
+          <button class="btn btn--primary btn--block" type="button" id="order-submit" ${est.error ? 'disabled' : ''}>${t(`trade.submit${d.side[0].toUpperCase() + d.side.slice(1)}`)}</button>
           <p class="ticket__risk">${t('trade.feeNote', { fee: money(state.settings.commission, i18n.locale) })}</p>
           ${layout() === 'beginner' ? `<ul class="ticket__explain">
             <li>${t(`trade.explain.${d.side}.${d.type}`)}</li>
@@ -172,6 +250,7 @@ export function createTradeView(ctx, { ticker }) {
           <div class="ticket__advanced">
             <span>${t('trade.reservedCash', { value: money(reservedCash(state.orders, state.settings.commission), i18n.locale) })}</span>
             <span>${t('trade.spreadCost', { value: money(Math.max(0, quote.ask - quote.bid), i18n.locale) })}</span>
+            ${state.account.cash < 0 ? `<span>${t('trade.marginDebt', { value: money(-state.account.cash, i18n.locale) })}</span>` : ''}
           </div>`}
         </div>`,
     });
@@ -179,17 +258,23 @@ export function createTradeView(ctx, { ticker }) {
 
   function estimateHtml(state) {
     const est = ticketEstimate(state);
-    const buy = est.d.side === 'buy';
+    const buySide = est.d.side === 'buy' || est.d.side === 'cover';
+    const shortSide = est.d.side === 'short';
+    const conditional = est.d.type === 'stop' || est.d.type === 'trailing';
+    const trailingStop = est.d.type === 'trailing'
+      ? (buySide ? est.quote.last + Number(est.d.trail) : est.quote.last - Number(est.d.trail))
+      : est.stop;
     return `
       <div class="estimate-grid">
-        <div class="estimate-row"><span>${t('trade.estimatePrice')}</span><strong id="est-price">${money(est.estimate.execPrice, i18n.locale)}</strong></div>
+        <div class="estimate-row"><span>${conditional ? t('trade.estimateTrigger') : t('trade.estimatePrice')}</span><strong id="est-price">${money(conditional ? trailingStop : est.estimate.execPrice, i18n.locale)}</strong></div>
         <div class="estimate-row"><span>${t('trade.estimateGross')}</span><strong id="est-gross">${money(est.estimate.gross, i18n.locale)}</strong></div>
         <div class="estimate-row"><span>${t('trade.commission')}</span><strong id="est-fee">${money(est.estimate.fee, i18n.locale)}</strong></div>
-        <div class="estimate-row estimate-row--total"><span>${buy ? t('trade.estimateTotal') : t('trade.estimateNet')}</span><strong id="est-total">${money(est.estimate.total, i18n.locale)}</strong></div>
-        ${buy ? `<div class="estimate-row"><span>${t('trade.afterPower')}</span><strong id="est-after">${money(est.buyingPower - est.estimate.total, i18n.locale)}</strong></div>` : ''}
+        <div class="estimate-row estimate-row--total"><span>${buySide ? t('trade.estimateTotal') : t('trade.estimateNet')}</span><strong id="est-total">${money(est.estimate.total, i18n.locale)}</strong></div>
+        ${shortSide ? `<div class="estimate-row"><span>${t('trade.estimateMargin')}</span><strong>${money(est.estimate.gross * 0.5, i18n.locale)}</strong></div>` : ''}
+        ${buySide && !conditional ? `<div class="estimate-row"><span>${t('trade.afterPower')}</span><strong id="est-after">${money(est.buyingPower - est.estimate.total, i18n.locale)}</strong></div>` : ''}
       </div>
       ${est.error ? `<p class="inline-warning">${est.error}</p>` : ''}
-      <p class="estimate-note">${draft().type === 'limit' ? t('trade.estimateNoteLimit') : t('trade.estimateNoteMarket')}</p>`;
+      <p class="estimate-note">${conditional ? t('trade.estimateNoteConditional') : est.d.type === 'limit' ? t('trade.estimateNoteLimit') : t('trade.estimateNoteMarket')}</p>`;
   }
 
   function indicatorsCard(state) {
@@ -272,7 +357,7 @@ export function createTradeView(ctx, { ticker }) {
         <td><span class="side-tag side-tag--${order.side}">${t(`trade.${order.side}`)}</span></td>
         <td>${t(`trade.${order.type}Order`)}</td>
         <td class="num">${num(order.qty, i18n.locale, 0)}</td>
-        <td class="num">${order.limitPrice ? money(order.limitPrice, i18n.locale) : '—'}</td>
+        <td class="num">${order.limitPrice ? money(order.limitPrice, i18n.locale) : order.stopPrice ? money(order.stopPrice, i18n.locale) : '—'}</td>
         <td><span class="status-pill status-pill--${order.status}">${t(`order.status.${order.status}`)}</span></td>
         <td class="num">${order.fillPrice ? money(order.fillPrice, i18n.locale) : '—'}</td>
         <td class="num">${order.createdAt && Number.isFinite(order.createdAt.day) ? formatMarketDate(order.createdAt.day, i18n.locale) : '—'}</td>
@@ -284,7 +369,7 @@ export function createTradeView(ctx, { ticker }) {
       body: orders.length
         ? `<div class="table-wrap"><table class="table">
             <thead><tr>
-              <th>${t('trade.side')}</th><th>${t('trade.orderType')}</th><th>${t('trade.quantity')}</th><th>${t('trade.limitPrice')}</th>
+              <th>${t('trade.side')}</th><th>${t('trade.orderType')}</th><th>${t('trade.quantity')}</th><th>${t('trade.triggerPrice')}</th>
               <th>${t('trade.status')}</th><th>${t('trade.fillPrice')}</th><th>${t('trade.placed')}</th><th></th>
             </tr></thead>
             <tbody>${rows.join('')}</tbody>
@@ -308,7 +393,7 @@ export function createTradeView(ctx, { ticker }) {
                 <td class="num">${num(trade.qty, i18n.locale, 0)}</td>
                 <td class="num">${money(trade.price, i18n.locale)}</td>
                 <td class="num">${money(trade.fee, i18n.locale)}</td>
-                <td class="num ${trade.realized > 0 ? 'up' : trade.realized < 0 ? 'down' : ''}">${trade.side === 'sell' ? signedMoney(trade.realized, i18n.locale) : '—'}</td>
+                <td class="num ${trade.realized > 0 ? 'up' : trade.realized < 0 ? 'down' : ''}">${trade.side === 'sell' || trade.side === 'cover' ? signedMoney(trade.realized, i18n.locale) : '—'}</td>
                 <td class="num">${formatMarketDate(trade.day, i18n.locale)}</td>
               </tr>`).join('')}</tbody>
           </table></div>`
@@ -316,10 +401,54 @@ export function createTradeView(ctx, { ticker }) {
     });
   }
 
+  function depthCard(state) {
+    if (!isToolUnlocked(state, 'market.depth')) {
+      return card({
+        title: t('trade.depthTitle'),
+        subtitle: t('trade.depthSubtitle'),
+        body: `<p class="muted">${t('trade.depthLocked')}</p>
+          <button class="btn btn--ghost btn--sm" type="button" data-go="/academy/u20/s1">${t('trade.depthUnlock')}</button>`,
+      });
+    }
+    const quote = state.market.quotes[symbol];
+    const book = buildOrderBook(quote, { levels: 5 });
+    const est = ticketEstimate(state);
+    const buySide = est.d.side === 'buy' || est.d.side === 'cover';
+    const fill = estimateMarketFill(book, buySide ? 'buy' : 'sell', Math.max(1, est.qty));
+    const rows = [
+      ...book.asks.slice().reverse().map((level) => ({ ...level, side: 'ask' })),
+      ...book.bids.map((level) => ({ ...level, side: 'bid' })),
+    ];
+    return card({
+      title: t('trade.depthTitle'),
+      subtitle: t('trade.depthSubtitle'),
+      actions: `<span class="pill">${t('trade.depthLevels', { count: 5 })}</span>`,
+      body: `
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>${t('trade.side')}</th><th>${t('trade.price')}</th><th>${t('trade.depthSize')}</th></tr></thead>
+          <tbody>${rows.map((row) => `<tr>
+            <td><span class="side-tag side-tag--${row.side === 'ask' ? 'sell' : 'buy'}">${row.side === 'ask' ? t('demo.orderBook.ask') : t('demo.orderBook.bid')}</span></td>
+            <td class="num">${money(row.price, i18n.locale)}</td>
+            <td class="num">${num(row.size, i18n.locale, 0)}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        <div class="estimate-grid">
+          <div class="estimate-row"><span>${t('trade.depthAvg')}</span><strong>${fill.filledQty ? money(fill.avgPrice, i18n.locale) : '—'}</strong></div>
+          <div class="estimate-row"><span>${t('trade.depthSlippage')}</span><strong>${pct(fill.slippagePct, i18n.locale, 2, false)}</strong></div>
+          <div class="estimate-row"><span>${t('trade.depthFilled')}</span><strong>${num(fill.filledQty, i18n.locale, 0)} / ${num(est.qty, i18n.locale, 0)}</strong></div>
+        </div>
+        <p class="chart-note muted">${t('trade.depthNote')}</p>`,
+    });
+  }
+
   function template(state) {
     const advanced = layout() === 'advanced';
     const position = positionOf(state.account, symbol);
     const available = unlockedCompanies(state);
+    const quote = state.market.quotes[symbol];
+    const positionPnl = position.qty > 0
+      ? position.qty * quote.last - position.costBasis
+      : position.costBasis + position.qty * quote.last;
     return `
       <div class="trade-page">
         ${pageHead({
@@ -342,18 +471,18 @@ export function createTradeView(ctx, { ticker }) {
           ${chartCard(state)}
           ${ticketCard(state)}
         </div>
-        ${position.qty > 0 ? `
+        ${position.qty !== 0 ? `
         <div class="position-strip">
-          <div><span class="muted">${t('trade.positionLabel')}</span><strong>${num(position.qty, i18n.locale, 0)} × ${money(position.avgCost, i18n.locale)}</strong></div>
-          <div><span class="muted">${t('trade.positionValue')}</span><strong>${money(position.qty * state.market.quotes[symbol].last, i18n.locale)}</strong></div>
-          <div><span class="muted">${t('trade.positionPnl')}</span><strong class="${position.qty * state.market.quotes[symbol].last - position.costBasis >= 0 ? 'up' : 'down'}">${signedMoney(position.qty * state.market.quotes[symbol].last - position.costBasis, i18n.locale)}</strong></div>
+          <div><span class="muted">${t('trade.positionLabel')} · ${t(`trade.${position.side}`)}</span><strong>${num(Math.abs(position.qty), i18n.locale, 0)} × ${money(position.avgCost, i18n.locale)}</strong></div>
+          <div><span class="muted">${t('trade.positionValue')}</span><strong>${money(position.qty * quote.last, i18n.locale)}</strong></div>
+          <div><span class="muted">${t('trade.positionPnl')}</span><strong class="${positionPnl >= 0 ? 'up' : 'down'}">${signedMoney(positionPnl, i18n.locale)}</strong></div>
           <button class="link-btn" type="button" data-go="/portfolio">${t('portfolio.title')} ${icon('arrowRight', { size: 14 })}</button>
         </div>` : ''}
         <div class="trade-lower">
           ${ordersCard(state)}
           ${tradesCard(state)}
         </div>
-        ${layout() === 'advanced' ? `<div class="trade-lower">${indicatorsCard(state)}${financialsCard(state)}</div>` : ''}
+        ${advanced ? `<div class="trade-lower">${indicatorsCard(state)}${financialsCard(state)}</div>${depthCard(state)}` : ''}
         <div class="trade-bottom">
           ${companyCard(state)}
           <div class="aside-block aside-block--tip trade-tip">
@@ -374,8 +503,12 @@ export function createTradeView(ctx, { ticker }) {
     const position = positionOf(state.account, symbol);
     chart.setData({
       candles,
-      markers: position.qty > 0
-        ? [{ value: position.avgCost, label: t('trade.avgCostMarker'), color: 'rgba(245,183,80,0.85)' }]
+      markers: position.qty !== 0
+        ? [{
+          value: position.avgCost,
+          label: position.side === 'short' ? t('trade.shortMarker') : t('trade.avgCostMarker'),
+          color: position.side === 'short' ? 'rgba(244,114,182,0.9)' : 'rgba(245,183,80,0.85)',
+        }]
         : [],
       labels: [
         formatMarketDate(history[0].d, i18n.locale),
@@ -430,7 +563,13 @@ export function createTradeView(ctx, { ticker }) {
     });
     container.querySelectorAll('[data-side]').forEach((button) => {
       button.addEventListener('click', () => {
-        draft().side = button.dataset.side;
+        const d = draft();
+        d.side = button.dataset.side;
+        if (d.type === 'stop') {
+          const q = store.get().market.quotes[symbol];
+          const above = d.side === 'buy' || d.side === 'cover';
+          d.stop = (q.last * (above ? 1.05 : 0.95)).toFixed(2);
+        }
         render(store.get());
       });
     });
@@ -440,7 +579,18 @@ export function createTradeView(ctx, { ticker }) {
           openLockedToolModal('order.limit');
           return;
         }
-        draft().type = button.dataset.type;
+        if ((button.dataset.type === 'stop' || button.dataset.type === 'trailing')
+          && !isToolUnlocked(store.get(), 'order.stop')) {
+          openLockedToolModal('order.stop');
+          return;
+        }
+        const d = draft();
+        d.type = button.dataset.type;
+        if (d.type === 'stop') {
+          const q = store.get().market.quotes[symbol];
+          const above = d.side === 'buy' || d.side === 'cover';
+          d.stop = (q.last * (above ? 1.05 : 0.95)).toFixed(2);
+        }
         render(store.get());
       });
     });
@@ -453,12 +603,14 @@ export function createTradeView(ctx, { ticker }) {
         const quote = store.get().market.quotes[symbol];
         const fee = store.get().settings.commission;
         const price = est.d.type === 'market'
-          ? (est.d.side === 'buy' ? quote.ask : quote.bid)
-          : Number(est.d.limit) || 0;
+          ? (est.d.side === 'buy' || est.d.side === 'cover' ? quote.ask : quote.bid)
+          : est.d.type === 'limit' ? Number(est.d.limit) || 0 : quote.last;
         if (price <= 0) return;
-        const max = est.d.side === 'buy'
-          ? Math.max(0, Math.floor((est.buyingPower - fee) / price))
-          : est.sellable;
+        let max = 0;
+        if (est.d.side === 'buy') max = Math.max(0, Math.floor((est.buyingPower - fee) / price));
+        else if (est.d.side === 'sell') max = est.sellable;
+        else if (est.d.side === 'short') max = est.shortable;
+        else if (est.d.side === 'cover') max = est.shortShares;
         draft().qty = String(max);
         const input = container.querySelector('#order-qty');
         if (input) input.value = String(max);
@@ -475,12 +627,29 @@ export function createTradeView(ctx, { ticker }) {
         refreshEstimate(store.get());
       });
     });
+    container.querySelectorAll('[data-stop]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const q = store.get().market.quotes[symbol];
+        draft().stop = q.last.toFixed(2);
+        const input = container.querySelector('#order-stop');
+        if (input) input.value = draft().stop;
+        refreshEstimate(store.get());
+      });
+    });
     container.querySelector('#order-qty')?.addEventListener('input', (event) => {
       draft().qty = event.target.value;
       refreshEstimate(store.get());
     });
     container.querySelector('#order-limit')?.addEventListener('input', (event) => {
       draft().limit = event.target.value;
+      refreshEstimate(store.get());
+    });
+    container.querySelector('#order-stop')?.addEventListener('input', (event) => {
+      draft().stop = event.target.value;
+      refreshEstimate(store.get());
+    });
+    container.querySelector('#order-trail')?.addEventListener('input', (event) => {
+      draft().trail = event.target.value;
       refreshEstimate(store.get());
     });
     container.querySelector('#order-submit')?.addEventListener('click', () => {
@@ -496,6 +665,8 @@ export function createTradeView(ctx, { ticker }) {
         type: est.d.type,
         qty: est.qty,
         limitPrice: est.limit,
+        stopPrice: est.stop,
+        trailAmount: est.trail,
       });
       if (outcome?.ok) {
         if (outcome.order?.status === ORDER_STATUS.open) {

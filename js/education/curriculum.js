@@ -1,6 +1,6 @@
 /**
  * Curriculum definition: stages, units, lesson sections, practice tasks and unlocks.
- * Phase 1 fully implements Stage 1 (units 1-4). Later stages are intentionally
+ * Stages 1-5 (Unit 1-20) are fully implemented. Later stages are intentionally
  * declared as `implemented: false` so the game never pretends they are playable.
  */
 
@@ -1103,6 +1103,249 @@ const UNIT_16 = {
 
 export const STAGE_1_UNITS = [UNIT_1, UNIT_2, UNIT_3, UNIT_4];
 
+const UNIT_17 = {
+  id: 'u17',
+  number: 17,
+  stageId: 'stage5',
+  implemented: true,
+  titleKey: 'curriculum.u17.title',
+  summaryKey: 'curriculum.u17.summary',
+  minutes: 16,
+  prerequisites: ['u16'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u17.s1.title',
+      blocks: [
+        p('lesson.u17.s1.p1'),
+        p('lesson.u17.s1.p2'),
+        term('shortSelling'),
+        example('lesson.u17.s1.example.title', ['lesson.u17.s1.example.l1', 'lesson.u17.s1.example.l2']),
+        callout('warning', 'lesson.u17.s1.warn.title', 'lesson.u17.s1.warn.text'),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u17.s2.title',
+      blocks: [
+        p('lesson.u17.s2.p1'),
+        p('lesson.u17.s2.p2'),
+        list('lesson.u17.s2.list.title', [
+          'lesson.u17.s2.list.i1',
+          'lesson.u17.s2.list.i2',
+          'lesson.u17.s2.list.i3',
+        ]),
+        demo('shortPnl'),
+        callout('info', 'lesson.u17.s2.info.title', 'lesson.u17.s2.info.text'),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u17.s3.title',
+      blocks: [
+        p('lesson.u17.s3.p1'),
+        p('lesson.u17.s3.p2'),
+        example('lesson.u17.s3.example.title', ['lesson.u17.s3.example.l1', 'lesson.u17.s3.example.l2']),
+        callout('pro', 'lesson.u17.s3.pro.title', 'lesson.u17.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u17-p1',
+    check: 'short-round-trip',
+    titleKey: 'practice.u17.title',
+    requirementKey: 'practice.u17.requirement',
+    hintKey: 'practice.u17.hint',
+    actionKey: 'practice.u17.action',
+    actionHref: '#/market',
+  },
+  quiz: { id: 'u17', passScore: 80 },
+};
+
+const UNIT_18 = {
+  id: 'u18',
+  number: 18,
+  stageId: 'stage5',
+  implemented: true,
+  titleKey: 'curriculum.u18.title',
+  summaryKey: 'curriculum.u18.summary',
+  minutes: 16,
+  prerequisites: ['u17'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u18.s1.title',
+      blocks: [
+        p('lesson.u18.s1.p1'),
+        p('lesson.u18.s1.p2'),
+        term('margin'),
+        example('lesson.u18.s1.example.title', ['lesson.u18.s1.example.l1', 'lesson.u18.s1.example.l2']),
+        demo('margin'),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u18.s2.title',
+      blocks: [
+        p('lesson.u18.s2.p1'),
+        p('lesson.u18.s2.p2'),
+        formula('lesson.u18.s2.formula', 'lesson.u18.s2.note'),
+        list('lesson.u18.s2.list.title', [
+          'lesson.u18.s2.list.i1',
+          'lesson.u18.s2.list.i2',
+          'lesson.u18.s2.list.i3',
+        ]),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u18.s3.title',
+      blocks: [
+        p('lesson.u18.s3.p1'),
+        p('lesson.u18.s3.p2'),
+        term('marginCall'),
+        example('lesson.u18.s3.example.title', ['lesson.u18.s3.example.l1', 'lesson.u18.s3.example.l2']),
+        callout('danger', 'lesson.u18.s3.warn.title', 'lesson.u18.s3.warn.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u18-p1',
+    check: 'demo',
+    demoId: 'margin',
+    titleKey: 'practice.u18.title',
+    requirementKey: 'practice.u18.requirement',
+    hintKey: 'practice.u18.hint',
+    actionKey: 'practice.u18.action',
+    actionHref: '#/academy/u18/s1',
+  },
+  quiz: { id: 'u18', passScore: 80 },
+};
+
+const UNIT_19 = {
+  id: 'u19',
+  number: 19,
+  stageId: 'stage5',
+  implemented: true,
+  titleKey: 'curriculum.u19.title',
+  summaryKey: 'curriculum.u19.summary',
+  minutes: 15,
+  prerequisites: ['u18'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u19.s1.title',
+      blocks: [
+        p('lesson.u19.s1.p1'),
+        p('lesson.u19.s1.p2'),
+        term('stopOrder'),
+        example('lesson.u19.s1.example.title', ['lesson.u19.s1.example.l1', 'lesson.u19.s1.example.l2']),
+        demo('stopOrder'),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u19.s2.title',
+      blocks: [
+        p('lesson.u19.s2.p1'),
+        p('lesson.u19.s2.p2'),
+        term('trailingStop'),
+        example('lesson.u19.s2.example.title', ['lesson.u19.s2.example.l1', 'lesson.u19.s2.example.l2']),
+        list('lesson.u19.s2.list.title', [
+          'lesson.u19.s2.list.i1',
+          'lesson.u19.s2.list.i2',
+          'lesson.u19.s2.list.i3',
+        ]),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u19.s3.title',
+      blocks: [
+        p('lesson.u19.s3.p1'),
+        p('lesson.u19.s3.p2'),
+        callout('warning', 'lesson.u19.s3.warn.title', 'lesson.u19.s3.warn.text'),
+        example('lesson.u19.s3.example.title', ['lesson.u19.s3.example.l1', 'lesson.u19.s3.example.l2']),
+        callout('pro', 'lesson.u19.s3.pro.title', 'lesson.u19.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u19-p1',
+    check: 'stop-fill',
+    titleKey: 'practice.u19.title',
+    requirementKey: 'practice.u19.requirement',
+    hintKey: 'practice.u19.hint',
+    actionKey: 'practice.u19.action',
+    actionHref: '#/market',
+  },
+  quiz: { id: 'u19', passScore: 80 },
+};
+
+const UNIT_20 = {
+  id: 'u20',
+  number: 20,
+  stageId: 'stage5',
+  implemented: true,
+  titleKey: 'curriculum.u20.title',
+  summaryKey: 'curriculum.u20.summary',
+  minutes: 15,
+  prerequisites: ['u19'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u20.s1.title',
+      blocks: [
+        p('lesson.u20.s1.p1'),
+        p('lesson.u20.s1.p2'),
+        term('orderBook'),
+        example('lesson.u20.s1.example.title', ['lesson.u20.s1.example.l1', 'lesson.u20.s1.example.l2']),
+        demo('orderBook'),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u20.s2.title',
+      blocks: [
+        p('lesson.u20.s2.p1'),
+        p('lesson.u20.s2.p2'),
+        term('liquidity'),
+        list('lesson.u20.s2.list.title', [
+          'lesson.u20.s2.list.i1',
+          'lesson.u20.s2.list.i2',
+          'lesson.u20.s2.list.i3',
+        ]),
+        callout('warning', 'lesson.u20.s2.warn.title', 'lesson.u20.s2.warn.text'),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u20.s3.title',
+      blocks: [
+        p('lesson.u20.s3.p1'),
+        p('lesson.u20.s3.p2'),
+        example('lesson.u20.s3.example.title', ['lesson.u20.s3.example.l1', 'lesson.u20.s3.example.l2']),
+        callout('pro', 'lesson.u20.s3.pro.title', 'lesson.u20.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u20-p1',
+    check: 'demo',
+    demoId: 'orderBook',
+    titleKey: 'practice.u20.title',
+    requirementKey: 'practice.u20.requirement',
+    hintKey: 'practice.u20.hint',
+    actionKey: 'practice.u20.action',
+    actionHref: '#/academy/u20/s1',
+  },
+  quiz: { id: 'u20', passScore: 80 },
+};
+
 const plannedUnit = (number, titleKey, summaryKey) => ({
   id: `u${number}`,
   number,
@@ -1115,6 +1358,7 @@ const plannedUnit = (number, titleKey, summaryKey) => ({
 export const STAGE_2_UNITS = [UNIT_5, UNIT_6, UNIT_7, UNIT_8];
 export const STAGE_3_UNITS = [UNIT_9, UNIT_10, UNIT_11, UNIT_12];
 export const STAGE_4_UNITS = [UNIT_13, UNIT_14, UNIT_15, UNIT_16];
+export const STAGE_5_UNITS = [UNIT_17, UNIT_18, UNIT_19, UNIT_20];
 
 export const STAGES = [
   {
@@ -1156,15 +1400,10 @@ export const STAGES = [
     id: 'stage5',
     number: 5,
     phase: 3,
-    implemented: false,
+    implemented: true,
     titleKey: 'stage.stage5.title',
     summaryKey: 'stage.stage5.summary',
-    units: [
-      plannedUnit(17, 'curriculum.u17.title', 'curriculum.u17.summary'),
-      plannedUnit(18, 'curriculum.u18.title', 'curriculum.u18.summary'),
-      plannedUnit(19, 'curriculum.u19.title', 'curriculum.u19.summary'),
-      plannedUnit(20, 'curriculum.u20.title', 'curriculum.u20.summary'),
-    ],
+    units: STAGE_5_UNITS,
   },
   {
     id: 'stage6',

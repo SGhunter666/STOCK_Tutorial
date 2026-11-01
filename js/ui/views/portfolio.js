@@ -9,6 +9,7 @@ import { LineChart } from '../chart.js';
 import { portfolioSummary, sectorAllocation } from '../../trading/portfolio.js';
 import { dividendIncome } from '../../market/dividends.js';
 import { portfolioAnalytics } from '../../trading/analytics.js';
+import { marginStatus } from '../../trading/margin.js';
 import { COMPANIES } from '../../data/companies.js';
 import { formatMarketDate } from '../../market/calendar.js';
 import { companyName, sectorLabel, POSITION_COLORS } from '../labels.js';
@@ -132,7 +133,7 @@ export function createPortfolioView(ctx) {
             <tbody>
               ${summary.rows.map((row) => `
                 <tr data-row="${row.ticker}">
-                  <td><span class="ticker-cell"><strong>${row.ticker}</strong><span>${companyName(ctx, row.ticker)}</span></span></td>
+                  <td><span class="ticker-cell"><strong>${row.ticker}</strong><span>${companyName(ctx, row.ticker)}${row.side === 'short' ? ` · ${t('trade.short')}` : ''}</span></span></td>
                   <td class="num">${num(row.qty, i18n.locale, 0)}</td>
                   <td class="num">${money(row.avgCost, i18n.locale)}</td>
                   <td class="num" data-cell="last">${money(row.last, i18n.locale)}</td>
@@ -171,7 +172,7 @@ export function createPortfolioView(ctx) {
                 <td class="num">${num(trade.qty, i18n.locale, 0)}</td>
                 <td class="num">${money(trade.price, i18n.locale)}</td>
                 <td class="num">${money(trade.fee, i18n.locale)}</td>
-                <td class="num ${trade.realized > 0 ? 'up' : trade.realized < 0 ? 'down' : ''}">${trade.side === 'sell' ? signedMoney(trade.realized, i18n.locale) : '—'}</td>
+                <td class="num ${trade.realized > 0 ? 'up' : trade.realized < 0 ? 'down' : ''}">${trade.side === 'sell' || trade.side === 'cover' ? signedMoney(trade.realized, i18n.locale) : '—'}</td>
                 <td class="num">${formatMarketDate(trade.day, i18n.locale)}</td>
               </tr>`).join('')}
             </tbody>
@@ -195,7 +196,7 @@ export function createPortfolioView(ctx) {
                 <td>${row.ticker}</td>
                 <td class="num">${num(row.qty, i18n.locale, 0)}</td>
                 <td class="num">${money(row.perShare, i18n.locale)}</td>
-                <td class="num up">${money(row.amount, i18n.locale)}</td>
+                <td class="num ${row.amount > 0 ? 'up' : 'down'}">${signedMoney(row.amount, i18n.locale)}</td>
               </tr>`).join('')}</tbody>
           </table></div>`
         : `<p class="muted">${t('portfolio.noDividends')}</p>`,
@@ -204,6 +205,11 @@ export function createPortfolioView(ctx) {
 
   function riskCard(state, summary) {
     const analytics = portfolioAnalytics(state.account, state.market.quotes, summary.total);
+    const status = marginStatus(state.account, state.market.quotes);
+    const marginRows = status.leveraged ? `
+          <tr><td>${t('portfolio.marginDebt')}</td><td class="num">${money(status.debt, i18n.locale)}</td></tr>
+          <tr><td>${t('portfolio.financingPaid')}</td><td class="num">${money(state.account.financingPaid || 0, i18n.locale)}</td></tr>
+          <tr><td>${t('portfolio.marginCalls')}</td><td class="num">${num((state.account.marginCalls || []).length, i18n.locale, 0)}</td></tr>` : '';
     return card({
       title: t('portfolio.riskTitle'),
       subtitle: t('portfolio.riskSubtitle'),
@@ -214,6 +220,7 @@ export function createPortfolioView(ctx) {
           <tr><td>${t('portfolio.exposure')}</td><td class="num">${pct(analytics.exposure * 100, i18n.locale, 1, false)}</td></tr>
           <tr><td>${t('portfolio.topWeight')}</td><td class="num">${analytics.topTicker ? `${analytics.topTicker} · ${pct(analytics.topWeight * 100, i18n.locale, 1, false)}` : '—'}</td></tr>
           <tr><td>${t('portfolio.concentration')}</td><td class="num">${num(analytics.hhi, i18n.locale, 3)}</td></tr>
+          ${marginRows}
         </tbody></table></div>
         <p class="muted">${analytics.samples < 3 ? t('portfolio.riskNoHistory') : t('portfolio.riskNote')}</p>`,
     });

@@ -72,7 +72,15 @@
     "sectionUnknown": "That lesson section was not found.",
     "viewFailed": "This page failed to load",
     "viewFailedText": "Refresh the page to try again. Your progress and trades are saved automatically.",
-    "benchmarkNotTradable": "QQQ is the benchmark and cannot be traded."
+    "benchmarkNotTradable": "QQQ is the benchmark and cannot be traded.",
+    "positionIsShort": "This stock already has a short position; use Cover.",
+    "positionIsLong": "This stock already has a long position; use Sell.",
+    "noShortPosition": "There is no short position to cover.",
+    "insufficientShortShares": "Not enough short shares available to cover.",
+    "insufficientMargin": "Insufficient collateral to open a short that large.",
+    "stopDirection": "The trigger must sit on the correct side of the market.",
+    "shortLocked": "Short selling is locked. Read section 1 of Unit 17 first.",
+    "stopLocked": "Stop orders are locked. Read section 1 of Unit 19 first."
   },
   "toast": {
     "welcome": "Welcome to Stock Market Academy. Start with the first lesson and practise real market logic with virtual money.",
@@ -96,7 +104,10 @@
     "quizFailed": "You scored {score}%, below the pass mark. Review the explanations and try again.",
     "exported": "Save file exported.",
     "importOk": "Save validated. Reloading now.",
-    "importInvalid": "This save could not be imported ({reason})."
+    "importInvalid": "This save could not be imported ({reason}).",
+    "dividendOwed": "Short dividend owed {amount} across {count} positions",
+    "financingCharged": "Financing interest charged {amount}",
+    "marginCall": "Margin call: {count} positions were liquidated"
   },
   "stage": {
     "stage1": {
@@ -199,19 +210,19 @@
     },
     "u17": {
       "title": "Short Selling",
-      "summary": "Borrowing stock, closing the short, borrow costs and short squeezes."
+      "summary": "Borrow, sell, buy back lower: profits, costs and unlimited risk."
     },
     "u18": {
-      "title": "Margin and Leverage",
-      "summary": "Margin accounts, borrowing to buy, margin interest, maintenance margin and forced liquidation."
+      "title": "Margin & Financing",
+      "summary": "Margin accounts, leverage, financing interest and forced liquidation."
     },
     "u19": {
-      "title": "Advanced Orders",
-      "summary": "Stop orders, stop-limit, trailing stops, OCO and slippage."
+      "title": "Stops & Trailing Stops",
+      "summary": "Stop orders, trailing stops and execution risk after a trigger."
     },
     "u20": {
-      "title": "Market Mechanics",
-      "summary": "Order books, quotes, liquidity, market impact and volume."
+      "title": "Order Book & Liquidity",
+      "summary": "Bids, asks, spread, depth and slippage."
     },
     "u21": {
       "title": "Introduction to Options",
@@ -1329,6 +1340,177 @@
           "text": "Switch the 30 / 60 / 90 session window in the strategy demo and compare the four styles; this is simulated history, not a promise."
         }
       }
+    },
+    "u17": {
+      "s1": {
+        "title": "How short selling works",
+        "p1": "Short selling borrows shares and sells them, hoping to buy them back lower. You profit from the gap between the sale price and the repurchase price, not from company growth.",
+        "p2": "The flow: borrow from the broker, sell at market, buy back (cover) after a decline, then return the shares and pay borrowing costs. Until you cover, you owe those shares.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Short 100 shares at $50 and receive $5,000.",
+          "l2": "Cover at $40 for $4,000, locking in $1,000 before costs."
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Short losses have no theoretical ceiling because the price can rise far above your sale price. Insufficient margin triggers forced liquidation."
+        }
+      },
+      "s2": {
+        "title": "Costs and collateral",
+        "p1": "Short proceeds are usually not free to spend; they serve as collateral. The broker also requires extra margin to cover the risk of a rising price.",
+        "p2": "Borrowing shares has a fee, and if the company pays a dividend the short seller owes it. A rising price erodes collateral and can trigger a margin call.",
+        "list": {
+          "title": "Main costs of a short",
+          "i1": "Stock borrow fee",
+          "i2": "Dividends owed",
+          "i3": "Collateral lock-up and financing cost"
+        },
+        "info": {
+          "title": "Simplified in this game",
+          "text": "The simulation requires 50% of the short market value as collateral. Dividends are deducted as a liability; the borrow fee is not charged separately yet."
+        }
+      },
+      "s3": {
+        "title": "When to cover",
+        "p1": "You can cover voluntarily, or the broker can force a buy-in when margin runs short. Planning the stop and position size matters more than calling the exact top.",
+        "p2": "Shorting expresses an overvaluation view or hedges a long, but it is a poor long-term hold: borrow costs, dividends and squeeze risk keep accumulating.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Short $2,000 of stock; a 50% rally loses $1,000.",
+          "l2": "If that position used only 50% collateral, account equity is hit hard."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Shorts usually pair with strict stops and event-driven research. In illiquid names, a short squeeze can make covering dramatically more expensive."
+        }
+      }
+    },
+    "u18": {
+      "s1": {
+        "title": "Margin accounts and leverage",
+        "p1": "A margin account lets you borrow cash to buy more stock, and uses short proceeds as collateral. Leverage magnifies both gains and losses.",
+        "p2": "Initial margin sets how large a position you may open; maintenance margin is the minimum equity the account must retain.",
+        "example": {
+          "title": "Worked example",
+          "l1": "With $10,000 of your own cash, buy $15,000 of stock using a $5,000 loan: 1.5x leverage.",
+          "l2": "A 10% price drop loses about $1,500 of equity, which is 15% of your own cash."
+        }
+      },
+      "s2": {
+        "title": "Financing interest",
+        "p1": "The debit balance accrues interest daily, usually by converting an annual rate to each trading day. The longer you hold, the more interest accumulates.",
+        "p2": "Interest directly reduces cash and equity. Even with a flat price, a leveraged position slowly bleeds.",
+        "formula": "Daily interest = debit balance × annual rate ÷ 252",
+        "note": "This simulation uses an 8% annual rate and 252 trading days as a teaching assumption.",
+        "list": {
+          "title": "What drives financing cost",
+          "i1": "Size of the debit balance",
+          "i2": "Annual interest rate",
+          "i3": "Holding period in days"
+        }
+      },
+      "s3": {
+        "title": "Maintenance and forced liquidation",
+        "p1": "When equity falls below the maintenance requirement the account gets a margin call. If it cannot be met, the broker forces positions to be sold.",
+        "p2": "Forced liquidation usually happens at an unfavourable price, turning paper losses into permanent ones. Higher leverage makes the trigger easier to hit.",
+        "example": {
+          "title": "Worked example",
+          "l1": "After a margin purchase, the stock falls 35%.",
+          "l2": "Equity may fall below the maintenance requirement and all positions are liquidated."
+        },
+        "warn": {
+          "title": "Leverage cuts both ways",
+          "text": "Leverage does not raise your win rate; it only amplifies outcomes. Start small to learn how interest and liquidation work."
+        }
+      }
+    },
+    "u19": {
+      "s1": {
+        "title": "Stop orders",
+        "p1": "A stop order becomes a market order once the trigger price is reached. Sell stops protect longs; buy stops protect shorts.",
+        "p2": "Place the trigger where you genuinely accept that the thesis is wrong, not at an arbitrary level. The fill can differ from the trigger.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Buy at $100 and place a sell stop at $92.",
+          "l2": "When the price falls through $92 the order triggers and fills at the prevailing bid."
+        }
+      },
+      "s2": {
+        "title": "Trailing stops",
+        "p1": "A trailing stop tightens as the price moves favourably but never loosens. It combines letting profits run with locking in part of the gain.",
+        "p2": "The trail can be set as a dollar amount. Volatile stocks need a wider distance, otherwise normal noise knocks you out.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Buy at $100 with a $6 trail; at $120 the stop moves up to $114.",
+          "l2": "A pullback triggers the exit but still locks in $14 before costs."
+        },
+        "list": {
+          "title": "Before setting a trailing stop",
+          "i1": "Check the volatility",
+          "i2": "Avoid an overly tight distance",
+          "i3": "Accept slippage after the trigger"
+        }
+      },
+      "s3": {
+        "title": "Execution, gaps and slippage",
+        "p1": "A stop order does not guarantee the stop price. On a gap down or with thin liquidity, the fill can be materially worse.",
+        "p2": "A stop-limit can cap the price but may not fill at all; a market stop guarantees an exit but not a price.",
+        "warn": {
+          "title": "Risk note",
+          "text": "In extreme conditions stops trigger together and slippage widens. Never treat a stop as risk-free insurance."
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "The stop is at $50, but the next open gaps to $42.",
+          "l2": "The market stop fills near $42, far below the trigger."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Use position size to absorb gap risk and stops to limit everyday drawdown; they cannot replace each other."
+        }
+      }
+    },
+    "u20": {
+      "s1": {
+        "title": "The order book and the spread",
+        "p1": "The order book lists bids and asks by price. The gap between the best bid and the best ask is the spread.",
+        "p2": "The spread is the immediate cost of trading. Better liquidity usually means a tighter spread; small or obscure names trade wider.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Bid $49.99 and ask $50.01: the spread is $0.02.",
+          "l2": "Buying 100 shares immediately costs about $2 in spread."
+        }
+      },
+      "s2": {
+        "title": "Depth, liquidity and slippage",
+        "p1": "Depth is the quantity available at each price. A large order eats several levels, so the average fill moves away from the best quote: that is slippage.",
+        "p2": "Liquidity also depends on time, news and volatility. Around the open, the close and major events, depth can thin out quickly.",
+        "list": {
+          "title": "Signals to watch",
+          "i1": "Bid-ask spread",
+          "i2": "Size at each level",
+          "i3": "Volume and volatility"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "This simulated book is derived from the quote for teaching. Real depth changes quickly and includes hidden orders."
+        }
+      },
+      "s3": {
+        "title": "Large orders and market impact",
+        "p1": "Orders larger than visible depth push the price up (or down). Slicing orders, using limits and spreading execution over time reduce impact.",
+        "p2": "Limit orders protect price but may only fill partially; market orders prioritise completion and pay with slippage.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Buy 2,500 shares when the first two levels hold only 1,500.",
+          "l2": "The remaining 1,000 keep lifting offers, so the average price sits above the best ask."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Evaluate both price and probability of completion. Large capital cares more about market impact than a single commission."
+        }
+      }
     }
   },
   "practice": {
@@ -1446,6 +1628,30 @@
       "requirement": "Switch the 30 / 60 / 90 session window in the strategy demo and compare the four styles.",
       "hint": "Switching any window records completion; the demo uses simulated history, not a real backtest.",
       "action": "Open the strategy lesson"
+    },
+    "u17": {
+      "title": "Open and cover a short",
+      "requirement": "Short at least 1 share of any unlocked stock and cover the entire position.",
+      "hint": "Choose Short on the trading page, then Cover after the fill. Short selling must be unlocked in the course first.",
+      "action": "Go short"
+    },
+    "u18": {
+      "title": "Complete the margin lab",
+      "requirement": "Adjust cash, price or shares in the margin demo and watch the loan, leverage and interest change.",
+      "hint": "Changing any input records the demo.",
+      "action": "Open the margin lesson"
+    },
+    "u19": {
+      "title": "Get a stop order filled",
+      "requirement": "Submit a stop or trailing-stop order and wait for it to trigger and fill.",
+      "hint": "Open a long first, then place a sell stop below the market and advance the clock until it triggers.",
+      "action": "Go trading"
+    },
+    "u20": {
+      "title": "Complete the order book lab",
+      "requirement": "Switch stocks or change the order size in the order book demo to see spread, depth and slippage.",
+      "hint": "Switching the stock or entering a larger quantity records the demo.",
+      "action": "Open the order book lesson"
     }
   },
   "quiz": {
@@ -2073,6 +2279,130 @@
         "o4": "Stable and sustainable cash dividends",
         "explain": "Dividend strategies focus on cash returns, but must check whether the payout is sustainable."
       }
+    },
+    "u17": {
+      "q1": {
+        "prompt": "What is the basic sequence of a short sale?",
+        "o1": "Buy shares and wait for a rally",
+        "o2": "Borrow shares, sell them, then buy them back and return them",
+        "o3": "Buy a put option",
+        "o4": "Issue new shares to the company",
+        "explain": "A short sells borrowed shares first, then buys them back cheaper; the difference is the gross profit."
+      },
+      "q2": {
+        "prompt": "What is the defining risk of a short position?",
+        "o1": "Losses are fixed and limited",
+        "o2": "The maximum loss equals the collateral",
+        "o3": "Losses are unlimited as the price rises",
+        "o4": "It can only be held for one day",
+        "explain": "A price can theoretically rise without limit, so short losses have no ceiling."
+      },
+      "q3": {
+        "prompt": "Which costs can a short position create?",
+        "o1": "Stock borrow fees",
+        "o2": "Dividends owed",
+        "o3": "Receiving company dividends",
+        "o4": "Collateral lock-up",
+        "explain": "Borrowing costs a fee, dividends must be paid, and collateral is tied up."
+      },
+      "q4": {
+        "prompt": "Short {qty} shares at {entry}, then cover at {exit}. Ignoring fees, what is the realised P&L in dollars?",
+        "work": "P&L = ({entry} − {exit}) × {qty} = {answer}.",
+        "explain": "Short P&L = (sale price − repurchase price) × shares."
+      }
+    },
+    "u18": {
+      "q1": {
+        "prompt": "What is the core purpose of a margin account?",
+        "o1": "Removing commissions",
+        "o2": "Borrowing cash or securities to enlarge positions",
+        "o3": "Guaranteeing profits",
+        "o4": "Eliminating slippage",
+        "explain": "A margin account borrows cash or securities, enlarging both gains and losses."
+      },
+      "q2": {
+        "prompt": "How is financing interest normally charged?",
+        "o1": "Once, only when selling",
+        "o2": "Daily on the debit balance at an annual rate",
+        "o3": "Only when the position is profitable",
+        "o4": "It does not depend on holding time",
+        "explain": "Interest accrues daily as debit balance × annual rate ÷ trading days."
+      },
+      "q3": {
+        "prompt": "Which factors raise financing cost?",
+        "o1": "A larger debit balance",
+        "o2": "A higher annual rate",
+        "o3": "A longer holding period",
+        "o4": "Lower price volatility",
+        "explain": "Balance, rate and time all raise cost; lower volatility does not."
+      },
+      "q4": {
+        "prompt": "A debit balance of {debit} carries an 8% annual rate with 252 trading days. What is the daily financing interest in dollars?",
+        "work": "Daily interest = {debit} × 8% ÷ 252 ≈ {answer}.",
+        "explain": "Interest = debit balance × annual rate ÷ trading days."
+      }
+    },
+    "u19": {
+      "q1": {
+        "prompt": "When does a sell stop order normally trigger?",
+        "o1": "When the price is above the stop",
+        "o2": "When the price is at or below the stop",
+        "o3": "When volume spikes",
+        "o4": "When the company pays a dividend",
+        "explain": "A sell stop protects a long and becomes a market sell when the trigger is crossed."
+      },
+      "q2": {
+        "prompt": "What is the key difference between a trailing stop and a plain stop?",
+        "o1": "A trailing stop has no trigger",
+        "o2": "A trailing stop tightens as the price moves favourably",
+        "o3": "A trailing stop guarantees the fill price",
+        "o4": "A trailing stop only works after hours",
+        "explain": "A trailing stop follows favourable prices and never loosens."
+      },
+      "q3": {
+        "prompt": "Which execution problems can stop orders face?",
+        "o1": "Gaps producing worse fills",
+        "o2": "Thin liquidity causing slippage",
+        "o3": "Guaranteed fills at the stop price",
+        "o4": "Cluster triggering in extreme markets",
+        "explain": "Stops do not guarantee price; gaps, thin books and clustering widen slippage."
+      },
+      "q4": {
+        "prompt": "Buy at {entry} and set a trailing stop with a {trail} dollar trail. Before any price move, what is the initial stop price?",
+        "work": "Initial stop = {entry} − {trail} = {answer}.",
+        "explain": "A trailing stop starts the configured distance below the entry price."
+      }
+    },
+    "u20": {
+      "q1": {
+        "prompt": "What is the bid-ask spread in an order book?",
+        "o1": "The day high minus the day low",
+        "o2": "The best ask minus the best bid",
+        "o3": "Traded value minus traded volume",
+        "o4": "Commission plus service fee",
+        "explain": "Spread = best ask − best bid, the immediate cost of trading."
+      },
+      "q2": {
+        "prompt": "Why does a large market order suffer slippage?",
+        "o1": "Visible depth is too thin, so it consumes several levels",
+        "o2": "Commissions are too high",
+        "o3": "Dividend adjustments",
+        "o4": "Exchange latency is fixed",
+        "explain": "The order walks multiple levels, so the average fill moves away from the best quote."
+      },
+      "q3": {
+        "prompt": "Which practices reduce market impact?",
+        "o1": "Slicing the order",
+        "o2": "Using limit orders",
+        "o3": "Sending the whole order at market at once",
+        "o4": "Spreading execution over time",
+        "explain": "Slicing, limits and spreading execution reduce impact on visible depth."
+      },
+      "q4": {
+        "prompt": "Best ask {best} holds {size1} shares and the next ask {second} holds {size2}. Buying {qty} shares (best level first) gives what average price?",
+        "work": "Value = {size1} × {best} + ({qty} − {size1}) × {second}; average = value ÷ {qty} ≈ {answer}.",
+        "explain": "A large order fills level by level; the average is the size-weighted price."
+      }
     }
   },
   "demo": {
@@ -2275,6 +2605,57 @@
       "horizon": "Lookback window",
       "sessions": "{days} sessions",
       "note": "Simulated equal-weight history, not a real backtest, and not a forecast of future returns."
+    },
+    "shortPnl": {
+      "title": "Short P&L lab",
+      "desc": "Adjust the sale price, cover price and share count to see short P&L, return and collateral.",
+      "entry": "Sale price",
+      "exit": "Cover price",
+      "shares": "Shares",
+      "proceeds": "Sale proceeds",
+      "coverCost": "Cover cost",
+      "pnl": "P&L",
+      "return": "Return",
+      "collateral": "Collateral (50%)",
+      "note": "Excludes borrow fees, commissions and dividends; short losses can exceed the collateral."
+    },
+    "margin": {
+      "title": "Margin and leverage lab",
+      "desc": "Adjust cash, price and shares to see the loan, equity, leverage and daily interest.",
+      "cash": "Own cash",
+      "price": "Share price",
+      "shares": "Shares",
+      "value": "Position value",
+      "loan": "Margin loan",
+      "equity": "Account equity",
+      "leverage": "Leverage",
+      "interest": "Daily interest (8%)",
+      "note": "Uses an 8% annual rate and 252 trading days; excludes commissions and slippage."
+    },
+    "stopOrder": {
+      "title": "Stop and trailing-stop lab",
+      "desc": "Compare the distance, risk and locked gain of a fixed stop and a trailing stop.",
+      "entry": "Entry price",
+      "stop": "Stop price",
+      "trail": "Trail amount",
+      "shares": "Shares",
+      "perShare": "Risk per share",
+      "distance": "Stop distance",
+      "risk": "Risk amount",
+      "trailing": "Trailing stop price",
+      "note": "Excludes slippage and gaps; the stop price does not guarantee a fill."
+    },
+    "orderBook": {
+      "title": "Order book and slippage lab",
+      "desc": "Build a five-level book from the current quote and watch a large order consume depth and slip.",
+      "ticker": "Stock",
+      "qty": "Buy quantity",
+      "ask": "Ask",
+      "bid": "Bid",
+      "avgPrice": "Estimated average price",
+      "slippage": "Slippage",
+      "filled": "Fillable quantity",
+      "note": "The teaching book is derived from the quote, not real orders; real depth changes quickly."
     }
   },
   "unlock": {
@@ -2328,7 +2709,15 @@
     "howToUnlock": "How to unlock",
     "prereqTitle": "Prerequisites",
     "unlockedLabel": "Unlocked",
-    "phaseNote": "This feature is not implemented in the current build (Phase 1); it is never presented as available."
+    "phaseNote": "This feature is not implemented yet and is never presented as available.",
+    "stop": {
+      "title": "Stop and trailing orders",
+      "desc": "Unlocked after reading section 1 of Unit 19."
+    },
+    "depth": {
+      "title": "Order book depth",
+      "desc": "Unlocked after reading section 1 of Unit 20."
+    }
   },
   "achievement": {
     "observer": {
@@ -2599,6 +2988,36 @@
         "name": "Momentum",
         "def": "The tendency of recent price trends to persist; momentum strategies buy strength and sell weakness.",
         "example": "A stock that outperformed over three months may stay in a momentum portfolio."
+      },
+      "shortSelling": {
+        "name": "Short selling",
+        "def": "Borrowing shares to sell them now, aiming to buy them back cheaper and profit from the difference.",
+        "example": "Short at $50 and cover at $40 for a $10 per-share gross profit."
+      },
+      "margin": {
+        "name": "Margin",
+        "def": "The equity that must be posted to cover potential losses on borrowed cash or securities.",
+        "example": "Buy $15,000 of stock with $10,000 of your own cash; the margin ratio is 2/3."
+      },
+      "marginCall": {
+        "name": "Margin call",
+        "def": "A broker demand to add funds or face forced liquidation when equity falls below maintenance.",
+        "example": "A price drop pushes equity below maintenance and the account is liquidated."
+      },
+      "stopOrder": {
+        "name": "Stop order",
+        "def": "An order that becomes a market order once the trigger price is reached, used to cap losses.",
+        "example": "Buy at $100 with a $92 sell stop; a break below sells at market."
+      },
+      "trailingStop": {
+        "name": "Trailing stop",
+        "def": "A stop that tightens as the price moves favourably and never loosens.",
+        "example": "Buy at $100 with a $6 trail; after $120 the stop moves to $114."
+      },
+      "orderBook": {
+        "name": "Order book",
+        "def": "The list of resting bids and asks by price, showing size at each level.",
+        "example": "Bid $49.99 and ask $50.01 give a $0.02 spread."
       }
     }
   },
@@ -2784,13 +3203,29 @@
     "explain": {
       "buy": {
         "market": "A market buy fills immediately at the ask and makes you a shareholder.",
-        "limit": "A buy limit waits to fill at your limit price or lower."
+        "limit": "A limit buy waits for the price to reach your limit or lower.",
+        "stop": "A buy stop becomes a market buy when the price rises to the trigger.",
+        "trailing": "A trailing buy stop moves its trigger down as the price falls, protecting a short."
       },
       "sell": {
-        "market": "A market sell fills immediately at the bid and locks in realized P&L.",
-        "limit": "A sell limit waits to fill at your limit price or higher."
+        "market": "A market sell fills immediately at the bid and locks in realised P&L.",
+        "limit": "A limit sell waits for the price to reach your limit or higher.",
+        "stop": "A sell stop becomes a market sell when the price falls through the trigger.",
+        "trailing": "A trailing sell stop ratchets up with the price to lock in part of the gain."
       },
-      "always": "Check the quantity, price and total cost before submitting."
+      "always": "Check quantity, price and total cash impact before submitting.",
+      "short": {
+        "market": "A market short borrows and sells now; proceeds count as collateral.",
+        "limit": "A limit short waits for the price to rise to your limit before selling.",
+        "stop": "A short stop covers at market if the price rises to the trigger.",
+        "trailing": "A trailing short stop moves its trigger down as the price falls."
+      },
+      "cover": {
+        "market": "A market cover buys back the borrowed shares immediately and locks in realised P&L.",
+        "limit": "A limit cover waits for the price to fall to your limit before buying.",
+        "stop": "A cover stop buys back at market if the price rises to the trigger.",
+        "trailing": "A trailing cover stop moves its trigger down as the price falls."
+      }
     },
     "reservedCash": "Reserved cash {value}",
     "spreadCost": "Current spread per share {value}",
@@ -2838,10 +3273,15 @@
     "lockedNote": "Companies in unlocked segments appear immediately in the market list and symbol picker.",
     "backToMarket": "Back to market",
     "validation": {
-      "qty": "Enter a whole number of shares greater than 0.",
+      "qty": "Enter a whole number of shares greater than zero.",
       "limit": "Enter a valid limit price.",
-      "cash": "Not enough available cash.",
-      "shares": "Not enough available shares."
+      "cash": "Insufficient buying power.",
+      "shares": "Insufficient shares available to sell.",
+      "stop": "Enter a valid trigger price.",
+      "trail": "Enter a valid trailing amount.",
+      "stopDirection": "The trigger must sit on the correct side of the market.",
+      "margin": "Insufficient collateral for that short size.",
+      "shortShares": "Not enough short shares available to cover."
     },
     "indicatorsTitle": "Technical indicators",
     "indicatorsSubtitle": "Based on current and past closes only, no future data",
@@ -2865,7 +3305,36 @@
     "liabilities": "Liabilities",
     "equity": "Equity",
     "freeCashFlow": "Free cash flow",
-    "financialsNote": "Assets = liabilities + equity; figures are simplified simulations, not audited statements."
+    "financialsNote": "Assets = liabilities + equity; figures are simplified simulations, not audited statements.",
+    "short": "Short",
+    "cover": "Cover",
+    "stopOrder": "Stop",
+    "trailingOrder": "Trailing stop",
+    "stopPrice": "Trigger price",
+    "trailAmount": "Trail amount",
+    "trailHint": "The stop tightens by this amount as the price moves favourably.",
+    "shortable": "Shortable {value} shares",
+    "shortPositionHint": "Short position {value} shares",
+    "shortLockedHint": "Short and cover unlock after section 1 of Unit 17.",
+    "stopLockedHint": "Stop and trailing orders unlock after section 1 of Unit 19.",
+    "estimateTrigger": "Trigger price",
+    "estimateMargin": "Collateral (50%)",
+    "estimateNoteConditional": "A stop rests until triggered, then fills at market; the fill can differ from the trigger.",
+    "submitShort": "Submit short",
+    "submitCover": "Submit cover",
+    "triggerPrice": "Price / trigger",
+    "shortMarker": "Short avg cost",
+    "marginDebt": "Margin debit {value}",
+    "depthTitle": "Order book depth",
+    "depthSubtitle": "Five levels derived from the current simulated quote",
+    "depthLocked": "Order book depth unlocks after section 1 of Unit 20.",
+    "depthUnlock": "Go unlock",
+    "depthLevels": "{count} levels",
+    "depthSize": "Size",
+    "depthAvg": "Estimated average price",
+    "depthSlippage": "Slippage",
+    "depthFilled": "Fillable",
+    "depthNote": "Teaching depth is derived from the quote, not real orders; large orders consume levels and slip."
   },
   "order": {
     "status": {
@@ -2926,7 +3395,10 @@
     "topWeight": "Largest position",
     "concentration": "Concentration HHI",
     "riskNoHistory": "Not enough equity samples yet; volatility and drawdown appear after a few sessions.",
-    "riskNote": "Metrics use historical equity and current weights, not forecasts. A higher HHI means a more concentrated portfolio."
+    "riskNote": "Metrics use historical equity and current weights, not forecasts. A higher HHI means a more concentrated portfolio.",
+    "marginDebt": "Margin debit",
+    "financingPaid": "Financing paid",
+    "marginCalls": "Margin calls"
   },
   "news": {
     "eyebrow": "News",

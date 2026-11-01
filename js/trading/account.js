@@ -2,8 +2,14 @@
  * Account mathematics. All functions are pure: they receive an account object and
  * return a new account plus the trade that was produced. Fees are included in the
  * cost basis for buys so total P&L always reconciles with equity.
+ *
+ * Positions are signed: long positions have qty > 0 and costBasis = total cost,
+ * short positions have qty < 0 and costBasis = net proceeds received. This keeps
+ * shorts on the same ledger as longs without mixing the two accounting rules.
  */
 export const TRADE_LOG_LIMIT = 250;
+export const MAINTENANCE_LONG = 0.25;
+export const MAINTENANCE_SHORT = 0.30;
 
 export function createAccount(initialCash = 10000) {
   return {
@@ -12,6 +18,8 @@ export function createAccount(initialCash = 10000) {
     positions: {},
     realizedPnl: 0,
     feesPaid: 0,
+    financingPaid: 0,
+    marginCalls: [],
     trades: [],
     tradeSeq: 1,
     dividends: [],
@@ -21,9 +29,16 @@ export function createAccount(initialCash = 10000) {
 
 export function positionOf(account, ticker) {
   const pos = account.positions[ticker];
-  if (!pos || pos.qty <= 0) return { ticker, qty: 0, costBasis: 0, avgCost: 0 };
-  return { ticker, qty: pos.qty, costBasis: pos.costBasis, avgCost: pos.costBasis / pos.qty };
+  if (!pos || !pos.qty) return { ticker, qty: 0, costBasis: 0, avgCost: 0, side: 'flat' };
+  return {
+    ticker,
+    qty: pos.qty,
+    costBasis: pos.costBasis,
+    avgCost: pos.costBasis / Math.abs(pos.qty),
+    side: pos.qty > 0 ? 'long' : 'short',
+  };
 }
+
 
 function pushTrade(account, trade) {
   const next = {
@@ -35,7 +50,7 @@ function pushTrade(account, trade) {
   return next;
 }
 
-export function buy(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
+export function buy(account, { ticker, qty, price, fee, day = 0, tick = 0, allowDebit = false }) {
   const quantity = Math.floor(qty);
   if (!Number.isInteger(quantity) || quantity <= 0) {
     return { ok: false, error: 'error.qtyInvalid' };
@@ -43,14 +58,17 @@ export function buy(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
   if (!Number.isFinite(price) || price <= 0) {
     return { ok: false, error: 'error.priceInvalid' };
   }
+  const existing = account.positions[ticker];
+  if (existing && existing.qty < 0) {
+    return { ok: false, error: 'error.positionIsShort' };
+  }
   const safeFee = Math.max(0, Number(fee) || 0);
   const gross = quantity * price;
   const total = gross + safeFee;
-  if (total > account.cash + 1e-9) {
+  if (!allowDebit && total > account.cash + 1e-9) {
     return { ok: false, error: 'error.insufficientCash' };
   }
 
-  const existing = account.positions[ticker];
   const nextPos = existing
     ? { qty: existing.qty + quantity, costBasis: existing.costBasis + total }
     : { qty: quantity, costBasis: total };
@@ -82,7 +100,7 @@ export function sell(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
     return { ok: false, error: 'error.qtyInvalid' };
   }
   const pos = account.positions[ticker];
-  if (!pos || pos.qty < quantity) {
+  if (!pos || pos.qty <= 0 || pos.qty < quantity) {
     return { ok: false, error: 'error.insufficientShares' };
   }
   if (!Number.isFinite(price) || price <= 0) {
@@ -124,10 +142,108 @@ export function sell(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
   return { ok: true, account: draft, trade };
 }
 
+/**
+ * Open or add to a short position. The net proceeds (gross minus fee) are added to
+ * cash and recorded as the short's cost basis, so buying the shares back later
+ * produces a realised P&L against that basis.
+ */
+export function short(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
+  const quantity = Math.floor(qty);
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return { ok: false, error: 'error.qtyInvalid' };
+  }
+  if (!Number.isFinite(price) || price <= 0) {
+    return { ok: false, error: 'error.priceInvalid' };
+  }
+  const existing = account.positions[ticker];
+  if (existing && existing.qty > 0) {
+    return { ok: false, error: 'error.positionIsLong' };
+  }
+  const safeFee = Math.max(0, Number(fee) || 0);
+  const gross = quantity * price;
+  const proceeds = gross - safeFee;
+  const nextPos = existing && existing.qty < 0
+    ? { qty: existing.qty - quantity, costBasis: existing.costBasis + proceeds }
+    : { qty: -quantity, costBasis: proceeds };
+
+  const draft = {
+    ...account,
+    cash: account.cash + proceeds,
+    positions: { ...account.positions, [ticker]: nextPos },
+    feesPaid: account.feesPaid + safeFee,
+    trades: account.trades,
+  };
+  const trade = pushTrade(draft, {
+    ticker,
+    side: 'short',
+    qty: quantity,
+    price,
+    fee: safeFee,
+    gross,
+    realized: 0,
+    day,
+    tick,
+  });
+  return { ok: true, account: draft, trade };
+}
+
+/** Buy back borrowed shares. Realised P&L = proceeds basis minus the cover cost. */
+export function cover(account, { ticker, qty, price, fee, day = 0, tick = 0, allowDebit = false }) {
+  const quantity = Math.floor(qty);
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return { ok: false, error: 'error.qtyInvalid' };
+  }
+  if (!Number.isFinite(price) || price <= 0) {
+    return { ok: false, error: 'error.priceInvalid' };
+  }
+  const pos = account.positions[ticker];
+  const shortQty = pos && pos.qty < 0 ? -pos.qty : 0;
+  if (!shortQty) return { ok: false, error: 'error.noShortPosition' };
+  if (quantity > shortQty) return { ok: false, error: 'error.insufficientShortShares' };
+
+  const safeFee = Math.max(0, Number(fee) || 0);
+  const gross = quantity * price;
+  const total = gross + safeFee;
+  if (!allowDebit && total > account.cash + 1e-9) {
+    return { ok: false, error: 'error.insufficientCash' };
+  }
+  const basisPart = (pos.costBasis / shortQty) * quantity;
+  const realized = basisPart - total;
+  const remaining = pos.qty + quantity;
+
+  const nextPositions = { ...account.positions };
+  if (remaining < 0) {
+    nextPositions[ticker] = { qty: remaining, costBasis: Math.max(0, pos.costBasis - basisPart) };
+  } else {
+    delete nextPositions[ticker];
+  }
+
+  const draft = {
+    ...account,
+    cash: account.cash - total,
+    positions: nextPositions,
+    feesPaid: account.feesPaid + safeFee,
+    realizedPnl: account.realizedPnl + realized,
+    trades: account.trades,
+  };
+  const trade = pushTrade(draft, {
+    ticker,
+    side: 'cover',
+    qty: quantity,
+    price,
+    fee: safeFee,
+    gross,
+    realized,
+    day,
+    tick,
+  });
+  return { ok: true, account: draft, trade };
+}
+
 export function marketValue(account, quotes) {
   let value = 0;
   for (const [ticker, pos] of Object.entries(account.positions)) {
-    if (!pos || pos.qty <= 0) continue;
+    if (!pos || !pos.qty) continue;
     const quote = quotes[ticker];
     const last = quote ? quote.last : 0;
     value += pos.qty * last;
@@ -138,10 +254,10 @@ export function marketValue(account, quotes) {
 export function unrealizedPnl(account, quotes) {
   let pnl = 0;
   for (const [ticker, pos] of Object.entries(account.positions)) {
-    if (!pos || pos.qty <= 0) continue;
+    if (!pos || !pos.qty) continue;
     const quote = quotes[ticker];
     const last = quote ? quote.last : 0;
-    pnl += pos.qty * last - pos.costBasis;
+    pnl += pos.qty > 0 ? pos.qty * last - pos.costBasis : pos.costBasis + pos.qty * last;
   }
   return pnl;
 }
@@ -161,17 +277,20 @@ export function returnPct(account, quotes) {
 
 export function positionRows(account, quotes) {
   return Object.entries(account.positions)
-    .filter(([, pos]) => pos && pos.qty > 0)
+    .filter(([, pos]) => pos && pos.qty)
     .map(([ticker, pos]) => {
       const quote = quotes[ticker] || { last: 0 };
       const last = quote.last || 0;
-      const avgCost = pos.costBasis / pos.qty;
+      const absQty = Math.abs(pos.qty);
+      const avgCost = pos.costBasis / absQty;
       const value = pos.qty * last;
-      const pnl = value - pos.costBasis;
+      const pnl = pos.qty > 0 ? value - pos.costBasis : pos.costBasis + value;
       const pnlPct = pos.costBasis > 0 ? (pnl / pos.costBasis) * 100 : 0;
       return {
         ticker,
         qty: pos.qty,
+        side: pos.qty > 0 ? 'long' : 'short',
+        absQty,
         avgCost,
         last,
         value,
@@ -182,13 +301,13 @@ export function positionRows(account, quotes) {
         weight: 0,
       };
     })
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
 }
 
 /** Cash already committed to resting buy limit orders. */
 export function reservedCash(orders, fee = 0) {
   return orders
-    .filter((o) => o.status === 'open' && o.side === 'buy')
+    .filter((o) => o.status === 'open' && o.type === 'limit' && o.side === 'buy')
     .reduce((sum, o) => sum + o.qty * o.limitPrice + fee, 0);
 }
 
@@ -218,4 +337,57 @@ export function snapshotEquity(account, quotes, day) {
   }
   const next = [...account.equityHistory, { day, equity: value }].slice(-400);
   return next;
+}
+
+export function longMarketValue(account, quotes) {
+  let value = 0;
+  for (const [ticker, pos] of Object.entries(account.positions || {})) {
+    if (!pos || pos.qty <= 0) continue;
+    const quote = quotes[ticker];
+    value += (quote ? quote.last : 0) * pos.qty;
+  }
+  return value;
+}
+
+export function shortMarketValue(account, quotes) {
+  let value = 0;
+  for (const [ticker, pos] of Object.entries(account.positions || {})) {
+    if (!pos || pos.qty >= 0) continue;
+    const quote = quotes[ticker];
+    value += (quote ? quote.last : 0) * -pos.qty;
+  }
+  return value;
+}
+
+export function grossExposure(account, quotes) {
+  return longMarketValue(account, quotes) + shortMarketValue(account, quotes);
+}
+
+/** Maintenance requirement used by the simplified margin call check. */
+export function maintenanceRequirement(account, quotes) {
+  return longMarketValue(account, quotes) * MAINTENANCE_LONG
+    + shortMarketValue(account, quotes) * MAINTENANCE_SHORT;
+}
+
+/**
+ * Dollars available for a new buy. Without margin this is plain cash; with margin
+ * the player can borrow up to 50% of current equity (1.5:1 leverage).
+ */
+export function buyingPower(account, quotes, { marginEnabled = false, fee = 0, orders = [] } = {}) {
+  if (!marginEnabled) return availableCash(account, orders, fee);
+  const eq = equity(account, quotes);
+  return Math.max(0, account.cash - reservedCash(orders, fee)) + Math.max(0, eq * 0.5);
+}
+
+/** Shares that can still be shorted while keeping 50% collateral against the short. */
+export function shortCapacity(account, quotes, price) {
+  if (!Number.isFinite(price) || price <= 0) return 0;
+  const eq = equity(account, quotes);
+  const shortValue = shortMarketValue(account, quotes);
+  return Math.max(0, Math.floor((eq * 2 - shortValue) / price));
+}
+
+export function availableShortShares(account, ticker) {
+  const pos = account.positions[ticker];
+  return pos && pos.qty < 0 ? -pos.qty : 0;
 }

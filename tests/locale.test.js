@@ -348,6 +348,34 @@ test('demo and practice content is localised', () => {
     'stockStyle.dividend', 'stockStyle.dividendDesc', 'stockStyle.cyclical', 'stockStyle.cyclicalDesc',
     'trade.stockStyle',
   ].forEach((key) => check(key));
+  const stage5DemoKeys = {
+    shortPnl: ['title', 'desc', 'entry', 'exit', 'shares', 'proceeds', 'coverCost', 'pnl', 'return', 'collateral', 'note'],
+    margin: ['title', 'desc', 'cash', 'price', 'shares', 'value', 'loan', 'equity', 'leverage', 'interest', 'note'],
+    stopOrder: ['title', 'desc', 'entry', 'stop', 'trail', 'shares', 'perShare', 'distance', 'risk', 'trailing', 'note'],
+    orderBook: ['title', 'desc', 'ticker', 'qty', 'ask', 'bid', 'avgPrice', 'slippage', 'filled', 'note'],
+  };
+  for (const [demoId, fields] of Object.entries(stage5DemoKeys)) {
+    fields.forEach((field) => check(`demo.${demoId}.${field}`));
+  }
+  [
+    'trade.short', 'trade.cover', 'trade.stopOrder', 'trade.trailingOrder', 'trade.stopPrice',
+    'trade.trailAmount', 'trade.trailHint', 'trade.shortable', 'trade.shortPositionHint',
+    'trade.shortLockedHint', 'trade.stopLockedHint', 'trade.estimateTrigger',
+    'trade.estimateMargin', 'trade.estimateNoteConditional', 'trade.submitShort',
+    'trade.submitCover', 'trade.triggerPrice', 'trade.shortMarker', 'trade.marginDebt',
+    'trade.depthTitle', 'trade.depthSubtitle', 'trade.depthLocked', 'trade.depthUnlock',
+    'trade.depthLevels', 'trade.depthSize', 'trade.depthAvg', 'trade.depthSlippage',
+    'trade.depthFilled', 'trade.depthNote',
+    'trade.validation.stop', 'trade.validation.trail', 'trade.validation.stopDirection',
+    'trade.validation.margin', 'trade.validation.shortShares',
+    'error.positionIsShort', 'error.positionIsLong', 'error.noShortPosition',
+    'error.insufficientShortShares', 'error.insufficientMargin', 'error.stopDirection',
+    'error.shortLocked', 'error.stopLocked',
+    'toast.dividendOwed', 'toast.financingCharged', 'toast.marginCall',
+  ].forEach((key) => check(key));
+  ['buy', 'sell', 'short', 'cover'].forEach((side) => {
+    ['market', 'limit', 'stop', 'trailing'].forEach((type) => check(`trade.explain.${side}.${type}`));
+  });
   for (const unit of ALL_UNITS.filter((entry) => entry.implemented)) {
     check(`practice.${unit.id}.title`);
     check(`practice.${unit.id}.requirement`);
@@ -469,6 +497,7 @@ test('market, trading and portfolio views are localised', () => {
     'portfolio.riskTitle', 'portfolio.riskSubtitle', 'portfolio.volatility', 'portfolio.drawdown',
     'portfolio.exposure', 'portfolio.topWeight', 'portfolio.concentration',
     'portfolio.riskNoHistory', 'portfolio.riskNote',
+    'portfolio.marginDebt', 'portfolio.financingPaid', 'portfolio.marginCalls',
   ].forEach((key) => check(key));
   assertEqual(missing.length, 0, missing.join('\n'));
 });

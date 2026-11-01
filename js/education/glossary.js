@@ -46,6 +46,12 @@ export const GLOSSARY_TERMS = [
   { id: 'positionSizing', unitId: 'u15', related: ['drawdown', 'assetAllocation'] },
   { id: 'drawdown', unitId: 'u15', related: ['positionSizing', 'assetAllocation'] },
   { id: 'momentum', unitId: 'u16', related: ['valueStock', 'growthStock'] },
+  { id: 'shortSelling', unitId: 'u17', related: ['margin', 'stopOrder'] },
+  { id: 'margin', unitId: 'u18', related: ['marginCall', 'shortSelling'] },
+  { id: 'marginCall', unitId: 'u18', related: ['margin', 'drawdown'] },
+  { id: 'stopOrder', unitId: 'u19', related: ['trailingStop', 'limitOrder'] },
+  { id: 'trailingStop', unitId: 'u19', related: ['stopOrder', 'drawdown'] },
+  { id: 'orderBook', unitId: 'u20', related: ['liquidity', 'spread'] },
 ];
 
 export function getGlossaryTerm(termId) {

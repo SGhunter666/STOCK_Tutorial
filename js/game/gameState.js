@@ -70,7 +70,7 @@ export function validateSave(saved) {
       return { ok: false, reason: `bad-quote-${ticker}` };
     }
   }
-  if (!Number.isFinite(saved.account.cash) || saved.account.cash < 0) return { ok: false, reason: 'bad-cash' };
+  if (!Number.isFinite(saved.account.cash) || saved.account.cash < -1e6) return { ok: false, reason: 'bad-cash' };
   return { ok: true };
 }
 
@@ -114,6 +114,8 @@ export function hydrateState(saved) {
     equityHistory: Array.isArray(state.account.equityHistory) ? state.account.equityHistory : [],
     realizedPnl: Number.isFinite(state.account.realizedPnl) ? state.account.realizedPnl : 0,
     feesPaid: Number.isFinite(state.account.feesPaid) ? state.account.feesPaid : 0,
+    financingPaid: Number.isFinite(state.account.financingPaid) ? state.account.financingPaid : 0,
+    marginCalls: Array.isArray(state.account.marginCalls) ? state.account.marginCalls : [],
     initialCash: Number.isFinite(state.account.initialCash) ? state.account.initialCash : state.account.cash,
     tradeSeq: Number.isFinite(state.account.tradeSeq) ? state.account.tradeSeq : 1,
   };

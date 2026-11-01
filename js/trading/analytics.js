@@ -32,14 +32,14 @@ export function maxDrawdown(values) {
 export function portfolioAnalytics(account, quotes, currentTotal) {
   const history = (account.equityHistory || []).map((entry) => entry.equity);
   const values = [...history, currentTotal];
-  const positions = Object.entries(account.positions || {}).filter(([, position]) => position && position.qty > 0);
+  const positions = Object.entries(account.positions || {}).filter(([, position]) => position && position.qty);
   const holdingsValue = positions.reduce((sum, [ticker, position]) => {
     const quote = quotes[ticker];
-    return sum + (quote ? quote.last * position.qty : 0);
+    return sum + (quote ? quote.last * Math.abs(position.qty) : 0);
   }, 0);
   const weights = positions.map(([ticker, position]) => {
     const quote = quotes[ticker];
-    const value = quote ? quote.last * position.qty : 0;
+    const value = quote ? quote.last * Math.abs(position.qty) : 0;
     return { ticker, value, weight: currentTotal > 0 ? value / currentTotal : 0 };
   }).sort((a, b) => b.weight - a.weight);
   const hhi = weights.reduce((sum, row) => sum + (row.weight ** 2), 0);
