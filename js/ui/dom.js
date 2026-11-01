@@ -42,6 +42,10 @@ export function viewSubscription(store, view) {
       if (view.onTick) view.onTick(state);
       return;
     }
+    if (meta.type === 'history:tick' && !meta.dayClosed && !meta.reachedEnd) {
+      if (view.onTick) view.onTick(state);
+      return;
+    }
     view.render(state);
   });
 }

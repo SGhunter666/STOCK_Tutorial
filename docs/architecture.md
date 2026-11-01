@@ -119,8 +119,11 @@ P(t+1) = P(t) × exp(r(t))
 ## 11. 历史实战实验室
 
 - `replayEngine.js`：逐日推进、`quoteAt`、`summary`、`tradeAtClose`、基准收益；严格只暴露当前 `dayIndex` 及以前的数据。
-- 初始 `dayIndex = HISTORY_WARMUP = 20`，进入场景即有 21 根复权日线作为观察窗；无交易记录的旧存档也会自动迁移到该观察窗。
-- 历史页图表使用 `CandlestickChart` 显示开 / 高 / 低 / 收与成交量，并保留“只显示当前日期及之前”的规则。
+- 历史页使用与主游戏一致的 `TICKS_PER_DAY = 8` 时钟：`advanceHistoryTick` 每 tick 推进一次，第 8 个 tick 后收盘并进入下一交易日；`quoteAtTick` / `tradeAtTick` / `summaryAtTick` 使用当前 tick 价格。
+- 日内路径由真实日线 OHLC 确定性生成：tick 0 = 开盘，tick 2 / 5 触及最高 / 最低，tick 7 = 收盘；成交量按 tick 累积，因此图表与价格每 tick 变化。
+- 初始 `dayIndex = HISTORY_WARMUP = 20`、`tick = 0`，进入场景即有 20 根完整日线 + 当前未完成日线；无交易记录的旧存档也会自动迁移。
+- 历史页图表使用 `CandlestickChart` 显示开 / 高 / 低 / 收与成交量，默认展示全部已发生日子，可切换最近 120 日，并保留“只显示当前日期及之前”的规则。
+- 历史页的播放 / 暂停 / 1× / 5× / 20× / 下一交易日控制复用主 `MarketClock`；在主时钟 tick 时，应用根根据当前路由调用历史视图的 `onClockTick`，不会推进虚构市场。
 - `dataLoader.js`：优先使用 `window.__SMA_HISTORY_DATA__`（离线内联），否则按场景文件名 fetch。
 - `replayActions.js`：把每个场景写入 `state.historyRuns`，与学院账户完全隔离；`ensureRunInStore` 会规范化并迁移旧回放进度。
 - 数据：11 个板块、115 个真实代码（2020 / 2022）、75 个代码（2015–2026）、12 个代码（2008）；复权日线，NASDAQ / NYSE 混合并在 UI 标注。
@@ -128,8 +131,8 @@ P(t+1) = P(t) × exp(r(t))
 ## 12. 测试体系
 
 - `tests/index.html` 浏览器内运行，`tests/harness.js` 提供 suite / test / assert。
-- 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、回放成交与无未来数据、事件时间线、双语结构与页面键覆盖。
-- 当前 139 项全部通过。新增能力必须同时补逻辑测试与双语键。
+- 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、日内 tick 路径与成交、回放成交与无未来数据、事件时间线、双语结构与页面键覆盖。
+- 当前 143 项全部通过。新增能力必须同时补逻辑测试与双语键。
 
 ## 13. Phase 2 实现状态
 

@@ -5744,8 +5744,8 @@
     "selected": "当前标的",
     "cashLine": "现金 {value}",
     "sharesLine": "可卖 {value} 股",
-    "closePrice": "当日收盘价",
-    "fillNote": "成交价 = 当日复权收盘价；不含滑点。",
+    "closePrice": "当前价",
+    "fillNote": "成交价 = 当前 tick 的复权价格；每个 tick 都会随历史行情变动，不含滑点。",
     "feeNote": "每笔成交收取 {fee} 佣金。",
     "universeTitle": "真实美股标的",
     "universeSubtitle": "{count} 个代码 · 按板块筛选并点击查看走势",
@@ -6028,7 +6028,16 @@
     },
     "timelineLabel": "历史时间轴",
     "timelineRange": "{start} → {end}",
-    "warmupNote": "已载入前 {days} 个交易日作为观察窗；继续推进时间会形成更长的 K 线与成交量历史。"
+    "warmupNote": "已载入前 {days} 个交易日作为观察窗；继续推进时间会形成更长的 K 线与成交量历史。",
+    "clockLabel": "历史时钟",
+    "clockNote": "按游戏默认速度推进，每 tick 更新价格、权益与持仓。",
+    "tickOf": "第 {tick} / {total} 个 tick",
+    "play": "继续历史时间",
+    "pause": "暂停历史时间",
+    "nextDay": "推进到下一交易日",
+    "jumpLabel": "快速跳转",
+    "chartRangeAll": "全部日子",
+    "chartRangeRecent": "近 120 日"
   },
   "macro": {
     "regime": {

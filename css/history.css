@@ -221,6 +221,23 @@
 
 .history-timeline__head .muted { font-size: 10px; }
 
+.history-clock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.history-clock__controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.history-clock .muted { font-size: 9.5px; line-height: 1.4; max-width: 260px; }
+
 .history-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;

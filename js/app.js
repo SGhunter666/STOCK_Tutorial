@@ -1067,6 +1067,13 @@ function runSimulation(ticks) {
 }
 
 function handleTick() {
+  if (router && router.current && router.current.startsWith('/history/')) {
+    if (currentView && currentView.onClockTick) {
+      currentView.onClockTick();
+      return;
+    }
+    return;
+  }
   runSimulation(1);
   if (shell) shell.onTick();
   if (Date.now() - lastSimSaveAt > 8000) {
@@ -1076,6 +1083,12 @@ function handleTick() {
 }
 
 function handleFastForward() {
+  if (router && router.current && router.current.startsWith('/history/')) {
+    if (currentView && currentView.onClockFastForward) {
+      currentView.onClockFastForward();
+    }
+    return;
+  }
   const state = store.get();
   const remaining = state.market.tick === 0 ? TICKS_PER_DAY : TICKS_PER_DAY - state.market.tick;
   runSimulation(Math.max(1, remaining));
@@ -1159,7 +1172,9 @@ function renderRoute(route) {
   viewEl.innerHTML = '';
 
   let view = null;
-  const ctx = { i18n, store, bus, router, actions, toast, openLockedToolModal };
+  const ctx = {
+    i18n, store, bus, router, actions, toast, clock, openLockedToolModal,
+  };
 
   switch (section) {
     case 'dashboard':

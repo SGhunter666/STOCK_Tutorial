@@ -331,7 +331,7 @@ export class CandlestickChart {
     const plotW = Math.max(1, width - pad.left - pad.right);
     const plotH = Math.max(1, priceBottom - pad.top);
     const slot = plotW / candles.length;
-    const bodyW = Math.max(2, Math.min(14, slot * 0.62));
+    const bodyW = Math.max(1, Math.min(14, slot * 0.62));
 
     let low = Math.min(...candles.map((candle) => candle.l));
     let high = Math.max(...candles.map((candle) => candle.h));

@@ -8,8 +8,10 @@ import {
 import { HISTORY_SCENARIOS, HISTORY_SECTOR_PACKS, getHistoryScenario, eventsUpTo } from '../js/data/historyScenarios.js';
 import {
   createHistoryRun, ensureHistoryRun, quoteAt, advanceRun, tradeAtClose, summary,
-  barCount, currentDate, HISTORY_WARMUP,
+  barCount, currentDate, HISTORY_WARMUP, intradayPath, intradayBar, quoteAtTick,
+  tradeAtTick, advanceHistoryTick, summaryAtTick,
 } from '../js/history/replayEngine.js';
+import { TICKS_PER_DAY } from '../js/market/calendar.js';
 import { createGameState, hydrateState, serializeState } from '../js/game/gameState.js';
 import { equity } from '../js/trading/account.js';
 
@@ -115,6 +117,7 @@ test('new replay run starts with an independent $10,000 account', async () => {
   const data = await loadDatasets();
   const run = createHistoryRun('2008-crisis');
   assertEqual(run.dayIndex, HISTORY_WARMUP, 'start with a chart warm-up window');
+  assertEqual(run.tick, 0, 'start at the opening tick');
   assertEqual(run.account.initialCash, 10000);
   assertEqual(run.account.cash, 10000);
   assertEqual(Object.keys(run.account.positions).length, 0);
@@ -124,6 +127,63 @@ test('new replay run starts with an independent $10,000 account', async () => {
     data['2008-crisis'].tickers[0].bars[HISTORY_WARMUP][0],
     'current date matches the warm-up index',
   );
+});
+
+test('intraday ticks start at open, touch high and low, and end at close', async () => {
+  const data = await loadDatasets();
+  const bar = data['2008-crisis'].tickers.find((ticker) => ticker.symbol === 'AAPL').bars[50];
+  const path = intradayPath(bar, 'AAPL');
+  assertEqual(path.length, TICKS_PER_DAY, 'one price per tick');
+  assertClose(path[0], bar[1], 0.01, 'first tick is the open');
+  assertClose(path[path.length - 1], bar[4], 0.01, 'last tick is the close');
+  assertClose(Math.max(...path), bar[2], 0.01, 'path touches the daily high');
+  assertClose(Math.min(...path), bar[3], 0.01, 'path touches the daily low');
+  for (const price of path) {
+    assert(price >= bar[3] - 0.01 && price <= bar[2] + 0.01, 'price stays inside the daily range');
+  }
+  assert(path.some((price, index) => index > 0 && price !== path[index - 1]), 'prices move during the day');
+});
+
+test('quoteAtTick changes every tick and respects the partial candle', async () => {
+  const data = await loadDatasets();
+  const dataset = data['2008-crisis'];
+  const day = 60;
+  const first = quoteAtTick(dataset, 'AAPL', day, 0);
+  const middle = quoteAtTick(dataset, 'AAPL', day, 3);
+  const close = quoteAtTick(dataset, 'AAPL', day, TICKS_PER_DAY - 1);
+  assert(first && middle && close, 'quotes exist');
+  assert(first.last !== middle.last || middle.last !== close.last, 'quote changes across ticks');
+  assertClose(close.last, quoteAt(dataset, 'AAPL', day).last, 0.01, 'last tick equals daily close');
+  const partial = intradayBar(dataset.tickers.find((ticker) => ticker.symbol === 'AAPL').bars[day], 'AAPL', 3);
+  assert(partial.v > 0 && partial.v < dataset.tickers.find((ticker) => ticker.symbol === 'AAPL').bars[day][5], 'volume accumulates intraday');
+});
+
+test('advanceHistoryTick closes the day after eight ticks', async () => {
+  const data = await loadDatasets();
+  let run = createHistoryRun('2008-crisis');
+  for (let tick = 0; tick < TICKS_PER_DAY - 1; tick += 1) {
+    const step = advanceHistoryTick(run, data['2008-crisis']);
+    assertEqual(step.dayClosed, false, 'day stays open');
+    run = step.run;
+  }
+  assertEqual(run.tick, TICKS_PER_DAY - 1, 'last intraday tick');
+  const closed = advanceHistoryTick(run, data['2008-crisis']);
+  assertEqual(closed.dayClosed, true, 'day closes');
+  assertEqual(closed.run.tick, 0, 'next day starts at the open');
+  assertEqual(closed.run.dayIndex, run.dayIndex + 1, 'day index advances');
+});
+
+test('tradeAtTick fills at the current intraday price', async () => {
+  const data = await loadDatasets();
+  const dataset = data['2008-crisis'];
+  const run = createHistoryRun('2008-crisis');
+  const quote = quoteAtTick(dataset, 'AAPL', run.dayIndex, 4);
+  const bought = tradeAtTick(run, dataset, { symbol: 'AAPL', side: 'buy', qty: 10, tick: 4 });
+  assert(bought.ok, 'buy succeeds');
+  assertClose(bought.run.account.cash, 10000 - quote.last * 10 - 1, 0.01, 'cash uses the tick price');
+  assertEqual(bought.trade.tick, 4, 'trade records the tick');
+  const sum = summaryAtTick(bought.run, dataset);
+  assert(Number.isFinite(sum.total), 'equity at tick is finite');
 });
 
 test('quoteAt only uses current and previous bars', async () => {

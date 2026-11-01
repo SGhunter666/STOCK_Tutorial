@@ -5744,8 +5744,8 @@
     "selected": "Selected symbol",
     "cashLine": "Cash {value}",
     "sharesLine": "{value} shares available to sell",
-    "closePrice": "Adjusted close",
-    "fillNote": "Fill price = adjusted close; no slippage.",
+    "closePrice": "Current price",
+    "fillNote": "Fill = the adjusted price at the current tick; every tick moves with the historical session, with no slippage.",
     "feeNote": "A {fee} commission is charged per fill.",
     "universeTitle": "Real US stocks",
     "universeSubtitle": "{count} symbols · filter by sector and chart one",
@@ -6028,7 +6028,16 @@
     },
     "timelineLabel": "Historical timeline",
     "timelineRange": "{start} → {end}",
-    "warmupNote": "The first {days} trading days are preloaded as a chart warm-up; advancing time extends the candle and volume history."
+    "warmupNote": "The first {days} trading days are preloaded as a chart warm-up; advancing time extends the candle and volume history.",
+    "clockLabel": "History clock",
+    "clockNote": "Runs at the game speed and updates price, equity and positions every tick.",
+    "tickOf": "Tick {tick} of {total}",
+    "play": "Resume history time",
+    "pause": "Pause history time",
+    "nextDay": "Advance to the next trading day",
+    "jumpLabel": "Jump",
+    "chartRangeAll": "All days",
+    "chartRangeRecent": "Last 120 days"
   },
   "macro": {
     "regime": {

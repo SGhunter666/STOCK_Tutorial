@@ -3,7 +3,8 @@
  * This account is completely separate from the academy trading account.
  */
 import {
-  ensureHistoryRun, createHistoryRun, advanceRun, advanceToNextEvent, tradeAtClose,
+  ensureHistoryRun, createHistoryRun, advanceRun, advanceToNextEvent, tradeAtTick,
+  advanceHistoryTick,
 } from './replayEngine.js';
 
 export function runFor(state, scenarioId) {
@@ -16,7 +17,11 @@ export function ensureRunInStore(store, scenarioId, dataset) {
   const existing = state.historyRuns[scenarioId];
   if (existing && existing.account) {
     const normalized = ensureHistoryRun(existing, scenarioId, dataset);
-    if (normalized.dayIndex !== existing.dayIndex || normalized.startIndex !== existing.startIndex) {
+    if (
+      normalized.dayIndex !== existing.dayIndex
+      || normalized.startIndex !== existing.startIndex
+      || normalized.tick !== existing.tick
+    ) {
       store.update((draft) => {
         draft.historyRuns[scenarioId] = normalized;
       }, { type: 'history:run-normalized', scenarioId });
@@ -43,10 +48,26 @@ export function advanceHistory(store, scenarioId, dataset, scenario, { days = 1,
   return next;
 }
 
-export function tradeHistory(store, scenarioId, dataset, payload) {
-  const state = store.get();
+export function tickHistory(store, scenarioId, dataset) {
   const current = ensureRunInStore(store, scenarioId, dataset);
-  const result = tradeAtClose(current, dataset, payload);
+  const result = advanceHistoryTick(current, dataset);
+  if (result.run !== current) {
+    store.update((draft) => {
+      draft.historyRuns[scenarioId] = result.run;
+    }, {
+      type: 'history:tick',
+      scenarioId,
+      dayClosed: result.dayClosed,
+      reachedEnd: result.reachedEnd,
+      noPersist: !result.dayClosed && !result.reachedEnd,
+    });
+  }
+  return result;
+}
+
+export function tradeHistory(store, scenarioId, dataset, payload) {
+  const current = ensureRunInStore(store, scenarioId, dataset);
+  const result = tradeAtTick(current, dataset, payload);
   if (!result.ok) return result;
   store.update((draft) => {
     draft.historyRuns[scenarioId] = result.run;
