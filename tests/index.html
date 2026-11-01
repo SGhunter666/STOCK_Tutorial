@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stock Market Academy · Core Tests</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1421'/%3E%3Cpath d='M16 40l10-10 8 8 14-16' stroke='%235eead4' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      padding: 28px;
+      background: #070d16;
+      color: #dbe6f4;
+      font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    h1 { font-size: 18px; margin: 0 0 6px; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .summary {
+      display: inline-block;
+      margin: 12px 0 18px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid #37475c;
+      background: #101a28;
+    }
+    .summary.pass { border-color: #1f7a5c; color: #6ee7b7; background: rgba(16, 185, 129, 0.08); }
+    .summary.fail { border-color: #8f2d3d; color: #fda4af; background: rgba(244, 63, 94, 0.08); }
+    pre { white-space: pre-wrap; font-size: 12px; color: #9fb0c6; }
+    .fail-line { color: #fb7185; }
+    .notices { max-width: 760px; color: #7f92aa; font-family: ui-sans-serif, system-ui, sans-serif; margin-bottom: 18px; }
+  </style>
+</head>
+<body>
+  <h1>Stock Market Academy · Core &amp; Locale Tests</h1>
+  <p class="notices">Runs account math, order matching, market determinism, quiz grading, progress gating, save validation and bilingual coverage. Open the browser console for detail.</p>
+  <div id="summary" class="summary">Running…</div>
+  <pre id="output"></pre>
+  <script type="module" src="./run.js"></script>
+</body>
+</html>

@@ -1,0 +1,835 @@
+/**
+ * Core logic tests: account math, order matching, market determinism,
+ * quiz grading, progress gating and save validation.
+ */
+import {
+  suite, test, assert, assertEqual, assertClose,
+} from './harness.js';
+import { createGameState, validateSave, hydrateState, serializeState } from '../js/game/gameState.js';
+import { MarketEngine } from '../js/market/marketEngine.js';
+import { TICKS_PER_DAY } from '../js/market/calendar.js';
+import {
+  buy, sell, equity, unrealizedPnl, positionOf, availableCash, availableShares, reservedCash,
+} from '../js/trading/account.js';
+import {
+  placeMarketOrder, placeLimitOrder, processOpenOrders, cancelOrder, estimateOrder, ORDER_STATUS,
+} from '../js/trading/orderEngine.js';
+import { portfolioSummary } from '../js/trading/portfolio.js';
+import { buildQuizSession, gradeQuiz, TEST_OUT_SCORE, questionXp } from '../js/education/quizEngine.js';
+import {
+  markSectionRead, recordQuizResult, isUnitComplete, isUnitUnlocked, unitProgress,
+} from '../js/education/lessonEngine.js';
+import { recordInspection, evaluatePractice } from '../js/education/practiceEngine.js';
+import { isToolUnlocked, lockReason } from '../js/education/unlockManager.js';
+import { STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, getUnit } from '../js/education/curriculum.js';
+import { COMPANIES } from '../js/data/companies.js';
+import { styleOf, STOCK_STYLES } from '../js/data/stockTypes.js';
+import {
+  payableDividends, applyDividends, dividendPerShare, isDividendDay,
+} from '../js/market/dividends.js';
+import { sma, rsi, indicatorSnapshot } from '../js/market/indicators.js';
+import { dcf } from '../js/education/valuation.js';
+import { macroSnapshot } from '../js/market/macro.js';
+import { portfolioAnalytics } from '../js/trading/analytics.js';
+import {
+  MARKET_SEGMENTS, isCompanyUnlocked, isSegmentUnlocked, unlockedCompanies,
+} from '../js/market/marketAccess.js';
+import { createStore } from '../js/core/store.js';
+import { createBus } from '../js/core/bus.js';
+import { money, pct, compactNumber, clamp } from '../js/core/format.js';
+
+suite('Account mathematics');
+
+test('buy includes commission in cost basis and cash', () => {
+  const account = createGameState({ seed: 'test' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const result = buy(account, { ticker: 'AURA', qty: 10, price: 100, fee: 1, day: 0, tick: 0 });
+  assert(result.ok, 'buy should succeed');
+  assertClose(result.account.cash, 8999, 0.001, 'cash after buy');
+  const pos = positionOf(result.account, 'AURA');
+  assertEqual(pos.qty, 10, 'quantity');
+  assertClose(pos.costBasis, 1001, 0.001, 'cost basis includes fee');
+  assertClose(pos.avgCost, 100.1, 0.001, 'average cost');
+  assertEqual(result.trade.fee, 1, 'fee recorded');
+});
+
+test('sell locks in realized P&L and clears position', () => {
+  let account = createGameState({ seed: 'test' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const bought = buy(account, { ticker: 'AURA', qty: 10, price: 100, fee: 1 });
+  const sold = sell(bought.account, { ticker: 'AURA', qty: 10, price: 110, fee: 1 });
+  assert(sold.ok, 'sell should succeed');
+  assertClose(sold.account.cash, 10098, 0.001, 'cash after round trip');
+  assertClose(sold.account.realizedPnl, 98, 0.001, 'realized P&L');
+  assertEqual(positionOf(sold.account, 'AURA').qty, 0, 'position closed');
+});
+
+test('partial sell keeps remaining cost basis proportional', () => {
+  let account = createGameState({ seed: 'test' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const bought = buy(account, { ticker: 'AURA', qty: 10, price: 100, fee: 1 });
+  const sold = sell(bought.account, { ticker: 'AURA', qty: 4, price: 120, fee: 1 });
+  assert(sold.ok);
+  const pos = positionOf(sold.account, 'AURA');
+  assertEqual(pos.qty, 6, 'remaining quantity');
+  assertClose(pos.costBasis, 600.6, 0.001, 'remaining cost basis');
+  assertClose(sold.account.realizedPnl, 78.6, 0.001, 'realized P&L after partial sale');
+});
+
+test('equity reconciles with realized plus unrealized P&L', () => {
+  const state = createGameState({ seed: 'test' });
+  const quotes = state.market.quotes;
+  state.account.cash = 10000;
+  state.account.initialCash = 10000;
+  const bought = buy(state.account, { ticker: 'AURA', qty: 10, price: 100, fee: 1 });
+  const sold = sell(bought.account, { ticker: 'AURA', qty: 4, price: 130, fee: 1 });
+  const account = sold.account;
+  const total = equity(account, quotes);
+  const unrealized = unrealizedPnl(account, quotes);
+  assertClose(
+    total - account.initialCash,
+    account.realizedPnl + unrealized,
+    1e-6,
+    'equity - initial equals realized + unrealized',
+  );
+});
+
+test('rejects purchases without cash and sales without shares', () => {
+  const account = createGameState({ seed: 'test' }).account;
+  const poor = buy(account, { ticker: 'AURA', qty: 1000, price: 50, fee: 1 });
+  assert(!poor.ok);
+  assertEqual(poor.error, 'error.insufficientCash');
+  const noShares = sell(account, { ticker: 'AURA', qty: 1, price: 50 });
+  assert(!noShares.ok);
+  assertEqual(noShares.error, 'error.insufficientShares');
+});
+
+suite('Order engine');
+
+const marketState = () => {
+  const state = createGameState({ seed: 'orders' });
+  const quote = state.market.quotes.AURA;
+  return { state, quote, fee: 1 };
+};
+
+test('market buy fills at ask and sell fills at bid', () => {
+  const { state, quote, fee } = marketState();
+  const args = {
+    account: state.account,
+    orders: [],
+    input: { ticker: 'AURA', side: 'buy', type: 'market', qty: 5 },
+    quote,
+    fee,
+    day: 0,
+    tick: 0,
+    seq: 1,
+  };
+  const bought = placeMarketOrder(args);
+  assert(bought.ok);
+  assertClose(bought.order.fillPrice, quote.ask, 0.001, 'buy fill at ask');
+  const sold = placeMarketOrder({
+    ...args,
+    account: bought.account,
+    input: { ticker: 'AURA', side: 'sell', type: 'market', qty: 5 },
+    seq: 2,
+  });
+  assert(sold.ok);
+  assertClose(sold.order.fillPrice, quote.bid, 0.001, 'sell fill at bid');
+  assertEqual(state.account.cash, state.account.initialCash, 'original account untouched');
+});
+
+test('limit buy below market rests, then fills when ask crosses', () => {
+  const { state, quote, fee } = marketState();
+  const limit = Math.round((quote.last * 0.95) * 100) / 100;
+  const placed = placeLimitOrder({
+    account: state.account,
+    orders: [],
+    input: { ticker: 'AURA', side: 'buy', type: 'limit', qty: 10, limitPrice: limit },
+    quote,
+    fee,
+    day: 0,
+    tick: 0,
+    seq: 1,
+  });
+  assert(placed.ok);
+  assertEqual(placed.order.status, ORDER_STATUS.open, 'order rests');
+  const fillQuote = { ...quote, ask: limit - 0.01, last: limit - 0.01 };
+  const processed = processOpenOrders({
+    account: placed.account,
+    orders: [placed.order],
+    quotes: { AURA: fillQuote },
+    fee,
+    day: 0,
+    tick: 1,
+  });
+  assertEqual(processed.fills.length, 1, 'one fill');
+  assertEqual(processed.orders[0].status, ORDER_STATUS.filled, 'status filled');
+  assertClose(processed.orders[0].fillPrice, limit - 0.01, 0.001, 'fills at best available');
+});
+
+test('limit buy above market fills immediately at the ask', () => {
+  const { state, quote, fee } = marketState();
+  const input = { ticker: 'AURA', side: 'buy', type: 'limit', qty: 5, limitPrice: quote.last + 5 };
+  const result = placeLimitOrder({ account: state.account, orders: [], input, quote, fee, day: 0, tick: 0, seq: 1 });
+  assert(result.ok);
+  assertEqual(result.order.status, ORDER_STATUS.filled);
+  assertClose(result.order.fillPrice, quote.ask, 0.001, 'immediate fill at ask');
+});
+
+test('open orders only fill once', () => {
+  const { state, quote, fee } = marketState();
+  const limit = Math.round(quote.last * 0.9 * 100) / 100;
+  const placed = placeLimitOrder({
+    account: state.account, orders: [], quote, fee, day: 0, tick: 0, seq: 1,
+    input: { ticker: 'AURA', side: 'buy', type: 'limit', qty: 5, limitPrice: limit },
+  });
+  const fillQuote = { ...quote, ask: limit - 1 };
+  const first = processOpenOrders({ account: placed.account, orders: [placed.order], quotes: { AURA: fillQuote }, fee, day: 0, tick: 1 });
+  const second = processOpenOrders({ account: first.account, orders: first.orders, quotes: { AURA: fillQuote }, fee, day: 0, tick: 2 });
+  assertEqual(first.fills.length, 1);
+  assertEqual(second.fills.length, 0, 'filled order cannot fill twice');
+});
+
+test('cash and share reservations block conflicting orders', () => {
+  const { state, quote, fee } = marketState();
+  const account = { ...state.account, cash: 1000, initialCash: 1000, positions: {} };
+  const price = 9.5;
+  const first = placeLimitOrder({
+    account, orders: [], quote, fee, day: 0, tick: 0, seq: 1,
+    input: { ticker: 'AURA', side: 'buy', type: 'limit', qty: 100, limitPrice: price },
+  });
+  assert(first.ok, 'first reserved order accepted');
+  const second = placeLimitOrder({
+    account: first.account, orders: [first.order], quote, fee, day: 0, tick: 0, seq: 2,
+    input: { ticker: 'AURA', side: 'buy', type: 'limit', qty: 10, limitPrice: price },
+  });
+  assert(!second.ok, 'second order exceeds unreserved cash');
+  assertClose(availableCash(account, [first.order], fee), 1000 - 950 - fee, 1e-6, 'cash reservation');
+});
+
+test('cancelling a resting order releases its reservation', () => {
+  const { state, quote, fee } = marketState();
+  const account = { ...state.account, cash: 1000, initialCash: 1000, positions: {} };
+  const placed = placeLimitOrder({
+    account, orders: [], quote, fee, day: 0, tick: 0, seq: 1,
+    input: { ticker: 'AURA', side: 'buy', type: 'limit', qty: 50, limitPrice: 10 },
+  });
+  const cancelled = cancelOrder([placed.order], placed.order.id);
+  assert(cancelled.ok);
+  assertEqual(cancelled.order.status, ORDER_STATUS.cancelled);
+  assertClose(reservedCash(cancelled.orders, fee), 0, 1e-6, 'reservation released');
+});
+
+test('sell limit cannot exceed available shares after reservations', () => {
+  const { state, quote, fee } = marketState();
+  const bought = buy(state.account, { ticker: 'AURA', qty: 10, price: quote.last, fee });
+  const resting = placeLimitOrder({
+    account: bought.account, orders: [], quote, fee, day: 0, tick: 0, seq: 1,
+    input: { ticker: 'AURA', side: 'sell', type: 'limit', qty: 6, limitPrice: quote.last + 2 },
+  });
+  assert(resting.ok);
+  const extra = placeLimitOrder({
+    account: resting.account, orders: [resting.order], quote, fee, day: 0, tick: 0, seq: 2,
+    input: { ticker: 'AURA', side: 'sell', type: 'limit', qty: 5, limitPrice: quote.last + 3 },
+  });
+  assert(!extra.ok, 'reserved shares cannot be sold twice');
+  assertEqual(availableShares(resting.account, [resting.order], 'AURA'), 4, 'available shares');
+});
+
+test('order estimate reports total cost and fees', () => {
+  const { quote, fee } = marketState();
+  const estimate = estimateOrder({ input: { side: 'buy', type: 'market', qty: 10 }, quote, fee });
+  assertClose(estimate.execPrice, quote.ask, 0.001);
+  assertClose(estimate.total, quote.ask * 10 + fee, 0.001);
+});
+
+test('orders record the session day and tick they were placed', () => {
+  const { state, quote, fee } = marketState();
+  const placed = placeLimitOrder({
+    account: state.account,
+    orders: [],
+    input: { ticker: 'AURA', side: 'buy', type: 'limit', qty: 1, limitPrice: quote.last * 0.9 },
+    quote,
+    fee,
+    day: 7,
+    tick: 3,
+    seq: 1,
+  });
+  assert(placed.ok);
+  assertEqual(placed.order.createdAt.day, 7, 'created day');
+  assertEqual(placed.order.createdAt.tick, 3, 'created tick');
+});
+
+suite('Market simulation');
+
+test('same seed produces identical prices', () => {
+  const a = MarketEngine.create('deterministic-seed');
+  const b = MarketEngine.create('deterministic-seed');
+  for (let i = 0; i < 12; i += 1) {
+    a.tick();
+    b.tick();
+  }
+  for (const ticker of Object.keys(a.state.quotes)) {
+    assertClose(a.state.quotes[ticker].last, b.state.quotes[ticker].last, 0.0001, ticker);
+  }
+});
+
+test('prices stay positive and quotes stay consistent', () => {
+  const engine = MarketEngine.create('positive-seed');
+  for (let i = 0; i < 40; i += 1) {
+    engine.tick();
+    for (const quote of Object.values(engine.state.quotes)) {
+      assert(quote.last > 0, 'price positive');
+      assert(quote.bid > 0, 'bid positive');
+      assert(quote.ask > quote.bid, 'ask above bid');
+      assert(Number.isFinite(quote.marketCap), 'market cap finite');
+    }
+  }
+});
+
+test('a trading day closes after eight ticks and appends one session', () => {
+  const engine = MarketEngine.create('day-seed');
+  const historyBefore = engine.state.history.AURA.length;
+  for (let i = 0; i < TICKS_PER_DAY; i += 1) engine.tick();
+  assertEqual(engine.state.tick, 0, 'tick resets');
+  assertEqual(engine.state.day, 1, 'day advances');
+  assertEqual(engine.state.history.AURA.length, historyBefore + 1, 'one candle appended');
+});
+
+test('fast forward advances exactly one trading day', () => {
+  const engine = MarketEngine.create('ff-seed');
+  const startDay = engine.state.day;
+  engine.fastForwardDay();
+  assertEqual(engine.state.day, startDay + 1);
+  assertEqual(engine.state.tick, 0);
+});
+
+test('serialized market restores identical continuation', () => {
+  const original = MarketEngine.create('restore-seed');
+  for (let i = 0; i < 5; i += 1) original.tick();
+  const snapshot = JSON.parse(JSON.stringify(original.serialize()));
+  const restored = new MarketEngine(snapshot);
+  for (let i = 0; i < 3; i += 1) {
+    original.tick();
+    restored.tick();
+  }
+  assertClose(
+    original.state.quotes.AURA.last,
+    restored.state.quotes.AURA.last,
+    1e-9,
+    'restored engine matches',
+  );
+});
+
+suite('Market universe and segments');
+
+test('forty unique companies are assigned to five segments of eight', () => {
+  assertEqual(COMPANIES.length, 40, 'company count');
+  const tickers = new Set(COMPANIES.map((company) => company.ticker));
+  assertEqual(tickers.size, 40, 'unique tickers');
+  assertEqual(MARKET_SEGMENTS.length, 5, 'segment count');
+  for (const segment of MARKET_SEGMENTS) {
+    assertEqual(segment.tickers.length, 8, `${segment.id} company count`);
+    for (const ticker of segment.tickers) {
+      assert(tickers.has(ticker), `${ticker} exists`);
+    }
+  }
+});
+
+test('only the core segment is tradable at the start', () => {
+  const state = createGameState({ seed: 'segments' });
+  assert(isSegmentUnlocked(state, 'core'), 'core unlocked');
+  for (const id of ['growth', 'consumer', 'industry', 'frontier']) {
+    assert(!isSegmentUnlocked(state, id), `${id} locked`);
+  }
+  assert(!isCompanyUnlocked(state, 'VELT'), 'growth ticker locked');
+  assert(isCompanyUnlocked(state, 'AURA'), 'core ticker unlocked');
+  assertEqual(unlockedCompanies(state).length, 8, 'eight tradable companies');
+});
+
+test('completing Unit 1 unlocks the growth segment', () => {
+  const bus = createBus();
+  const state = createGameState({ seed: 'segment-unlock' });
+  const store = createStore({ bus, initialState: state });
+  const session = buildQuizSession('u1', 1);
+  recordQuizResult(store, bus, 'u1', gradeQuiz(session, answerAll(session)), { placement: true });
+  assert(isUnitComplete(store.get(), 'u1'), 'unit complete');
+  assert(isSegmentUnlocked(store.get(), 'growth'), 'growth unlocked');
+  assert(isCompanyUnlocked(store.get(), 'QYRA'), 'growth ticker unlocked');
+  assertEqual(unlockedCompanies(store.get()).length, 16, 'sixteen tradable companies');
+});
+
+test('ensureUniverse migrates an eight-company save without losing prices', () => {
+  const state = createGameState({ seed: 'migration' });
+  const coreTickers = COMPANIES.filter((company) => company.segmentId === 'core').map((company) => company.ticker);
+  const auraPrice = state.market.quotes.AURA.last;
+  for (const ticker of Object.keys(state.market.quotes)) {
+    if (!coreTickers.includes(ticker)) delete state.market.quotes[ticker];
+  }
+  for (const ticker of Object.keys(state.market.history)) {
+    if (!coreTickers.includes(ticker)) delete state.market.history[ticker];
+  }
+  state.version = 1;
+  const engine = new MarketEngine(state.market);
+  const changed = engine.ensureUniverse();
+  assert(changed, 'migration ran');
+  assertEqual(Object.keys(state.market.quotes).length, 40, 'all quotes generated');
+  assertEqual(Object.keys(state.market.history).length, 40, 'all histories generated');
+  assertClose(state.market.quotes.AURA.last, auraPrice, 1e-9, 'existing quote untouched');
+  assert(Number.isFinite(state.market.index.value), 'index recalculated');
+});
+
+test('version 1 saves remain valid', () => {
+  const state = createGameState({ seed: 'migration-save' });
+  const legacy = serializeState(state);
+  legacy.version = 1;
+  const validation = validateSave(legacy);
+  assert(validation.ok, 'legacy save accepted');
+});
+
+suite('Portfolio');
+
+test('portfolio summary weights sum to 100 including cash', () => {
+  const state = createGameState({ seed: 'portfolio' });
+  const bought = buy(state.account, { ticker: 'AURA', qty: 10, price: state.market.quotes.AURA.ask, fee: 1 });
+  state.account = bought.account;
+  const summary = portfolioSummary(state.account, state.market.quotes);
+  const totalWeight = summary.rows.reduce((sum, row) => sum + row.weight, 0) + summary.cashWeight;
+  assertClose(totalWeight, 100, 1e-6, 'weights sum to 100');
+  assertEqual(summary.positionsCount, 1);
+});
+
+suite('Quiz engine');
+
+test('builds six questions per unit with unique ids', () => {
+  for (const unit of STAGE_1_UNITS) {
+    const session = buildQuizSession(unit.id, 1);
+    assert(session, `session for ${unit.id}`);
+    assertEqual(session.questions.length, 6, `${unit.id} question count`);
+    const ids = new Set(session.questions.map((q) => q.id));
+    assertEqual(ids.size, 6, `${unit.id} unique ids`);
+    for (const question of session.questions) {
+      assert(question.promptKey, 'prompt key');
+      assert(question.explainKey, 'explanation key');
+      if (question.type !== 'numeric') {
+        assert(question.options.length >= 2, 'options exist');
+        assert(question.correctIds.length >= 1, 'correct options');
+      } else {
+        assert(Number.isFinite(question.answer), 'numeric answer');
+        assert(Number.isFinite(question.tolerance), 'tolerance');
+        assert(question.workKey, 'worked solution key');
+      }
+    }
+  }
+});
+
+function answerAll(session) {
+  const answers = {};
+  for (const question of session.questions) {
+    if (question.type === 'numeric') answers[question.id] = String(question.answer);
+    else if (question.type === 'multi') answers[question.id] = [...question.correctIds];
+    else answers[question.id] = question.correctIds[0];
+  }
+  return answers;
+}
+
+test('all-correct answers score 100', () => {
+  for (const unit of STAGE_1_UNITS) {
+    const session = buildQuizSession(unit.id, 2);
+    const result = gradeQuiz(session, answerAll(session));
+    assertEqual(result.score, 100, `${unit.id} perfect score`);
+    assert(result.passed);
+    assert(result.testOutPassed);
+  }
+});
+
+test('empty answers score zero and fail', () => {
+  const session = buildQuizSession('u1', 3);
+  const result = gradeQuiz(session, {});
+  assertEqual(result.score, 0);
+  assert(!result.passed);
+  assert(!result.testOutPassed);
+});
+
+test('numeric tolerance accepts rounding but rejects wrong values', () => {
+  const session = buildQuizSession('u2', 4);
+  const numeric = session.questions.find((q) => q.type === 'numeric');
+  const answers = answerAll(session);
+  answers[numeric.id] = String(numeric.answer + numeric.tolerance + 0.01);
+  const result = gradeQuiz(session, answers);
+  assertEqual(result.score, 83, 'one wrong answer out of six');
+  answers[numeric.id] = String(numeric.answer + numeric.tolerance * 0.5);
+  const accepted = gradeQuiz(session, answers);
+  assertEqual(accepted.score, 100, 'within tolerance accepted');
+});
+
+test('partial multi-select is graded as wrong', () => {
+  const session = buildQuizSession('u1', 5);
+  const multi = session.questions.find((q) => q.type === 'multi');
+  const answers = answerAll(session);
+  answers[multi.id] = [multi.correctIds[0]];
+  const result = gradeQuiz(session, answers);
+  assertEqual(result.score, 83);
+  assert(!result.details.find((d) => d.id === multi.id).correct);
+});
+
+test('attempt variants change numeric parameters', () => {
+  const first = buildQuizSession('u3', 1);
+  const second = buildQuizSession('u3', 2);
+  const q1 = first.questions.find((q) => q.type === 'numeric');
+  const q2 = second.questions.find((q) => q.type === 'numeric');
+  assert(q1.answer !== q2.answer, 'numeric answers vary between attempts');
+});
+
+suite('Learning progress and unlocks');
+
+test('unit 2 is locked until unit 1 is fully completed', () => {
+  const state = createGameState({ seed: 'progress' });
+  assertEqual(isUnitUnlocked(state, getUnit('u1')), true, 'unit 1 open');
+  assertEqual(isUnitUnlocked(state, getUnit('u2')), false, 'unit 2 locked');
+});
+
+test('reading, practice and quiz complete a unit and unlock the next', () => {
+  const bus = createBus();
+  const state = createGameState({ seed: 'progress' });
+  const store = createStore({ bus, initialState: state });
+  const unit = getUnit('u1');
+
+  // Practice first would not be enough: the quiz and readings are still required.
+  recordInspection(store, bus, 'AURA');
+  recordInspection(store, bus, 'VRDN');
+  assert(evaluatePractice(store.get(), unit).done, 'inspection practice done');
+
+  for (const section of unit.sections) {
+    markSectionRead(store, bus, unit.id, section.id);
+  }
+  const session = buildQuizSession('u1', 1);
+  const result = gradeQuiz(session, answerAll(session));
+  recordQuizResult(store, bus, 'u1', result, { placement: false });
+
+  assert(isUnitComplete(store.get(), 'u1'), 'unit 1 completed');
+  assert(isUnitUnlocked(store.get(), getUnit('u2')), 'unit 2 unlocked');
+  assert(store.get().education.xp > 0, 'xp awarded');
+});
+
+test('unit does not complete without the practice task', () => {
+  const bus = createBus();
+  const state = createGameState({ seed: 'progress2' });
+  const store = createStore({ bus, initialState: state });
+  const unit = getUnit('u1');
+  for (const section of unit.sections) markSectionRead(store, bus, 'u1', section.id);
+  const session = buildQuizSession('u1', 1);
+  recordQuizResult(store, bus, 'u1', gradeQuiz(session, answerAll(session)));
+  assert(!isUnitComplete(store.get(), 'u1'), 'practice still required');
+});
+
+test('marking a section twice does not award XP twice', () => {
+  const bus = createBus();
+  const state = createGameState({ seed: 'xp' });
+  const store = createStore({ bus, initialState: state });
+  const first = markSectionRead(store, bus, 'u1', 's1');
+  const xpAfterFirst = store.get().education.xp;
+  const second = markSectionRead(store, bus, 'u1', 's1');
+  assertEqual(second.xpGained, 0, 'no duplicate XP');
+  assertEqual(store.get().education.xp, xpAfterFirst);
+  assertEqual(first.xpGained, 5);
+});
+
+test('placement test completes a unit without lessons or practice', () => {
+  const bus = createBus();
+  const state = createGameState({ seed: 'placement' });
+  const store = createStore({ bus, initialState: state });
+  const session = buildQuizSession('u1', 1);
+  const result = gradeQuiz(session, answerAll(session));
+  assert(result.score >= TEST_OUT_SCORE, 'perfect score meets placement bar');
+  recordQuizResult(store, bus, 'u1', result, { placement: true });
+  assert(isUnitComplete(store.get(), 'u1'), 'placed out unit complete');
+  assertEqual(unitProgress(store.get(), getUnit('u1')).placedOut, true);
+  assertEqual(unitProgress(store.get(), getUnit('u1')).read, 0, 'no sections marked read');
+});
+
+test('limit orders unlock only after Unit 4 Section 3 is read', () => {
+  const state = createGameState({ seed: 'unlock' });
+  assert(!isToolUnlocked(state, 'order.limit'), 'locked initially');
+  markSectionRead(createStore({ bus: createBus(), initialState: state }), createBus(), 'u4', 's3');
+  // markSectionRead uses the store's state object; re-check that same state object.
+  assert(isToolUnlocked(state, 'order.limit'), 'unlocked after section read');
+});
+
+test('planned tools stay locked with a phase reason', () => {
+  const state = createGameState({ seed: 'unlock2' });
+  assert(!isToolUnlocked(state, 'options.trade'));
+  const reason = lockReason(state, 'options.trade');
+  assertEqual(reason.type, 'phase');
+  assertEqual(reason.phase, 4);
+});
+
+suite('Practice verification');
+
+test('unit 2 practice needs a buy of $1,000 or less', () => {
+  const state = createGameState({ seed: 'practice' });
+  const unit = getUnit('u2');
+  assert(!evaluatePractice(state, unit).done, 'not done initially');
+  state.account.trades = [{ side: 'buy', gross: 2500 }];
+  assert(!evaluatePractice(state, unit).done, 'large buy does not count');
+  state.account.trades = [{ side: 'buy', gross: 999 }];
+  assert(evaluatePractice(state, unit).done, 'small buy counts');
+});
+
+test('unit 4 practice needs a filled limit buy placed below market', () => {
+  const state = createGameState({ seed: 'practice4' });
+  const unit = getUnit('u4');
+  state.orders = [{ status: 'filled', type: 'limit', side: 'buy', refPrice: 50, limitPrice: 52 }];
+  assert(!evaluatePractice(state, unit).done, 'limit above market does not count');
+  state.orders = [{ status: 'filled', type: 'limit', side: 'buy', refPrice: 50, limitPrice: 47 }];
+  assert(evaluatePractice(state, unit).done, 'limit below market counts');
+  state.orders = [{ status: 'cancelled', type: 'limit', side: 'buy', refPrice: 50, limitPrice: 47 }];
+  assert(!evaluatePractice(state, unit).done, 'cancelled orders do not count');
+});
+
+test('unit 1 practice needs two distinct inspected tickers', () => {
+  const state = createGameState({ seed: 'practice1' });
+  const unit = getUnit('u1');
+  recordInspection(createStore({ bus: createBus(), initialState: state }), createBus(), 'AURA');
+  assert(!evaluatePractice(state, unit).done);
+  recordInspection(createStore({ bus: createBus(), initialState: state }), createBus(), 'AURA');
+  assert(!evaluatePractice(state, unit).done, 'duplicate ticker does not count');
+  recordInspection(createStore({ bus: createBus(), initialState: state }), createBus(), 'VRDN');
+  assert(evaluatePractice(state, unit).done);
+});
+
+suite('Save and restore');
+
+test('valid save passes validation', () => {
+  const state = createGameState({ seed: 'save' });
+  const result = validateSave(serializeState(state));
+  assert(result.ok);
+});
+
+test('corrupted or incompatible saves are rejected', () => {
+  const state = createGameState({ seed: 'save' });
+  const badCash = serializeState(state);
+  badCash.account.cash = -50;
+  assert(!validateSave(badCash).ok, 'negative cash rejected');
+  const badVersion = serializeState(state);
+  badVersion.version = 99;
+  assert(!validateSave(badVersion).ok, 'version mismatch rejected');
+  const badQuote = serializeState(state);
+  badQuote.market.quotes.AURA.last = 0;
+  assert(!validateSave(badQuote).ok, 'zero price rejected');
+});
+
+test('hydrate preserves progress, orders and positions', () => {
+  const state = createGameState({ seed: 'hydrate' });
+  const bus = createBus();
+  const store = createStore({ bus, initialState: state });
+  markSectionRead(store, bus, 'u1', 's1');
+  state.orders.push({ id: 1, ticker: 'AURA', side: 'buy', type: 'limit', qty: 1, limitPrice: 10, status: 'open', createdAt: { day: 0, tick: 0 } });
+  const saved = JSON.parse(JSON.stringify(state));
+  const hydrated = hydrateState(saved);
+  assert(hydrated.education.units.u1.sectionsRead.s1, 'section progress preserved');
+  assertEqual(hydrated.orders.length, 1, 'order preserved');
+  assertEqual(hydrated.education.units.u1.quizAttempts, 0, 'quiz attempts default');
+});
+
+test('theme defaults to dark and survives save hydration', () => {
+  const state = createGameState({ seed: 'theme' });
+  assertEqual(state.settings.theme, 'dark', 'new games start dark');
+  state.settings.theme = 'light';
+  const hydrated = hydrateState(JSON.parse(JSON.stringify(state)));
+  assertEqual(hydrated.settings.theme, 'light', 'light theme preserved');
+  const legacy = createGameState({ seed: 'theme-legacy' });
+  delete legacy.settings.theme;
+  assertEqual(hydrateState(legacy).settings.theme, 'dark', 'missing theme falls back to dark');
+});
+
+suite('Dividends and Stage 2');
+
+test('cash dividends pay shares × dividend per share exactly once', () => {
+  const state = createGameState({ seed: 'dividend' });
+  const company = COMPANIES.find((entry) => entry.dividendYield > 0);
+  assert(company, 'a dividend-paying company exists');
+  let exDay = null;
+  for (let day = 0; day < 100; day += 1) {
+    if (isDividendDay(company, day)) { exDay = day; break; }
+  }
+  assert(exDay !== null, 'the company has an ex-dividend date');
+  const account = {
+    ...state.account,
+    positions: { [company.ticker]: { qty: 100, costBasis: 1000 } },
+  };
+  const rows = payableDividends(account, exDay);
+  assertEqual(rows.length, 1, 'one dividend row for the held stock');
+  assertClose(rows[0].amount, 100 * dividendPerShare(company), 0.011);
+  const first = applyDividends(account, rows);
+  assertClose(first.account.cash, account.cash + rows[0].amount, 0.011);
+  assertEqual(first.dividends.length, 1, 'dividend recorded in the ledger');
+  const again = applyDividends(first.account, payableDividends(first.account, exDay));
+  assertEqual(again.dividends.length, 0, 'same ex-date cannot pay twice');
+  assertClose(again.account.cash, first.account.cash, 0.001);
+});
+
+test('dividends are not paid on ordinary days or without a position', () => {
+  const state = createGameState({ seed: 'dividend-empty' });
+  const company = COMPANIES.find((entry) => entry.dividendYield > 0);
+  const noPosition = payableDividends(state.account, 0);
+  assertEqual(noPosition.length, 0, 'no position means no dividend');
+  const ordinary = payableDividends({
+    ...state.account,
+    positions: { [company.ticker]: { qty: 10, costBasis: 100 } },
+  }, 0);
+  assert(isDividendDay(company, 0) ? ordinary.length === 1 : ordinary.length === 0, 'only ex-dates pay');
+});
+
+test('Stage 2 exposes the dividend unit and keeps it gated', () => {
+  const state = createGameState({ seed: 'stage2' });
+  assertEqual(STAGE_2_UNITS[0].id, 'u5', 'Stage 2 starts with the dividend unit');
+  const unit = getUnit('u5');
+  assert(unit && unit.implemented, 'unit 5 is implemented');
+  assertEqual(unit.prerequisites[0], 'u4', 'unit 5 follows unit 4');
+  assert(!isUnitUnlocked(state, unit), 'unit 5 stays locked until unit 4 is complete');
+  state.education.inspectedTickers = COMPANIES.filter((entry) => entry.dividendYield > 0)
+    .slice(0, 2).map((entry) => entry.ticker);
+  assertEqual(evaluatePractice(state, unit).done, true, 'inspecting two dividend stocks completes practice');
+});
+
+test('every company has exactly one stock style', () => {
+  const styled = COMPANIES.filter((company) => styleOf(company.ticker));
+  assertEqual(styled.length, COMPANIES.length, 'every company is classified');
+  const ids = new Set(COMPANIES.map((company) => styleOf(company.ticker)));
+  assertEqual(ids.size, 4, 'four styles are represented');
+  const mapped = Object.values(STOCK_STYLES).flat();
+  assertEqual(mapped.length, COMPANIES.length, 'no duplicate style assignments');
+  assertEqual(new Set(mapped).size, COMPANIES.length, 'no ticker appears in two styles');
+});
+
+test('Stage 2 units 6-8 are implemented in order', () => {
+  const ids = STAGE_2_UNITS.map((unit) => unit.id);
+  assertEqual(ids.join(','), 'u5,u6,u7,u8', 'all four units exist');
+  assert(STAGE_2_UNITS.every((unit) => unit.implemented), 'all Stage 2 units are playable');
+  STAGE_2_UNITS.forEach((unit, index) => {
+    const expected = index === 0 ? 'u4' : STAGE_2_UNITS[index - 1].id;
+    assertEqual(unit.prerequisites[0], expected, `${unit.id} follows ${expected}`);
+  });
+});
+
+test('style, diversification and holding practice checks verify real state', () => {
+  const state = createGameState({ seed: 'stage2-practice' });
+  const styles = ['growth', 'value', 'dividend'];
+  state.education.inspectedTickers = styles.map((style) => STOCK_STYLES[style][0]);
+  assertEqual(evaluatePractice(state, getUnit('u6')).done, true, 'three styles complete u6');
+
+  const sectorPicks = ['AURA', 'VRDN', 'ORBT'];
+  state.account.positions = sectorPicks.reduce((acc, ticker) => {
+    acc[ticker] = { qty: 5, costBasis: 50 };
+    return acc;
+  }, {});
+  assertEqual(evaluatePractice(state, getUnit('u7')).done, true, 'three sectors complete u7');
+
+  state.account.positions = { AURA: { qty: 3, costBasis: 30 } };
+  state.account.trades = [{ side: 'buy', ticker: 'AURA', day: state.market.day - 20, qty: 3, price: 10 }];
+  assertEqual(evaluatePractice(state, getUnit('u8')).done, true, '15 held sessions complete u8');
+});
+
+suite('Stage 3 analytics');
+
+test('SMA, RSI and indicator snapshots are deterministic', () => {
+  assertClose(sma([1, 2, 3, 4, 5], 3), 4, 0.0001);
+  assertEqual(sma([1, 2], 3), null, 'insufficient data returns null');
+  assertEqual(rsi([1, 2, 3, 4, 5], 3), 100, 'rising series has RSI 100');
+  const state = createGameState({ seed: 'indicators' });
+  const snapshot = indicatorSnapshot(state.market.history.AURA, state.market.quotes.AURA.last);
+  assert(snapshot, 'snapshot exists');
+  assert(snapshot.sma20 > 0 && snapshot.sma50 > 0, 'moving averages computed');
+  assert(snapshot.rsi14 >= 0 && snapshot.rsi14 <= 100, 'RSI stays in range');
+  assert(snapshot.trend === 'up' || snapshot.trend === 'down' || snapshot.trend === 'flat', 'trend classified');
+});
+
+test('DCF discounts cash flow and responds to assumptions', () => {
+  const base = dcf({ fcf: 100, growthRate: 0, years: 1, discountRate: 10, terminalGrowth: 0, shares: 100, netDebt: 0 });
+  assertClose(base.enterpriseValue, 1000, 0.5);
+  assertClose(base.perShare, 10, 0.01);
+  const higherRate = dcf({ fcf: 100, growthRate: 0, years: 1, discountRate: 15, terminalGrowth: 0, shares: 100, netDebt: 0 });
+  assert(higherRate.perShare < base.perShare, 'higher discount rate lowers value');
+  const netDebt = dcf({ fcf: 100, growthRate: 0, years: 1, discountRate: 10, terminalGrowth: 0, shares: 100, netDebt: 200 });
+  assertClose(netDebt.perShare, 8, 0.01);
+  assertEqual(dcf({ fcf: 100, years: 1, discountRate: 5, terminalGrowth: 6, shares: 100 }), null, 'r <= g is invalid');
+});
+
+test('Stage 3 units and demo-based practice are wired', () => {
+  assertEqual(STAGE_3_UNITS.map((unit) => unit.id).join(','), 'u9,u10,u11,u12', 'four Stage 3 units');
+  assert(STAGE_3_UNITS.every((unit) => unit.implemented), 'all Stage 3 units are playable');
+  const state = createGameState({ seed: 'stage3-practice' });
+  state.education.demoRuns = ['candle'];
+  assertEqual(evaluatePractice(state, getUnit('u9')).done, true, 'candle demo completes u9');
+  state.education.demoRuns.push('indicators');
+  assertEqual(evaluatePractice(state, getUnit('u10')).done, true, 'indicators demo completes u10');
+  state.education.demoRuns.push('dcf');
+  assertEqual(evaluatePractice(state, getUnit('u12')).done, true, 'dcf demo completes u12');
+  state.settings.layout = 'basic';
+  state.education.inspectedTickers = ['AURA', 'VRDN'];
+  assertEqual(evaluatePractice(state, getUnit('u11')).done, false, 'u11 needs advanced layout');
+  state.settings.layout = 'advanced';
+  assertEqual(evaluatePractice(state, getUnit('u11')).done, true, 'advanced inspections complete u11');
+});
+
+suite('Stage 4 analytics and completion');
+
+test('macro snapshot is deterministic and internally consistent', () => {
+  const first = macroSnapshot(42, 'macro-seed');
+  const again = macroSnapshot(42, 'macro-seed');
+  assertEqual(JSON.stringify(first), JSON.stringify(again), 'same day and seed give the same macro picture');
+  assertClose(first.realRate, first.policyRate - first.inflation, 0.11);
+  assert(['expansion', 'slowdown', 'inflation', 'neutral'].includes(first.regime), 'regime is classified');
+  assert(Number.isFinite(first.growth) && Number.isFinite(first.unemployment), 'indicators are finite');
+});
+
+test('portfolio analytics derives risk from equity and weights', () => {
+  const state = createGameState({ seed: 'analytics' });
+  const account = {
+    ...state.account,
+    cash: 5000,
+    equityHistory: [{ day: 0, equity: 10000 }, { day: 1, equity: 11000 }, { day: 2, equity: 10500 }],
+    positions: {
+      AURA: { qty: 60, costBasis: 3000 },
+      VRDN: { qty: 20, costBasis: 600 },
+    },
+  };
+  const total = 5000 + state.market.quotes.AURA.last * 60 + state.market.quotes.VRDN.last * 20;
+  const analytics = portfolioAnalytics(account, state.market.quotes, total);
+  assert(analytics.volatility > 0, 'volatility computed');
+  assert(analytics.drawdown < 0, 'drawdown is negative');
+  assert(analytics.hhi > 0 && analytics.hhi <= 1, 'HHI in range');
+  assert(analytics.topTicker === 'AURA', 'largest position identified');
+  assertClose(analytics.exposure, 1 - 5000 / total, 0.01);
+});
+
+test('Stage 4 units are implemented and practice checks are demo-based', () => {
+  assertEqual(STAGE_4_UNITS.map((unit) => unit.id).join(','), 'u13,u14,u15,u16', 'four Stage 4 units');
+  assert(STAGE_4_UNITS.every((unit) => unit.implemented), 'all Stage 4 units are playable');
+  const state = createGameState({ seed: 'stage4-practice' });
+  state.education.demoRuns = ['macro', 'allocation', 'risk', 'strategies'];
+  STAGE_4_UNITS.forEach((unit) => {
+    assertEqual(evaluatePractice(state, unit).done, true, `${unit.id} demo completes practice`);
+  });
+});
+
+suite('Formatting');
+
+test('money and percentage formatting are stable', () => {
+  assertEqual(money(1234.5, 'en'), '$1,234.50');
+  assertEqual(money(-1234.5, 'en'), '-$1,234.50');
+  assertEqual(pct(12.5, 'en', 2), '+12.50%');
+  assertEqual(pct(-3.2, 'en', 2), '-3.20%');
+  assertEqual(compactNumber(1_250_000, 'en'), '1.3M');
+  assertEqual(clamp(5, 0, 3), 3);
+});
+
+test('quiz xp helper is consistent with rules', () => {
+  assertEqual(questionXp(100, true, true), 55);
+  assertEqual(questionXp(80, true, false), 40);
+  assertEqual(questionXp(50, false, false), 0);
+});

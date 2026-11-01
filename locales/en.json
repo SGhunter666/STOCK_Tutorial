@@ -1,0 +1,3427 @@
+{
+  "app": {
+    "name": "Stock Market Academy",
+    "tagline": "Learn · Simulate · Master"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "academy": "Academy",
+    "market": "Market",
+    "trading": "Trading",
+    "portfolio": "Portfolio",
+    "news": "News",
+    "options": "Options",
+    "challenges": "Challenges",
+    "glossary": "Glossary",
+    "settings": "Settings",
+    "history": "Historical Lab"
+  },
+  "common": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "previous": "Previous",
+    "next": "Next",
+    "review": "Review",
+    "open": "Open",
+    "viewAll": "View all",
+    "today": "Today",
+    "gotIt": "Got it",
+    "locked": "Locked",
+    "true": "True",
+    "false": "False"
+  },
+  "shell": {
+    "level": "Level",
+    "equity": "Equity",
+    "today": "Today",
+    "marketTape": "Market",
+    "stageOneBadge": "Stage 1 complete",
+    "disclaimer": "Fictional companies and virtual money, for education only. Not investment advice."
+  },
+  "onboarding": {
+    "eyebrow": "Before you start · 开始之前",
+    "title": "Create your simulated account",
+    "intro": "Choose the interface language, then start Stage 1: Stocks from scratch. Lessons, practice and simulated trading all run locally.",
+    "languageTitle": "Interface language",
+    "languageZhNote": "简体中文界面与课程",
+    "languageEnNote": "English interface and lessons",
+    "point1": "Lessons: understand shares, orders and profit/loss",
+    "point2": "Practice: place real buys and sells in a simulated market",
+    "point3": "Progress: saved locally in your browser, resume anytime",
+    "start": "Create game and start the first lesson",
+    "note": "Starting cash is $10,000 virtual dollars for education only. No real trading, securities or return promises."
+  },
+  "clock": {
+    "day": "Trading day {day}",
+    "pause": "Pause",
+    "play": "Resume",
+    "nextDay": "Fast-forward to next session",
+    "speedPaused": "Paused"
+  },
+  "error": {
+    "qtyInvalid": "Enter a whole number of shares greater than 0.",
+    "priceInvalid": "Enter a valid price.",
+    "insufficientCash": "Not enough available cash for this purchase.",
+    "insufficientShares": "Not enough available shares for this sale.",
+    "unknownTicker": "That ticker was not found.",
+    "marketLocked": "This stock is not unlocked yet. Finish the matching lesson first.",
+    "sideInvalid": "Invalid order side.",
+    "typeInvalid": "Invalid order type.",
+    "unitUnavailable": "This unit is not available.",
+    "sectionUnknown": "That lesson section was not found.",
+    "viewFailed": "This page failed to load",
+    "viewFailedText": "Refresh the page to try again. Your progress and trades are saved automatically.",
+    "benchmarkNotTradable": "QQQ is the benchmark and cannot be traded."
+  },
+  "toast": {
+    "welcome": "Welcome to Stock Market Academy. Start with the first lesson and practise real market logic with virtual money.",
+    "saveRestored": "Your progress, orders and positions were restored.",
+    "saveIncompatible": "This save is from an incompatible version, so a new game was created. The old save is no longer used.",
+    "storageFallback": "IndexedDB is unavailable, so saving switched to localStorage.",
+    "offlineNoStorage": "This browser blocks file:// storage, so the offline build cannot remember progress. Use Chrome / Edge / Firefox, or run the development build with a local server.",
+    "orderFilled": "{side} filled: {ticker} {qty} shares @ {price}",
+    "orderPlaced": "Limit order placed for {qty} {ticker} shares. Waiting for a fill.",
+    "orderCancelled": "Order cancelled.",
+    "limitFilled": "Limit order filled: {ticker} {qty} shares @ {price}",
+    "dividendPaid": "Dividend received: {amount} ({count} payments), credited to cash.",
+    "saved": "Progress saved.",
+    "saveFailed": "Save failed. Check your browser storage permissions.",
+    "practiceComplete": "Practice task completed and recorded.",
+    "unitComplete": "Unit completed: {unit}",
+    "achievement": "Achievement unlocked:",
+    "toolUnlocked": "Unlocked: {tool}",
+    "marketSegmentUnlocked": "New segment unlocked: {segment} — {count} companies are now tradable.",
+    "quizPassed": "Quiz passed with {score}%.",
+    "quizFailed": "You scored {score}%, below the pass mark. Review the explanations and try again.",
+    "exported": "Save file exported.",
+    "importOk": "Save validated. Reloading now.",
+    "importInvalid": "This save could not be imported ({reason})."
+  },
+  "stage": {
+    "stage1": {
+      "title": "Stage 1 · Stock Market Foundations",
+      "summary": "Understand stocks, trading and profit/loss from scratch, then place your first simulated trade."
+    },
+    "stage2": {
+      "title": "Stage 2 · Core Investing Knowledge",
+      "summary": "Dividends, stock types, ETFs, diversification and compounding."
+    },
+    "stage3": {
+      "title": "Stage 3 · Market Analysis",
+      "summary": "Candlesticks, technical indicators, fundamentals and valuation."
+    },
+    "stage4": {
+      "title": "Stage 4 · Strategy and Risk Management",
+      "summary": "Macroeconomics, portfolios, risk management and common strategies."
+    },
+    "stage5": {
+      "title": "Stage 5 · Advanced Stock Trading",
+      "summary": "Short selling, margin, advanced orders and market mechanics."
+    },
+    "stage6": {
+      "title": "Stage 6 · Options Foundations",
+      "summary": "Option contracts, calls and puts, expiry payoffs, pricing and Greeks."
+    },
+    "stage7": {
+      "title": "Stage 7 · Options Strategies",
+      "summary": "Selling options, income strategies, spreads and volatility strategies."
+    },
+    "stage8": {
+      "title": "Stage 8 · Expert Trading",
+      "summary": "Futures, hedging, financial crises and the capstone challenge."
+    }
+  },
+  "curriculum": {
+    "u1": {
+      "title": "What Is a Stock?",
+      "summary": "How stocks relate to ownership, plus exchanges, tickers, share price and market cap."
+    },
+    "u2": {
+      "title": "How Stocks Trade",
+      "summary": "Buy and sell flow, cash and positions, market orders and the bid/ask spread."
+    },
+    "u3": {
+      "title": "Calculating Profit and Loss",
+      "summary": "Cost basis, realized vs unrealized P&L, returns and trading fees."
+    },
+    "u4": {
+      "title": "Order Basics",
+      "summary": "Trading sessions, market orders, limit orders, order status and liquidity."
+    },
+    "u5": {
+      "title": "Dividends",
+      "summary": "Dividend yield, ex-dividend dates, cash payouts and capital gains."
+    },
+    "u6": {
+      "title": "Types of Stocks",
+      "summary": "Growth, value, blue chip, cyclical, income and speculative stocks."
+    },
+    "u7": {
+      "title": "ETFs and Diversification",
+      "summary": "Index funds, concentration and what diversification can and cannot do."
+    },
+    "u8": {
+      "title": "Compounding and Long-Term Investing",
+      "summary": "Simple vs compound returns, dividend reinvestment, annualized returns and inflation."
+    },
+    "u9": {
+      "title": "Reading Candlesticks",
+      "summary": "Open, high, low and close, plus different time frames."
+    },
+    "u10": {
+      "title": "Technical Analysis Basics",
+      "summary": "Trends, support and resistance, SMA, EMA, RSI, MACD and Bollinger Bands."
+    },
+    "u11": {
+      "title": "Fundamental Analysis",
+      "summary": "Revenue, net income, EPS, P/E, cash flow and debt."
+    },
+    "u12": {
+      "title": "Company Valuation",
+      "summary": "Intrinsic value, relative valuation, a simplified DCF and the role of assumptions."
+    },
+    "u13": {
+      "title": "Macroeconomics",
+      "summary": "Interest rates, inflation, GDP, unemployment and central banks."
+    },
+    "u14": {
+      "title": "Portfolio Construction",
+      "summary": "Weights, sector mix, correlation, rebalancing and asset allocation."
+    },
+    "u15": {
+      "title": "Risk Management",
+      "summary": "Volatility, maximum drawdown, stops, position sizing, Sharpe ratio and tail risk."
+    },
+    "u16": {
+      "title": "Investment Strategies",
+      "summary": "Value, growth, momentum, dividends, buy-and-hold and dollar-cost averaging."
+    },
+    "u17": {
+      "title": "Short Selling",
+      "summary": "Borrowing stock, closing the short, borrow costs and short squeezes."
+    },
+    "u18": {
+      "title": "Margin and Leverage",
+      "summary": "Margin accounts, borrowing to buy, margin interest, maintenance margin and forced liquidation."
+    },
+    "u19": {
+      "title": "Advanced Orders",
+      "summary": "Stop orders, stop-limit, trailing stops, OCO and slippage."
+    },
+    "u20": {
+      "title": "Market Mechanics",
+      "summary": "Order books, quotes, liquidity, market impact and volume."
+    },
+    "u21": {
+      "title": "Introduction to Options",
+      "summary": "Contracts, underlying assets, calls, puts, strikes, premiums and expiration."
+    },
+    "u22": {
+      "title": "Call Options",
+      "summary": "Buying calls, expiry payoffs, breakeven, time value, ITM, ATM and OTM."
+    },
+    "u23": {
+      "title": "Put Options",
+      "summary": "Buying puts, profiting from declines, expiry payoffs and protective puts."
+    },
+    "u24": {
+      "title": "Option Pricing",
+      "summary": "Intrinsic value, time value, implied volatility, Theta, Delta, Gamma and Vega."
+    },
+    "u25": {
+      "title": "Selling Options",
+      "summary": "Selling calls and puts, collecting premium, assignment risk and naked options."
+    },
+    "u26": {
+      "title": "Income Strategies",
+      "summary": "Covered calls, cash-secured puts, requirements, maximum gain and maximum risk."
+    },
+    "u27": {
+      "title": "Spread Strategies",
+      "summary": "Bull call spreads, bear put spreads, credit spreads and debit spreads."
+    },
+    "u28": {
+      "title": "Volatility Strategies",
+      "summary": "Straddles, strangles, iron condors and changes in implied volatility."
+    },
+    "u29": {
+      "title": "Futures Basics",
+      "summary": "Futures contracts, contract size, margin, daily mark-to-market and delivery."
+    },
+    "u30": {
+      "title": "Hedging",
+      "summary": "Stock and option hedges, delta hedging, hedge costs and imperfect hedges."
+    },
+    "u31": {
+      "title": "Financial Crises",
+      "summary": "Liquidity crises, deleveraging, volatility spikes and systemic risk."
+    },
+    "u32": {
+      "title": "Capstone Challenge",
+      "summary": "Analyse the macro backdrop, research stocks, build a portfolio, manage risk and explain your reasoning."
+    }
+  },
+  "sector": {
+    "technology": "Technology",
+    "healthcare": "Healthcare",
+    "staples": "Staples",
+    "industrials": "Industrials",
+    "utilities": "Utilities",
+    "materials": "Materials",
+    "financials": "Financials",
+    "discretionary": "Discretionary",
+    "realestate": "Real estate",
+    "energy": "Energy",
+    "communication": "Communication services"
+  },
+  "stockStyle": {
+    "growth": "Growth",
+    "growthDesc": "Revenue and earnings grow above average, profits are usually reinvested, dividends are low and valuation and volatility are higher.",
+    "value": "Value",
+    "valueDesc": "Priced low relative to earnings, assets or cash flow; it may be undervalued or reflect deteriorating fundamentals.",
+    "dividend": "Income",
+    "dividendDesc": "A mature company with stable cash flow that distributes more profit as dividends, usually with limited growth.",
+    "cyclical": "Cyclical",
+    "cyclicalDesc": "Earnings swing with the economic cycle, common in industrials, materials, energy and discretionary consumer sectors."
+  },
+  "company": {
+    "AURA": {
+      "name": "Auralis Robotics",
+      "desc": "A fictional industrial robotics company supplying automated assembly and machine-vision systems to factories."
+    },
+    "HLIX": {
+      "name": "Helix Biotech",
+      "desc": "A fictional biotech company focused on rare-disease drug discovery and clinical trials."
+    },
+    "VRDN": {
+      "name": "Verdant Foods",
+      "desc": "A fictional food and beverage group specialising in organic products and cold-chain distribution."
+    },
+    "ORBT": {
+      "name": "Orbital Logistics",
+      "desc": "A fictional logistics company offering cross-border freight and warehousing networks."
+    },
+    "LUMX": {
+      "name": "Lumina Grid",
+      "desc": "A fictional electric utility operating a regional power grid and storage facilities."
+    },
+    "FERR": {
+      "name": "Ferrum Materials",
+      "desc": "A fictional metals company producing specialty steel and industrial alloys."
+    },
+    "NOVA": {
+      "name": "Novara Bank",
+      "desc": "A fictional retail bank offering deposits, loans and small-business financial services."
+    },
+    "ZENI": {
+      "name": "Zenith Retail",
+      "desc": "A fictional retail chain selling home and lifestyle products."
+    },
+    "QYRA": {
+      "name": "Quantum Layer Systems",
+      "desc": "A fictional quantum-computing software company offering secure compute and simulation platforms."
+    },
+    "VELT": {
+      "name": "Velora Semiconductors",
+      "desc": "A fictional chip designer whose products power data centres and smart devices."
+    },
+    "NIMB": {
+      "name": "Nimbra Cloud",
+      "desc": "A fictional cloud infrastructure company providing elastic compute and developer tools."
+    },
+    "SRIN": {
+      "name": "Serin Health",
+      "desc": "A fictional digital health platform connecting clinics, insurers and patient records."
+    },
+    "KAIN": {
+      "name": "Kainos Genomics",
+      "desc": "A fictional genetic testing company still investing heavily and running at a loss."
+    },
+    "LUMO": {
+      "name": "Lumora Optics",
+      "desc": "A fictional medical optics company making surgical imaging systems."
+    },
+    "ARCA": {
+      "name": "Arcadia Mobility",
+      "desc": "A fictional electric mobility company operating shared fleets and charging networks."
+    },
+    "VIVD": {
+      "name": "Vivida Travel",
+      "desc": "A fictional online travel platform selling flights, hotels and holiday packages."
+    },
+    "BRWN": {
+      "name": "Brownfield Grocers",
+      "desc": "A fictional neighbourhood supermarket chain focused on affordable fresh food."
+    },
+    "TLLY": {
+      "name": "Tally Home",
+      "desc": "A fictional household products group with several regional brands."
+    },
+    "FRES": {
+      "name": "Fresco Markets",
+      "desc": "A fictional food retail and cold-chain business."
+    },
+    "MEDX": {
+      "name": "Medix Devices",
+      "desc": "A fictional medical device maker covering monitoring and imaging."
+    },
+    "CARA": {
+      "name": "Caravel Pharma",
+      "desc": "A fictional pharmaceutical company focused on chronic diseases and generics."
+    },
+    "PULS": {
+      "name": "Pulse Fitness",
+      "desc": "A fictional gym chain combining physical clubs with online classes."
+    },
+    "STYL": {
+      "name": "Stylo Apparel",
+      "desc": "A fictional clothing retailer spanning fast fashion and wardrobe basics."
+    },
+    "HOME": {
+      "name": "HomeNest",
+      "desc": "A fictional home goods retailer offering delivery and installation."
+    },
+    "ALTA": {
+      "name": "Alta Bancorp",
+      "desc": "A fictional regional bank serving small businesses and retail customers."
+    },
+    "CRST": {
+      "name": "Crest Capital",
+      "desc": "A fictional asset manager offering funds and wealth services."
+    },
+    "MERI": {
+      "name": "Meridian Insurance",
+      "desc": "A fictional property insurer covering commercial and household risks."
+    },
+    "FRTL": {
+      "name": "Fortiline Industrial",
+      "desc": "A fictional industrial group making construction equipment and components."
+    },
+    "AXLE": {
+      "name": "Axleton Motors",
+      "desc": "A fictional commercial vehicle maker selling trucks and fleet services."
+    },
+    "GRID": {
+      "name": "GridWorks",
+      "desc": "A fictional power-grid engineering firm delivering transmission projects."
+    },
+    "CYCL": {
+      "name": "Cyclone Freight",
+      "desc": "A fictional heavy-freight carrier running long-haul fleets and multimodal routes."
+    },
+    "MACH": {
+      "name": "Machina Tools",
+      "desc": "A fictional precision toolmaker supplying aerospace and automotive factories."
+    },
+    "SOLR": {
+      "name": "Solaris Power",
+      "desc": "A fictional solar generator operating large photovoltaic plants."
+    },
+    "WIND": {
+      "name": "Windmere Energy",
+      "desc": "A fictional wind operator with onshore and offshore farms."
+    },
+    "AQUA": {
+      "name": "Aquilon Water",
+      "desc": "A fictional water utility running supply and wastewater services."
+    },
+    "FERO": {
+      "name": "FerroCore",
+      "desc": "A fictional specialty alloy company supplying energy and aerospace customers."
+    },
+    "COPR": {
+      "name": "Copperline",
+      "desc": "A fictional copper processor whose products serve grids and construction."
+    },
+    "LITH": {
+      "name": "Lithium Works",
+      "desc": "A fictional lithium materials company whose price swings with the energy cycle."
+    },
+    "VOLT": {
+      "name": "VoltEdge",
+      "desc": "A fictional battery technology start-up that is unprofitable and highly volatile."
+    },
+    "SPRK": {
+      "name": "Sparkline Systems",
+      "desc": "A fictional high-performance computing company highly sensitive to growth expectations."
+    }
+  },
+  "lesson": {
+    "proTag": "PRO",
+    "eyebrow": "Academy",
+    "unitNumber": "Unit {number}",
+    "sectionOf": "Section {index} of {total}",
+    "sectionEyebrow": "Lesson · {index} of {total}",
+    "xpPerSection": "+{xp} XP for completing this section",
+    "read": "Completed",
+    "outline": "Unit outline",
+    "practiceLink": "Practice task",
+    "quizLink": "Unit quiz",
+    "progress": "Progress",
+    "progressMeta": "{read} of {total} sections read",
+    "keyTerms": "Terms in this section",
+    "howItWorks": "How learning works",
+    "howLearn": "Start with the plain-language explanation, expand the professional definition if you want",
+    "howDemo": "Change the demo inputs and watch the numbers move",
+    "howPractice": "Complete a real task in the simulated market",
+    "howTest": "Pass the quiz to unlock new trading tools",
+    "tipLabel": "Study tip",
+    "tipText": "Don't rush into trading. Explain the concept in your own words first, then test it in the simulated market.",
+    "backToAcademy": "Back to Academy",
+    "backToUnit": "Back to unit",
+    "unlocks": "Unlocks",
+    "unlockNote": "Unlocks activate automatically once the lesson check passes.",
+    "unitMeta": "Unit details",
+    "whatYouLearn": "What this unit covers",
+    "practiceTitle": "Practice task",
+    "goPractice": "Go to practice task",
+    "markNext": "Mark complete and continue",
+    "completeSection": "Complete this section",
+    "lockedTitle": "This unit is locked",
+    "lockedPrereq": "Finish every requirement in “{unit}” before starting this unit.",
+    "u1": {
+      "s1": {
+        "title": "A Stock Is a Slice of Ownership",
+        "p1": "Imagine you and two friends open a coffee shop with $300,000 of combined capital. You divide ownership into 300,000 equal slices worth $1 each. You put in $90,000, so you own 90,000 slices — 30% of the business. A stock is simply the certificate for those slices.",
+        "p2": "To raise money, a company can split ownership into millions or even billions of slices and sell them to the public. Each slice is one share. Buyers become shareholders: they are not lending money to the company, they genuinely own a small piece of it.",
+        "key": {
+          "title": "Key idea",
+          "text": "A stock represents a share of ownership in a company. It is not a loan, not a deposit, and it promises no fixed return."
+        },
+        "f1": "1 share = one small slice of company ownership",
+        "f1note": "Your percentage of shares determines how much of the company you own.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A company has issued 1,000,000 shares in total.",
+          "l2": "If you own 1,000 shares, you own 1,000 ÷ 1,000,000 = 0.1% of the company."
+        },
+        "myth": {
+          "title": "Common myth",
+          "text": "“Buying stock means lending money to the company, which must pay me back.” That describes a bond. Stocks represent ownership; the company does not promise to repay you."
+        },
+        "pro": {
+          "title": "Professional definition",
+          "text": "An equity security represents a residual claim on a company. After all debts are paid, shareholders share the remaining assets and profits in proportion to their ownership."
+        }
+      },
+      "s2": {
+        "title": "Shareholders, Public Companies and Limited Liability",
+        "p1": "A public company is one whose shares can be bought and sold on a public exchange. Any eligible investor can buy its shares and become one of its owners.",
+        "p2": "As a shareholder you have several basic rights: to vote in proportion to your shares at the annual meeting; to receive dividends in proportion to your shares when they are paid; to share in any remaining value after a liquidation pays off debts; and to sell your shares to someone else at any time.",
+        "list": {
+          "title": "Four basic shareholder rights",
+          "i1": "Voting: vote on major company matters in proportion to your shares",
+          "i2": "Dividends: receive payouts in proportion to your shares",
+          "i3": "Residual claim: share in what remains after a liquidation pays creditors",
+          "i4": "Transfer: sell your shares to other investors"
+        },
+        "pro": {
+          "title": "Limited liability",
+          "text": "Shareholders can lose at most what they invested. Company debts are not pursued against personal assets (except in cases such as fraud). This limited liability is one reason stock investing became widespread."
+        },
+        "myth": {
+          "title": "Common myth",
+          "text": "“If the company loses money, shareholders must pay extra.” Normally they do not. Limited liability protects personal assets."
+        },
+        "tip": {
+          "title": "About this game",
+          "text": "Every company, price, financial statement and news item in this game is fictional. It exists for education and must not be used for real investment decisions."
+        }
+      },
+      "s3": {
+        "title": "Exchanges and Tickers",
+        "p1": "An exchange is an organised marketplace where buyers and sellers post quotes, get matched and trade. The exchange itself does not buy or sell shares; it provides rules, systems and oversight.",
+        "p2": "Every listed company has a ticker symbol, such as AURA or VRDN in this game. It works like the stock's ID in the market. Real tickers are usually one to five letters.",
+        "list": {
+          "title": "What exchanges do",
+          "i1": "Match buy and sell orders",
+          "i2": "Publish trade prices and volume",
+          "i3": "Set listing, disclosure and trading rules",
+          "i4": "Maintain market integrity and investor protection"
+        },
+        "example": {
+          "title": "Examples in this game",
+          "l1": "AURA is the ticker for Auralis Robotics.",
+          "l2": "VRDN is the ticker for Verdant Foods. Tickers let you find a company quickly."
+        },
+        "warn": {
+          "title": "Keep in mind",
+          "text": "A company can list on several exchanges with different tickers. A ticker is only an identifier; it says nothing about whether the company is a good investment."
+        }
+      },
+      "s4": {
+        "title": "Share Price vs Market Capitalisation",
+        "p1": "The share price is the current market price of one share. It updates constantly as buyers and sellers trade: when someone is willing to pay more, the price rises.",
+        "p2": "Market capitalisation is the total market value of the whole company: share price × shares outstanding. A high share price does not mean a big company — market cap reflects overall size.",
+        "key": {
+          "title": "The difference",
+          "text": "Share price tells you what one share costs. Market cap tells you what the whole company is worth."
+        },
+        "f1": "Market cap = share price × shares outstanding",
+        "f1note": "Shares outstanding = every share the company has issued.",
+        "example": {
+          "title": "Worked example",
+          "l1": "AURA trades at $42.50 and has 180 million shares outstanding.",
+          "l2": "Market cap = 42.50 × 180,000,000 = $7,650,000,000, or about $7.65 billion."
+        },
+        "warn": {
+          "title": "Common myth",
+          "text": "A low share price does not mean a company is cheap. A $5 stock can be more expensive than a $500 stock once you consider market cap, earnings and share count."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Open any company in the Market and watch its market cap change with the share price. Inspecting two companies completes Unit 1's practice task."
+        }
+      }
+    },
+    "u2": {
+      "s1": {
+        "title": "How a Buy or Sell Happens",
+        "p1": "You place an order through a broker. The broker sends it to an exchange, where the trading system matches it. When a buyer and seller agree on a price, the trade executes.",
+        "p2": "Buying means you gain shares and pay cash. Selling means you give up shares and receive cash. When the price rises, the same shares sell for more; when it falls, for less.",
+        "list": {
+          "title": "Five steps of a trade",
+          "i1": "Choose the stock and quantity",
+          "i2": "Choose the order type (market or limit)",
+          "i3": "Submit the order",
+          "i4": "The trading system matches it",
+          "i5": "Your cash and positions update after the fill"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "You buy 20 shares at $50 with $1,000 and pay a $1 commission.",
+          "l2": "Your position grows by 20 shares and your cash falls by $1,001. The money did not vanish; it changed from cash into stock."
+        },
+        "myth": {
+          "title": "Common myth",
+          "text": "“The money disappears after I buy.” It becomes stock. Apart from the fee, total assets simply change form."
+        }
+      },
+      "s2": {
+        "title": "Cash, Positions and Total Equity",
+        "p1": "A trading account holds two things: cash and positions. Cash is buying power you can use immediately. A position is the quantity of shares you own and what they cost.",
+        "p2": "When you buy, cash falls and the position grows. When you sell, the position shrinks and cash rises. Ignoring fees, total equity is unchanged at the moment of the trade.",
+        "key": {
+          "title": "Remember this identity",
+          "text": "Total equity = cash + the market value of all positions. Price changes move total equity, not cash."
+        },
+        "f1": "Total equity = cash + Σ (shares × current price)",
+        "example": {
+          "title": "Worked example",
+          "l1": "Start with $10,000 cash, then buy $5,000 of stock and pay a $1 commission.",
+          "l2": "Cash becomes $4,999, the position is worth $5,000, and total equity is about $9,999."
+        },
+        "warn": {
+          "title": "Keep in mind",
+          "text": "Fees reduce total equity slightly. That is a real cost of trading, not a system error."
+        }
+      },
+      "s3": {
+        "title": "Market Orders and Execution Price",
+        "p1": "A market order asks to trade immediately at the best price currently available. It prioritises speed of execution, not a specific price.",
+        "p2": "The “last price” you see is the price of the previous trade, not necessarily your next fill. Buys usually execute at the ask; sells usually execute at the bid.",
+        "list": {
+          "title": "Three traits of market orders",
+          "i1": "Fast execution",
+          "i2": "No price guarantee",
+          "i3": "Slippage is possible when liquidity is thin or volatility is high"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "The last price is $50.00, with a bid of $49.98 and an ask of $50.02.",
+          "l2": "A market buy of 10 shares fills at $50.02, not $50.00. The difference is the spread cost."
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "With volatile or thinly traded stocks, a market order can fill far from the price you saw. That is slippage."
+        }
+      },
+      "s4": {
+        "title": "Bid, Ask and the Spread",
+        "p1": "The bid is the highest price a buyer will currently pay. The ask is the lowest price a seller will currently accept. The gap between them is the spread.",
+        "p2": "The spread is an implicit trading cost: buy and immediately sell, and you usually lose a little to the spread. More liquid, actively traded stocks usually have tighter spreads.",
+        "f1": "Spread = ask − bid; spread cost ≈ spread × quantity",
+        "example": {
+          "title": "Worked example",
+          "l1": "Bid $49.98, ask $50.02, so the spread is $0.04.",
+          "l2": "Buy 100 shares and sell immediately and the spread alone costs about $4 (before commission)."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Check the bid and ask in the quote strip on the Trading page, and compare them before and after you place an order."
+        }
+      }
+    },
+    "u3": {
+      "s1": {
+        "title": "Cost Basis and Market Value",
+        "p1": "Cost basis is the total amount you paid for a position, including the purchase price and the buy commission. Average cost = cost basis ÷ shares held.",
+        "p2": "Market value = current price × shares held. The difference between the two is your unrealized profit or loss.",
+        "f1": "Unrealized P&L = current market value − cost basis",
+        "example": {
+          "title": "Worked example",
+          "l1": "Buy 20 shares at $50 with a $1 fee: cost basis is $1,001 and average cost is $50.05.",
+          "l2": "If the price is now $55, market value is $1,100.",
+          "l3": "Unrealized P&L = 1,100 − 1,001 = +$99."
+        },
+        "warn": {
+          "title": "Keep in mind",
+          "text": "Including the buy fee in cost basis makes it clearer what price you actually need to break even."
+        }
+      },
+      "s2": {
+        "title": "Realized vs Unrealized P&L",
+        "p1": "Unrealized P&L is the gain or loss while you still hold the shares; it moves with the price. Realized P&L is locked in once you sell.",
+        "p2": "While you hold, the P&L is only a book number. Selling converts it into cash. Realized gains add cash; realized losses reduce it.",
+        "key": {
+          "title": "One-line summary",
+          "text": "You only realize it when you sell. Paper gains can vanish; realized P&L is final."
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "Buy at $50; at $60 the unrealized gain is $10 per share.",
+          "l2": "If the price falls back to $52, the unrealized gain is only $2.",
+          "l3": "Sell there and the realized P&L is that $2 (before fees)."
+        }
+      },
+      "s3": {
+        "title": "Return on Investment",
+        "p1": "Return expresses P&L as a percentage of the capital invested: return = P&L ÷ cost × 100%.",
+        "p2": "Returns let you compare trades of different sizes: $100 profit is 10% on $1,000 of capital, but only 0.1% on $100,000.",
+        "f1": "Return = (net sale proceeds − cost) ÷ cost × 100%",
+        "example": {
+          "title": "Worked example",
+          "l1": "Cost basis $1,001; net sale proceeds $1,099.",
+          "l2": "Profit $98; return = 98 ÷ 1,001 ≈ 9.79%."
+        },
+        "tip": {
+          "title": "Going further",
+          "text": "Annualised return converts returns over different holding periods into a one-year equivalent. Later stages cover this in detail."
+        }
+      },
+      "s4": {
+        "title": "How Fees Change Your P&L",
+        "p1": "A commission is a service fee charged by a broker or platform. It can be a flat amount per order or a percentage of the traded value.",
+        "p2": "Fees come out of your cash and directly reduce gains or deepen losses. Trading frequently turns fees into a significant drag — one reason overtrading is a problem.",
+        "f1": "Net profit = sale proceeds − purchase cost − buy fees − sell fees",
+        "example": {
+          "title": "Worked example",
+          "l1": "Buy $1,000 of stock with a $1 commission, then sell for $1,100 with another $1 commission.",
+          "l2": "Net profit is $98, not $100."
+        },
+        "warn": {
+          "title": "Keep in mind",
+          "text": "This game charges a flat $1.00 virtual commission per fill. Real-world fee structures are more complex and may include commissions, regulatory fees, spreads and taxes."
+        }
+      }
+    },
+    "u4": {
+      "s1": {
+        "title": "Trading Sessions and Market State",
+        "p1": "Real markets have fixed sessions (for example, US equities trade 09:30–16:00 Eastern Time) and are closed on weekends and holidays. Nothing executes while the market is closed.",
+        "p2": "This game uses a simulated clock: each trading day has eight time steps. You can pause, run at 1× / 5× / 20×, or fast-forward to the next session. Orders only match while the market is running.",
+        "list": {
+          "title": "What the clock can do",
+          "i1": "Pause or resume the simulated market",
+          "i2": "Switch between 1×, 5× and 20× speed",
+          "i3": "Fast-forward to the next trading day",
+          "i4": "See the current trading day and session time"
+        },
+        "warn": {
+          "title": "Real-market note",
+          "text": "Pre-market and after-hours trading have lower liquidity, wider spreads and higher risk. This game simplifies by not simulating extended hours."
+        }
+      },
+      "s2": {
+        "title": "Market Orders: Pros and Costs",
+        "p1": "A market order is the simplest instruction: fill immediately at the best available price. It suits situations where execution matters more than price.",
+        "p2": "The trade-off is price uncertainty. You control quantity and direction, not the fill price.",
+        "list": {
+          "title": "Market orders",
+          "i1": "Pro: high likelihood of execution and speed",
+          "i2": "Risk: no price lock",
+          "i3": "Risk: slippage in volatile conditions",
+          "i4": "Use case: liquid stocks and situations that need immediate execution"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "You see $50.00, but the price jumps to $50.40 as you submit.",
+          "l2": "Your market order fills at $50.40, costing an extra $0.40 per share."
+        }
+      },
+      "s3": {
+        "title": "Limit Orders",
+        "p1": "A limit order sets the maximum price you will pay (buy) or the minimum you will accept (sell). It only fills at that price or better.",
+        "p2": "Buy limits sit below the market, waiting for a pullback; sell limits sit above the market, waiting for a rally. Limit orders guarantee price, not execution.",
+        "f1": "Buy limit: fill ≤ limit; sell limit: fill ≥ limit",
+        "example": {
+          "title": "Worked example",
+          "l1": "With the market at $50, you place a buy limit for 100 shares at $48.",
+          "l2": "It only fills if the ask drops to $48 or lower. If the stock keeps rising, the order may never fill."
+        },
+        "list": {
+          "title": "Two behaviours for buy limits",
+          "i1": "Limit below the market: rests in the order book waiting for a pullback",
+          "i2": "Limit above the market: may fill immediately at a better prevailing price"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Limit orders can miss opportunities: if the price never returns to your level, you stay in cash while the stock rallies."
+        }
+      },
+      "s4": {
+        "title": "Fills, Resting Orders and Liquidity",
+        "p1": "Orders have states: open, filled, cancelled and rejected. An unfilled limit order rests in the order book until it fills or you cancel it.",
+        "p2": "Liquidity describes how easily a stock trades and how close fills are to the expected price. Active stocks have good liquidity, tight spreads and less price impact from size.",
+        "p3": "Large orders can sweep several price levels and cause market impact, worsening the average fill. This game simplifies execution to the top of book, but spreads and slippage still exist.",
+        "table": {
+          "h1": "Order status",
+          "h2": "Meaning",
+          "r1c1": "Open",
+          "r1c2": "Submitted and waiting for the price condition",
+          "r2c1": "Filled",
+          "r2c2": "Executed; cash and positions have updated",
+          "r3c1": "Cancelled",
+          "r3c2": "You withdrew an unfilled order",
+          "r4c1": "Rejected",
+          "r4c2": "Not enough cash or shares, so the order could not stand"
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Check your open orders on the Trading page and cancel them if needed. Limit orders match automatically as the simulated price moves."
+        }
+      }
+    },
+    "u5": {
+      "s1": {
+        "title": "Cash dividends: sharing profits with shareholders",
+        "p1": "When a company earns money it can reinvest it in the business or pay part of the cash out to shareholders. The latter is a dividend, also called a cash distribution.",
+        "p2": "A dividend is not free money: on the ex-dividend date the share price usually adjusts down by roughly the dividend per share. You receive cash while the market value of your holding falls, so total value is broadly unchanged at that instant.",
+        "f1": "Cash dividend = shares held × dividend per share",
+        "f1note": "This game pays quarterly: dividend per share = starting price × annual yield ÷ 4.",
+        "example": {
+          "title": "Worked example",
+          "l1": "You hold 100 shares and the dividend is $0.60 per share, so you receive $60 in cash.",
+          "l2": "The price was $40.00 before the ex-date and adjusts to about $39.40, reducing the position value by about $60."
+        },
+        "key": {
+          "title": "Key idea",
+          "text": "Dividends come from company profits and cash flow. They are not guaranteed: a company can cut, suspend or cancel them."
+        },
+        "myth": {
+          "title": "Common myth",
+          "text": "\"A higher yield is always better\" is false. A high yield can come from a falling share price or from a one-off payout that cannot last."
+        }
+      },
+      "s2": {
+        "title": "Dividend yield: putting the payout next to the price",
+        "p1": "Dividend yield links the dividend per share to the share price. It tells you what percentage of cash income you would receive in a year at the current price.",
+        "p2": "When the price falls, the same dividend per share produces a higher yield. That does not mean the company became more generous; the shares became cheaper, which may also signal rising risk.",
+        "f1": "Dividend yield = annual dividend per share ÷ current price × 100%",
+        "f1note": "Yield moves with the share price; the dividend per share is usually declared quarterly.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Annual dividend per share is $1.20 and the price is $40.00, so the yield is 1.20 ÷ 40 = 3.00%.",
+          "l2": "If the price falls to $30.00 the yield becomes 4.00%, but the company still pays $1.20 per share."
+        },
+        "list": {
+          "title": "Why the yield changes",
+          "i1": "The company raises or cuts the dividend per share",
+          "i2": "The share price rises or falls",
+          "i3": "One-off special dividends and cyclical industry profits"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Dividend yield is not a fixed interest rate. The company may cut the payout and the price may keep falling; both affect your real return."
+        }
+      },
+      "s3": {
+        "title": "The ex-dividend date: cash in exchange for price",
+        "p1": "After declaring a dividend the company sets a record date and an ex-dividend date. In the standard convention, holders before the ex-date receive the payment; buyers on or after the ex-date do not.",
+        "p2": "This game simplifies the process: at the close of the ex-date it credits cash to your account and adjusts the share price down by roughly the dividend amount. You see cash rise and position value fall.",
+        "example": {
+          "title": "Worked example",
+          "l1": "You hold 200 shares and the dividend is $0.50 per share, so you receive $100 on the ex-date.",
+          "l2": "The price moves from $25.00 to about $24.50, leaving total value broadly unchanged at that instant."
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Taxes, trading costs and price moves around the ex-date mean receiving a dividend is not the same as gaining that amount. This game does not model dividend taxes."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Use the demo below to change shares, price and yield, then watch annual cash flow and the ten-year reinvestment result."
+        }
+      },
+      "s4": {
+        "title": "Dividend reinvestment and total return",
+        "p1": "Total return has two parts: price change (price return) and dividends (income return). Looking only at the share price ignores cash payouts.",
+        "p2": "Reinvesting dividends buys more shares, which increases the base for future dividends and compounds over time, but the result still depends on the share price.",
+        "f1": "Payout ratio = dividend per share ÷ earnings per share; total return ≈ price return + dividend return",
+        "f1note": "A higher payout ratio leaves less profit inside the company for reinvestment.",
+        "example": {
+          "title": "Worked example",
+          "l1": "EPS is $2.00 and the annual dividend is $1.00, so the payout ratio is 50%.",
+          "l2": "Half of earnings goes to shareholders; the other half stays in the business for growth or debt reduction."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Sustainable dividends usually come from stable free cash flow. A high payout ratio can limit reinvestment or force a cut when earnings fall."
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Dividend reinvestment is not risk-free compounding: prices can fall and payouts can be cut. A historical yield is not a promise."
+        }
+      }
+    },
+    "u6": {
+      "s1": {
+        "title": "Growth stocks: paying for growth",
+        "p1": "Growth stocks grow revenue and earnings faster than the market average. They usually reinvest most profits into research, expansion or acquisitions, so dividends are small or zero.",
+        "p2": "The market pays a higher valuation for sustained growth. If growth slows or expectations miss, both the valuation and the share price can fall, so growth stocks are often more volatile.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Two companies both earn $1 per share. The market pays 40× earnings for the growth stock, about $40, and 15× for the mature company, about $15.",
+          "l2": "The extra you pay for the growth stock buys future growth expectations, not current earnings."
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "High valuations must be justified by sustained growth. If growth disappoints, the share price can fall sharply."
+        }
+      },
+      "s2": {
+        "title": "Value and cyclical stocks",
+        "p1": "Value stocks trade low relative to earnings, assets or cash flow. They may be undervalued, or cheap because fundamentals are deteriorating; cheap alone is not a reason to buy.",
+        "p2": "Cyclical stocks have profits that swing with the economy, common in industrials, materials, energy and discretionary consumer sectors. Earnings can be strong in expansions and fall quickly in recessions.",
+        "list": {
+          "title": "What to check when judging style",
+          "i1": "Revenue and earnings growth",
+          "i2": "Valuation such as P/E and P/B",
+          "i3": "Dividend yield, industry cycle and earnings stability"
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Style labels are not permanent. Companies grow, mature or decline; classification is a starting point, not a substitute for fundamental research."
+        }
+      },
+      "s3": {
+        "title": "Income stocks and judging style",
+        "p1": "Income companies are usually mature with stable cash flow, distributing a larger share of profits as dividends, but with limited growth.",
+        "p2": "Do not rely on the label alone. A high yield can come from a falling price; a growth stock may start paying dividends; a cyclical stock can look cheap at a cycle peak.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50 share paying $2 a year yields 4%.",
+          "l2": "If the price falls to $25 while the dividend stays $2, the yield becomes 8%, but the market may be worried about a cut."
+        },
+        "myth": {
+          "title": "Common myth",
+          "text": "\"Value stocks are always safe and growth stocks always make money\" are both false. Style describes characteristics, not guaranteed returns."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Open companies with different styles in the market, compare their sectors, yields and valuations, then decide which risk you are willing to take."
+        }
+      }
+    },
+    "u7": {
+      "s1": {
+        "title": "ETFs: one ticker, a basket of assets",
+        "p1": "An ETF is a basket of assets traded on an exchange, with a ticker and a quote like a stock. It usually tracks an index, sector or theme.",
+        "p2": "Buying one ETF share gives indirect exposure to all its components, so it is diversified by construction. Costs are usually below active funds, but management fees and spreads still apply.",
+        "list": {
+          "title": "Common ETF types",
+          "i1": "Broad index ETFs covering the whole market",
+          "i2": "Sector and thematic ETFs concentrated in one area",
+          "i3": "Bond, commodity and other asset ETFs"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Diversification is not the absence of risk. Sector ETFs can be highly concentrated, and broad ETFs still fall with the overall market. This build does not offer a tradable ETF product; Unit 7 uses a self-built stock basket to demonstrate the same principle."
+        }
+      },
+      "s2": {
+        "title": "Diversification and correlation",
+        "p1": "Diversification spreads money across different assets to reduce company- or sector-specific risk. It cannot remove overall market risk.",
+        "p2": "The benefit depends on correlation: assets that always move together provide little diversification, while low-correlation assets usually produce a smoother portfolio.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A single stock has 30% annualised volatility; spreading money equally across three companies in different sectors may produce lower portfolio volatility.",
+          "l2": "If all three are in the same sector and fall together, the diversification benefit is much smaller."
+        }
+      },
+      "s3": {
+        "title": "Building your own basket and rebalancing",
+        "p1": "You can build your own ETF with 3–5 stocks from different sectors, bought at target weights.",
+        "p2": "Prices move and weights drift. Rebalancing sells what has grown and buys what has shrunk to restore the target weights and control risk.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Target one third each with $9,000 total, so $3,000 per stock.",
+          "l2": "If one position grows to $4,000, rebalancing sells about $333 and adds it to the other two."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Rebalancing costs commissions and can reduce short-term returns; its main purpose is controlling risk exposure, not guaranteeing a higher return."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "In the practice task, buy at least three stocks from different sectors to experience diversification."
+        }
+      }
+    },
+    "u8": {
+      "s1": {
+        "title": "Simple versus compound interest",
+        "p1": "Simple interest is paid only on the original principal. Compound interest adds each period's interest to the principal so that future interest is earned on it too.",
+        "p2": "Compounding depends on time and reinvestment. With the same annual return, starting earlier produces faster growth later.",
+        "f1": "Future value = principal × (1 + annual return)^years",
+        "f1note": "This assumes annual compounding and a constant return with all interest reinvested.",
+        "example": {
+          "title": "Worked example",
+          "l1": "$1,000 at 8% compounded annually for 10 years: 1000 × 1.08^10 ≈ $2,158.92.",
+          "l2": "The same conditions for 20 years: 1000 × 1.08^20 ≈ $4,660.96. Doubling time more than doubles the result."
+        }
+      },
+      "s2": {
+        "title": "Regular contributions and the power of time",
+        "p1": "Regular contributions amplify compounding because every new deposit also earns future returns.",
+        "p2": "Compounding is very sensitive to return. 7% versus 10% over 30 years is a huge difference, but higher assumed returns usually mean higher risk.",
+        "example": {
+          "title": "Worked example",
+          "l1": "$1,000 initial plus $100 a month at 7% for 20 years ends near $56,000.",
+          "l2": "About $25,000 comes from contributions and the rest from compounding; change the demo parameters to verify."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Nominal returns must cover fees and inflation. Real purchasing power growth can be much lower than the headline number."
+        }
+      },
+      "s3": {
+        "title": "Long-term investing, drawdowns and inflation",
+        "p1": "Long-term investing is not set-and-forget. You still need to control concentration, fees and risk, and revisit your assumptions.",
+        "p2": "Drawdowns are asymmetric: a 50% fall requires a 100% gain to recover, and a large drawdown significantly slows the compounding curve.",
+        "warn": {
+          "title": "Risk note",
+          "text": "Historical returns do not guarantee future results. The compounding demo excludes taxes, inflation and price volatility."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "In the practice task, hold one stock for at least 15 trading sessions and observe how time and volatility affect your return."
+        }
+      }
+    },
+    "u9": {
+      "s1": {
+        "title": "The four prices inside a candle",
+        "p1": "A candlestick records the open, high, low and close for one period. This game uses daily candles, so each candle is one trading session.",
+        "p2": "The body spans open to close. The upper wick reaches the high and the lower wick reaches the low. A close above the open is a bullish (green) candle; a close below the open is bearish (red).",
+        "example": {
+          "title": "Worked example",
+          "l1": "Open $48.00, high $52.00, low $46.50, close $51.20.",
+          "l2": "This is a bullish candle: body $3.20, full range $5.50, upper wick $0.80 and lower wick $1.50."
+        }
+      },
+      "s2": {
+        "title": "Timeframes and volume",
+        "p1": "The same market looks different across timeframes. Daily candles show trend better, while short timeframes contain more noise. The trading page offers 45 and 90 sessions.",
+        "p2": "Volume bars show how actively the asset traded in that period. Rising price with rising volume is often more convincing, but heavy volume on a decline can also mean panic selling.",
+        "list": {
+          "title": "Reading order",
+          "i1": "First the trend and location",
+          "i2": "Then the body and the wicks",
+          "i3": "Finally volume and fundamentals"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "One candle cannot predict the future. The same shape means something different in an uptrend, a downtrend or a range."
+        }
+      },
+      "s3": {
+        "title": "Common shapes and mistakes",
+        "p1": "A long upper wick shows a rally that faded; a long lower wick shows a dip that recovered; a doji means open and close were close together.",
+        "p2": "Shapes are traces of supply and demand, not guaranteed signals. Read them together with trend, volume and news context.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A long upper wick at the end of an uptrend can signal stronger selling pressure.",
+          "l2": "A long lower wick in a downtrend can show buying support, or simply a brief bounce."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Switch the trading page to the advanced layout to see 90 daily candles and volume, then change open, high, low and close in the demo to watch the body and wicks move."
+        }
+      }
+    },
+    "u10": {
+      "s1": {
+        "title": "Moving averages: smoothing noise",
+        "p1": "SMA is the arithmetic average of the last N closes. It smooths short-term noise and helps show trend direction.",
+        "p2": "Price above a moving average is often described as short-term strength. SMA20 crossing above SMA50 is called a golden cross; the reverse is a death cross. Both are descriptions, not guarantees.",
+        "example": {
+          "title": "Worked example",
+          "l1": "The last three closes are $10, $11 and $12.",
+          "l2": "SMA3 = (10 + 11 + 12) ÷ 3 = $11.00."
+        }
+      },
+      "s2": {
+        "title": "RSI: momentum and overbought/oversold",
+        "p1": "RSI compares recent gains and losses on a 0–100 scale. The common thresholds are 70 and 30.",
+        "p2": "RSI above 70 means strong recent upward momentum; it may be overbought, or it may stay high in a strong trend. Below 30 is the mirror image.",
+        "list": {
+          "title": "Using RSI",
+          "i1": "Overbought does not mean it must fall now",
+          "i2": "Strong trends can stay at extremes for a long time",
+          "i3": "Combine it with trend, volume and fundamentals"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Indicators are computed from past prices, lag by construction and cannot predict news or earnings shocks."
+        }
+      },
+      "s3": {
+        "title": "Limits and combining indicators",
+        "p1": "Different parameters produce different signals. SMA20 plus SMA50 is steadier than a single average, but still lags.",
+        "p2": "Indicators help confirm trends, size positions and manage risk; they are not a hunt for a guaranteed signal.",
+        "example": {
+          "title": "Worked example",
+          "l1": "An uptrend with moving averages aligned and RSI in a neutral range is usually more reliable than RSI alone being overbought.",
+          "l2": "If price breaks below SMA50 on rising volume, the trend may already be weakening."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Indicators describe, they do not forecast. Any backtest must avoid look-ahead bias and overfitting or the result is meaningless."
+        }
+      }
+    },
+    "u11": {
+      "s1": {
+        "title": "The income statement: revenue to profit",
+        "p1": "The income statement starts with revenue, subtracts operating costs and expenses and ends with net income. Gross margin = gross profit ÷ revenue; net margin = net income ÷ revenue.",
+        "p2": "EPS = net income ÷ shares outstanding, the denominator of the P/E ratio. The quality of profit growth matters more than a single year.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Revenue $1,000M, gross profit $520M, net income $200M.",
+          "l2": "Gross margin is 52% and net margin 20%; with 100M shares, EPS is $2.00."
+        }
+      },
+      "s2": {
+        "title": "The balance sheet: where assets come from",
+        "p1": "The balance sheet lists assets, liabilities and shareholders' equity at a point in time. Assets are what the company owns; liabilities and equity are how it is financed.",
+        "p2": "The accounting identity is assets = liabilities + equity. Too much debt raises interest costs and financial risk.",
+        "f1": "Assets = liabilities + shareholders' equity",
+        "f1note": "This game's statements are generated from company fundamentals and keep the identity, but are simplified simulations.",
+        "warn": {
+          "title": "Risk note",
+          "text": "The statements in this game are simplified teaching simulations, not audited reports, and must not be used for real investment decisions."
+        }
+      },
+      "s3": {
+        "title": "Cash flow and earnings quality",
+        "p1": "Net income is not cash. Free cash flow = operating cash flow − capital expenditure, and it funds dividends, buybacks and debt repayment.",
+        "p2": "Check whether profit is backed by cash, whether receivables or inventory are growing unusually, and whether debt is rising quickly.",
+        "list": {
+          "title": "Three checks",
+          "i1": "Is revenue growth supported by cash flow?",
+          "i2": "Are margins stable or improving?",
+          "i3": "Can free cash flow cover dividends and interest?"
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Switch the trading page to the advanced layout and inspect two companies' simplified income statement, balance sheet and free cash flow."
+        }
+      }
+    },
+    "u12": {
+      "s1": {
+        "title": "DCF: discounting future cash back to today",
+        "p1": "DCF discounts future free cash flow to today's value. The discount rate reflects time value and risk: higher risk means a higher rate and a lower valuation.",
+        "p2": "Terminal value usually uses a perpetual growth model. Enterprise value minus net debt gives equity value; divide by shares for value per share.",
+        "f1": "EV = Σ FCF_t ÷ (1+r)^t + TV ÷ (1+r)^n; TV = FCF_n × (1+g) ÷ (r − g)",
+        "f1note": "r is the discount rate, g the perpetual growth rate, and r must exceed g.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Simplified: next year's FCF is $100M, the discount rate is 10%, with no terminal value.",
+          "l2": "Present value = 100 ÷ 1.10 ≈ $90.91M."
+        }
+      },
+      "s2": {
+        "title": "Assumptions drive the result",
+        "p1": "Growth, discount rate and perpetual growth are extremely sensitive inputs. A small change in assumptions can double or halve value per share.",
+        "p2": "Terminal value often dominates enterprise value, so check that perpetual growth stays below long-run economic growth.",
+        "pro": {
+          "title": "Professional view",
+          "text": "DCF is a thinking framework, not a precise answer. Use scenarios (bull, base, bear) instead of a single point estimate."
+        }
+      },
+      "s3": {
+        "title": "Margin of safety and model limits",
+        "p1": "Valuation gives a range, not an exact price. A margin of safety is the buffer between the purchase price and intrinsic value, absorbing assumption errors.",
+        "p2": "DCF can fail for cyclicals, loss-making companies and fast-changing industries. Cross-check with relative valuation and asset value.",
+        "warn": {
+          "title": "Risk note",
+          "text": "The DCF in this game is a simplified teaching model, not investment advice; real valuation needs fuller statements and assumptions."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Change growth and the discount rate in the demo, watch value per share move, then decide which assumption is least certain."
+        }
+      }
+    },
+    "u13": {
+      "s1": {
+        "title": "Growth, inflation and interest rates",
+        "p1": "GDP measures an economy's output. Faster growth usually supports corporate earnings, but overheating can bring inflation and rate hikes.",
+        "p2": "The cycle moves through expansion, slowdown, recession and recovery. Industrials, materials and discretionary consumer stocks are more cyclical; staples and utilities are more defensive.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Growth 3%, inflation 2%, policy rate 2.5%.",
+          "l2": "Real rate = 2.5% − 2% = 0.5%, a relatively loose environment for risk assets."
+        }
+      },
+      "s2": {
+        "title": "Inflation and purchasing power",
+        "p1": "Inflation is a broad rise in prices and erodes the purchasing power of cash and fixed income. Moderate inflation often comes with growth; high inflation can force central banks to raise rates.",
+        "p2": "Companies with pricing power may pass costs through; cost-sensitive and highly indebted companies feel more pressure.",
+        "list": {
+          "title": "What to watch",
+          "i1": "CPI and core inflation trends",
+          "i2": "Wages and commodity prices",
+          "i3": "Central-bank language and rate expectations"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Macro data is revised and lagged; one month does not define a trend. Do not treat a single print as a certain signal."
+        }
+      },
+      "s3": {
+        "title": "How rates affect valuation",
+        "p1": "Higher rates raise the cost of capital and the discount rate, usually pressuring equity valuations. High-growth stocks are more sensitive to the discount rate.",
+        "p2": "Rate cuts do the opposite; rates also affect bond prices, currencies and corporate funding costs.",
+        "example": {
+          "title": "Worked example",
+          "l1": "With the same cash flows, the discount rate rises from 8% to 10%.",
+          "l2": "The present value of long-dated cash flow can fall 15–20%, and the valuation contracts."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Rates connect macro and valuation. Use scenarios (hike / unchanged / cut) rather than betting on one path."
+        }
+      }
+    },
+    "u14": {
+      "s1": {
+        "title": "Asset allocation sets the portfolio's character",
+        "p1": "Asset allocation determines the risk and return structure of a portfolio and matters more than any single stock pick. Stocks, bonds and cash have different expected returns and volatility.",
+        "p2": "Weights decide the profile: more stocks usually mean higher expected return and volatility; cash lowers volatility but also long-run return.",
+        "example": {
+          "title": "Worked example",
+          "l1": "60% stocks (7% expected, 16% volatility) plus 40% bonds (3.5%, 6%).",
+          "l2": "Weighted expected return is about 5.6% and weighted volatility about 12%; actual portfolio volatility can be lower with diversification."
+        }
+      },
+      "s2": {
+        "title": "Correlation and the limits of diversification",
+        "p1": "Lower-correlation assets produce a smoother portfolio; when everything moves together, diversification helps little.",
+        "p2": "More holdings is not always better. Over-diversification adds management cost and dilutes conviction; what matters is whether the risks are genuinely different.",
+        "list": {
+          "title": "Checklist",
+          "i1": "Sector and single-position concentration",
+          "i2": "Cash weight and liquidity",
+          "i3": "Regular rebalancing and risk budget"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Historical correlations change; in a crisis assets can fall together, and diversification cannot remove systematic risk."
+        }
+      },
+      "s3": {
+        "title": "Rebalancing and discipline",
+        "p1": "Prices move weights away from target. Rebalancing sells what has grown, buys what has shrunk and restores the intended risk exposure.",
+        "p2": "Rebalancing too often raises costs; rebalancing too rarely lets risk drift.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Target 60% stocks / 40% bonds, but stocks rise to 70%.",
+          "l2": "Sell about 10% of the portfolio from stocks and buy bonds to return to target."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Change stock and bond weights in the allocation demo, then inspect concentration, volatility and max drawdown in Portfolio."
+        }
+      }
+    },
+    "u15": {
+      "s1": {
+        "title": "Position sizing: risk first, shares second",
+        "p1": "Define the risk you can accept per trade (for example 1% of the account), then use entry and stop prices to calculate shares.",
+        "p2": "Position size = risk amount ÷ risk per share. A wider stop means a smaller position; a tighter stop allows more shares.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Account $10,000 with 1% risk = $100; entry $40 and stop $36.",
+          "l2": "Risk per share is $4, so the position is 100 ÷ 4 = 25 shares, worth $1,000."
+        }
+      },
+      "s2": {
+        "title": "Drawdowns and concentration",
+        "p1": "Drawdown is the fall from a peak in equity. A 50% loss requires a 100% gain to recover.",
+        "p2": "A large single position magnifies drawdowns; concentration and correlation determine the portfolio's real risk.",
+        "list": {
+          "title": "Basic risk controls",
+          "i1": "Set stops and accept gap risk",
+          "i2": "Limit single-position and sector weights",
+          "i3": "Hold cash and avoid excessive leverage"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Stops can be jumped by gaps and do not guarantee execution at the stop price. A stop is not the absence of risk."
+        }
+      },
+      "s3": {
+        "title": "Risk budgeting and survival",
+        "p1": "A risk budget allocates total risk across positions and strategies. When correlation is high, add risk together instead of treating positions as independent.",
+        "p2": "The goal of risk management is to survive and preserve the ability to compound, not to win every trade.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Two highly correlated trades each risk 1%.",
+          "l2": "Combined risk is closer to 2% than to a diversified 1%."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Control risk before chasing return. Limiting drawdowns usually matters more than maximising a single trade, because large losses break compounding."
+        }
+      }
+    },
+    "u16": {
+      "s1": {
+        "title": "Four common strategies",
+        "p1": "Value buys undervalued assets, growth buys high growth, momentum follows trends and dividend strategies focus on cash returns.",
+        "p2": "Every strategy has environments where it works and periods where it fails; none works all the time.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Rising rates often pressure high-valuation growth stocks.",
+          "l2": "In an economic recovery, cyclical and value styles may outperform."
+        }
+      },
+      "s2": {
+        "title": "Momentum and trend",
+        "p1": "Momentum buys recent winners and sells recent losers, assuming trends persist.",
+        "p2": "In choppy markets momentum gets whipsawed; it needs cost, turnover and stop-loss discipline.",
+        "list": {
+          "title": "Momentum design",
+          "i1": "Define the lookback and rebalance frequency",
+          "i2": "Control turnover and trading costs",
+          "i3": "Avoid look-ahead bias and validate out of sample"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Past momentum is not future momentum; a strong backtest can be overfitting or an in-sample illusion."
+        }
+      },
+      "s3": {
+        "title": "Combining strategies with discipline",
+        "p1": "Strategies can be combined, but watch overlapping holdings and rising correlation.",
+        "p2": "Define entry, exit, sizing and risk with rules instead of trading on feelings.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Value plus dividend strategies are usually more defensive.",
+          "l2": "Growth plus momentum is more aggressive in bull markets, with potentially larger drawdowns."
+        },
+        "tip": {
+          "title": "Try it",
+          "text": "Switch the 30 / 60 / 90 session window in the strategy demo and compare the four styles; this is simulated history, not a promise."
+        }
+      }
+    }
+  },
+  "practice": {
+    "eyebrow": "Unit {number}",
+    "title": "Practice task",
+    "done": "Completed",
+    "notDone": "Pending",
+    "open": "Open task",
+    "progress": "Progress {current} / {target}",
+    "autoHint": "The game verifies this from your actual actions.",
+    "restingLabel": "Waiting for a fill",
+    "restingText": "You have a resting buy limit order. You can adjust the price or cancel and re-submit.",
+    "hintLabel": "Hint",
+    "verifyTitle": "How it is verified",
+    "verifyAuto": "The task checks real trades and actions in your simulated account",
+    "verifyNoButton": "There is no “complete task” button — you must perform the action",
+    "verifyAccount": "Teaching demos run separately and never touch your account",
+    "unitStatus": "Unit status",
+    "rewardLabel": "Reward",
+    "rewardText": "Completion awards +{xp} XP and counts toward unit progress.",
+    "goQuiz": "Continue to quiz",
+    "lockedText": "Finish the prerequisite unit before starting this practice task.",
+    "u1": {
+      "title": "Inspect the market cap of two companies",
+      "requirement": "Open two different companies in the Market and look at their share price and market cap.",
+      "hint": "Market cap = share price × shares outstanding. Compare market caps, not just share prices.",
+      "action": "Go to the Market"
+    },
+    "u2": {
+      "title": "Buy your first stock with no more than $1,000",
+      "requirement": "Submit a buy order whose traded value (excluding commission) is $1,000 or less.",
+      "hint": "Enter a quantity on the Trading page and submit a market buy. Make sure your cash covers both the trade and the commission.",
+      "action": "Go to Trading"
+    },
+    "u3": {
+      "title": "Complete a buy and a sell",
+      "requirement": "Buy a stock, then sell the same stock so that a realized P&L is recorded.",
+      "hint": "Check average cost and unrealized P&L in Portfolio, then sell on the Trading page. Realized P&L is locked in after the sale.",
+      "action": "View Portfolio"
+    },
+    "u4": {
+      "title": "Place a buy limit below the market and wait for a fill",
+      "requirement": "Place a buy limit order below the current market price, then wait for the simulated market to trade down to your price.",
+      "hint": "Choose a limit order and set the price below the bid. If it does not fill, fast-forward time or cancel and re-submit.",
+      "action": "Go to Trading"
+    },
+    "u5": {
+      "title": "Research two dividend-paying stocks",
+      "requirement": "Open two dividend-paying companies in the market and read their yield, dividend per share and ex-dividend information.",
+      "hint": "Open any two companies with a yield above zero. Those companies pay cash dividends quarterly in the simulated market.",
+      "action": "Go to Market"
+    },
+    "u6": {
+      "title": "Research three stock styles",
+      "requirement": "Open at least three companies with different styles: any three of growth, value, cyclical or income.",
+      "hint": "Open company details in the market; the stock style is shown there. Compare yield and sector across styles.",
+      "action": "Go to Market"
+    },
+    "u7": {
+      "title": "Build a three-sector portfolio",
+      "requirement": "Hold at least three stocks from different sectors, each with a quantity above zero.",
+      "hint": "Use the $10,000 virtual account to buy across sectors. Weights do not need to be equal, but at least three sectors must be covered.",
+      "action": "Go to Market"
+    },
+    "u8": {
+      "title": "Hold for at least 15 trading sessions",
+      "requirement": "Buy a stock and hold it for at least 15 trading sessions without selling.",
+      "hint": "Use the fast-forward control to advance sessions. You can keep studying other units while the position is held.",
+      "action": "View Portfolio"
+    },
+    "u9": {
+      "title": "Complete the candle anatomy demo",
+      "requirement": "Change open, high, low and close in the candle demo and watch how the body and wicks react.",
+      "hint": "Edit any price and confirm; the demo is recorded as completed.",
+      "action": "Open the candle lesson"
+    },
+    "u10": {
+      "title": "Complete the indicators demo",
+      "requirement": "Switch companies in the indicators demo and read SMA20, SMA50 and RSI along with the moving-average position.",
+      "hint": "Select any company to record completion; different companies show different trends and RSI values.",
+      "action": "Open the indicators lesson"
+    },
+    "u11": {
+      "title": "Inspect two companies' financials in advanced layout",
+      "requirement": "Switch the trading interface to advanced layout, then open two companies and read their simplified income statement, balance sheet and free cash flow.",
+      "hint": "Switch layout in Settings or the trading page; the advanced section shows indicators and financials.",
+      "action": "Go to Settings"
+    },
+    "u12": {
+      "title": "Complete the DCF valuation demo",
+      "requirement": "Change at least one assumption in the DCF demo (growth or discount rate) and observe value per share.",
+      "hint": "Edit any input and confirm; the demo is recorded as completed.",
+      "action": "Open the valuation lesson"
+    },
+    "u13": {
+      "title": "Complete the macro scenario demo",
+      "requirement": "Change the policy rate, inflation or growth in the macro demo and observe the real rate, regime and discount rate.",
+      "hint": "Edit any macro input and confirm; the demo is recorded as completed.",
+      "action": "Open the macro lesson"
+    },
+    "u14": {
+      "title": "Complete the asset allocation demo",
+      "requirement": "Adjust stock and bond weights in the allocation demo and observe expected return and volatility.",
+      "hint": "Edit a stock or bond weight and confirm; the demo is recorded as completed.",
+      "action": "Open the portfolio lesson"
+    },
+    "u15": {
+      "title": "Complete the position sizing demo",
+      "requirement": "Change account size, risk percentage, entry or stop in the risk demo and observe the position size.",
+      "hint": "Edit any input and confirm; the demo is recorded as completed.",
+      "action": "Open the risk lesson"
+    },
+    "u16": {
+      "title": "Complete the strategy comparison demo",
+      "requirement": "Switch the 30 / 60 / 90 session window in the strategy demo and compare the four styles.",
+      "hint": "Switching any window records completion; the demo uses simulated history, not a real backtest.",
+      "action": "Open the strategy lesson"
+    }
+  },
+  "quiz": {
+    "title": "Unit quiz",
+    "subtitle": "Answer every question, then submit. A score of {pass}% passes.",
+    "placementTitle": "Placement test · {unit}",
+    "placementSubtitle": "If you already know this material, score {pass}% to skip the lessons and practice task.",
+    "eyebrow": "Quiz · Unit {number}",
+    "placementEyebrow": "Placement test · Unit {number}",
+    "questionOf": "Question {index} of {total}",
+    "type": {
+      "single": "Single choice",
+      "multi": "Multiple choice",
+      "tf": "True / false",
+      "numeric": "Calculation"
+    },
+    "numericPlaceholder": "Enter your answer",
+    "unit": {
+      "money": "Unit: USD (two decimals allowed)",
+      "millions": "Unit: millions of USD",
+      "integer": "Unit: shares (whole number)",
+      "number": "Unit: number",
+      "percent": "Unit: percent (e.g. 3.25 means 3.25%)"
+    },
+    "singleHint": "Choose the one answer that best fits.",
+    "multiHint": "This question has several correct answers; select them all.",
+    "numericHint": "Enter a number. Reasonable rounding is accepted.",
+    "submit": "Submit quiz",
+    "rulesTitle": "Quiz rules",
+    "ruleQuestions": "{total} questions covering the core ideas of this unit.",
+    "rulePass": "A score of {pass}% or higher passes.",
+    "rulePlacement": "The placement test needs {pass}% and then skips the lessons and practice task.",
+    "ruleRetry": "If you do not pass, review the explanations and try again.",
+    "dotsTitle": "Answer progress",
+    "noteLabel": "Study note",
+    "noteText": "Quizzes test understanding, not memorisation. For calculations, write the formula before substituting numbers.",
+    "resultsTitle": "Quiz results",
+    "placementResultsTitle": "Placement test results",
+    "resultsEyebrow": "Results",
+    "scoreLabel": "Score",
+    "passed": "Quiz passed",
+    "failed": "Not passed yet",
+    "placementPassed": "Placement test passed",
+    "placementFailed": "Placement test not passed",
+    "passedText": "You answered {correct} of {total} correctly, meeting the {pass}% pass mark.",
+    "failedText": "You answered {correct} of {total} correctly. {pass}% is required — review the explanations and try again.",
+    "placementPassedText": "You scored {score}%, meeting the {pass}% placement standard. This unit is marked as mastered.",
+    "placementFailedText": "You scored {score}%. The placement test requires {pass}%. You can study the unit and take the regular quiz instead.",
+    "unitCompleted": "Unit completed",
+    "continuePractice": "Continue to practice",
+    "retry": "Try again",
+    "nextUnit": "Continue to next unit",
+    "backToAcademy": "Back to Academy",
+    "reviewTitle": "Question review",
+    "correct": "Correct",
+    "incorrect": "Incorrect",
+    "yourAnswer": "Your answer",
+    "correctAnswer": "Correct answer",
+    "explanation": "Explanation",
+    "noAnswer": "No answer",
+    "millionsUnit": "million USD",
+    "answerAll": "Answer every question before submitting.",
+    "answerThis": "Answer the current question first.",
+    "bestScore": "Best score {score}%",
+    "notAttempted": "Not attempted",
+    "start": "Start quiz",
+    "cardTitle": "Unit quiz",
+    "cardSubtitle": "Question variants change each attempt. {pass}% passes.",
+    "lockedText": "This unit's quiz is locked until you finish the prerequisite unit.",
+    "unavailable": "Quiz unavailable",
+    "unavailableText": "This build has no question bank for that unit.",
+    "u1": {
+      "q1": {
+        "prompt": "Which description of a stock is most accurate?",
+        "o1": "A share of ownership in a company",
+        "o2": "A loan made to a company",
+        "o3": "A type of bank deposit",
+        "o4": "A contract that guarantees a return",
+        "explain": "A stock represents part-ownership of a company. Lending money to a company and expecting repayment describes a bond, not a stock."
+      },
+      "q2": {
+        "prompt": "What is the formula for market capitalisation?",
+        "o1": "Share price × shares outstanding",
+        "o2": "Share price × shares you own",
+        "o3": "Company revenue ÷ shares outstanding",
+        "o4": "Shares outstanding ÷ share price",
+        "explain": "Market cap measures the whole company's market value: the share price multiplied by every share the company has issued."
+      },
+      "q3": {
+        "prompt": "A fictional company trades at {price} and has {shares} million shares outstanding. What is its market cap in millions of USD?",
+        "work": "Market cap = price × shares = {price} × {shares} million shares = {answer} million USD.",
+        "explain": "Treat shares outstanding as millions of shares; multiplying gives the answer directly in millions of USD."
+      },
+      "q4": {
+        "prompt": "“A lower share price always means a cheaper stock.” Is this statement true or false?",
+        "explain": "A low share price does not mean cheap. Judge value using market cap, earnings and share count. A $5 stock can be more expensive than a $500 stock."
+      },
+      "q5": {
+        "prompt": "Which of these are basic rights of an ordinary shareholder?",
+        "o1": "Voting in proportion to shares owned",
+        "o2": "Receiving dividends when the company pays them",
+        "o3": "Demanding the company return your principal at any time",
+        "o4": "Selling your shares to someone else",
+        "explain": "Shareholders have voting, dividend and transfer rights. Demanding principal back at any time is a feature of bonds or deposits."
+      },
+      "q6": {
+        "prompt": "What is the main purpose of a ticker symbol?",
+        "o1": "To identify a specific company on an exchange",
+        "o2": "To determine a fair share price",
+        "o3": "To show how large the company is",
+        "o4": "To guarantee that dividends are paid",
+        "explain": "A ticker is an identifier used to specify a company in markets and orders. It says nothing about price, size or dividends."
+      }
+    },
+    "u2": {
+      "q1": {
+        "prompt": "At what price does a market buy order usually fill?",
+        "o1": "The last traded price",
+        "o2": "The best current ask",
+        "o3": "The best current bid",
+        "o4": "Your previous purchase price",
+        "explain": "As a buyer you trade against a seller, so a market buy usually fills at the ask."
+      },
+      "q2": {
+        "prompt": "Your account has {cash} cash, the ask is {price}, and each order costs {fee} in commission. What is the largest whole number of shares you can buy?",
+        "work": "Available = {cash} − {fee} = 999; 999 ÷ {price} rounded down = {answer} shares.",
+        "explain": "Cash must cover both the trade and the commission. Subtract the fee, divide by the price, then round down to a whole share."
+      },
+      "q3": {
+        "prompt": "Your total equity (cash + position value) increases immediately after buying a stock. True or false?",
+        "explain": "Ignoring fees, total equity is unchanged: cash simply becomes stock. Fees reduce total equity slightly."
+      },
+      "q4": {
+        "prompt": "Which of these are trading costs?",
+        "o1": "Broker commission",
+        "o2": "The bid/ask spread",
+        "o3": "A rising share price",
+        "o4": "Slippage away from the expected price",
+        "explain": "Commissions, spreads and slippage all reduce your effective return. A rising price is a source of gain, not a cost."
+      },
+      "q5": {
+        "prompt": "Which statement about the bid and ask is correct?",
+        "o1": "The ask is usually above the bid, and the spread is a trading cost",
+        "o2": "The bid is usually above the ask",
+        "o3": "They are always identical",
+        "o4": "A wider spread means lower trading costs",
+        "explain": "The bid is the highest buyer price; the ask is the lowest seller price. Normally the ask is above the bid, and a wider spread costs more."
+      },
+      "q6": {
+        "prompt": "A stock has a bid of {bid} and an ask of {ask}. You buy {qty} shares at the ask and immediately sell at the bid, ignoring commission. What is the loss caused by the spread in USD?",
+        "work": "Spread = {ask} − {bid}; loss = spread × {qty} = {answer}.",
+        "explain": "You pay the ask and receive the bid. The difference times the quantity is the round-trip spread cost."
+      }
+    },
+    "u3": {
+      "q1": {
+        "prompt": "What does “unrealized P&L” mean?",
+        "o1": "Profit or loss already locked into cash after selling",
+        "o2": "Paper profit or loss on an unsold position that moves with the price",
+        "o3": "Net income reported by the company",
+        "o4": "The total commissions paid",
+        "explain": "Unrealized P&L is the floating gain or loss while you still hold shares. It becomes realized only when you sell."
+      },
+      "q2": {
+        "prompt": "You buy {n1} shares at {p1}, then {n2} shares at {p2}, with no fees. What is the average cost in USD?",
+        "work": "Total cost = {n1} × {p1} + {n2} × {p2}; average cost = total ÷ ({n1} + {n2}) = {answer}.",
+        "explain": "Average cost is a weighted average: total cost divided by total shares, not a simple average of the two prices."
+      },
+      "q3": {
+        "prompt": "You buy {qty} shares at {buy}, sell at {sell}, and pay {fee} commission on each side. What is the net profit in USD?",
+        "work": "Net profit = {qty} × ({sell} − {buy}) − 2 × {fee} = {answer}.",
+        "explain": "Net profit is the gross price gain minus both the buy and sell commissions."
+      },
+      "q4": {
+        "prompt": "If the selling price is above the purchase price, the trade is always profitable after fees. True or false?",
+        "explain": "Not necessarily. A small price gain can be wiped out by commissions. Judge by net profit."
+      },
+      "q5": {
+        "prompt": "Which statements are correct?",
+        "o1": "Realized P&L happens after a sale",
+        "o2": "Unrealized P&L changes with the share price",
+        "o3": "Paper gains are cash you already hold",
+        "o4": "Commissions reduce net profit",
+        "explain": "Realized P&L is locked in on sale; unrealized P&L moves with price; paper gains are not cash; commissions directly reduce net profit."
+      },
+      "q6": {
+        "prompt": "What is the correct way to calculate return?",
+        "o1": "Current price ÷ purchase price",
+        "o2": "P&L ÷ invested cost × 100%",
+        "o3": "Shares held ÷ shares outstanding × 100%",
+        "o4": "Total equity ÷ starting cash",
+        "explain": "Return measures P&L relative to the capital invested: P&L ÷ cost × 100%."
+      }
+    },
+    "u4": {
+      "q1": {
+        "prompt": "What usually happens to a buy limit placed below the market price?",
+        "o1": "It waits until the price falls to the limit or lower before filling",
+        "o2": "It fills immediately at the market price",
+        "o3": "It fills above the market price",
+        "o4": "It can never fill",
+        "explain": "A buy limit fills only when the ask reaches the limit or lower, so it typically rests in the order book first."
+      },
+      "q2": {
+        "prompt": "You place a buy limit for {qty} shares at {limit} with a {fee} commission. How much cash must be reserved?",
+        "work": "Reserved cash = {qty} × {limit} + {fee} = {answer}.",
+        "explain": "A buy limit reserves quantity × limit price plus any commission."
+      },
+      "q3": {
+        "prompt": "A limit order guarantees execution. True or false?",
+        "explain": "Limit orders guarantee a price, not a fill. If the market never reaches your limit, the order waits."
+      },
+      "q4": {
+        "prompt": "Which of these are risks of market orders?",
+        "o1": "The execution price is uncertain",
+        "o2": "Slippage is possible in volatile conditions",
+        "o3": "The order may never fill",
+        "o4": "You cannot lock the execution price",
+        "explain": "Market orders prioritise execution, so price is uncertain and slippage is possible. Never filling is a typical limit-order risk."
+      },
+      "q5": {
+        "prompt": "What does the order status “open” mean?",
+        "o1": "The order was rejected",
+        "o2": "The order is submitted and waiting for its price condition",
+        "o3": "The order was fully filled",
+        "o4": "You cancelled the order",
+        "explain": "Open means the order is still working in the order book, waiting to fill or be cancelled."
+      },
+      "q6": {
+        "prompt": "A stock has a bid of {bid} and an ask of {ask}. You buy {qty} shares at the ask and immediately sell at the bid. What is the spread cost in USD?",
+        "work": "Spread = {ask} − {bid}; cost = spread × {qty} = {answer}.",
+        "explain": "As with a market order: you pay the ask and receive the bid, and the difference times quantity is the cost."
+      }
+    },
+    "u5": {
+      "q1": {
+        "prompt": "Which statement best describes a cash dividend?",
+        "o1": "The company distributes part of its profits to shareholders in cash",
+        "o2": "A dividend is the gain from a rising share price",
+        "o3": "Any profitable company must pay a dividend",
+        "o4": "The exchange pays the dividend",
+        "explain": "A dividend is cash distributed by the company from profits and cash flow. Whether and how much to pay is a company decision."
+      },
+      "q2": {
+        "prompt": "You hold {qty} shares and the dividend is {perShare} per share. How much cash do you receive?",
+        "work": "Cash dividend = {qty} × {perShare} = {answer}.",
+        "explain": "The cash dividend equals shares held times dividend per share. Your purchase cost does not change the payment."
+      },
+      "q3": {
+        "prompt": "In the simplified ex-dividend model, what usually happens to the share price on the ex-date?",
+        "o1": "It must rise",
+        "o2": "It adjusts down by roughly the dividend per share",
+        "o3": "It does not change at all",
+        "o4": "It becomes zero",
+        "explain": "Cash leaves the company, so the price usually adjusts down by about the dividend. You gain cash but the position value falls."
+      },
+      "q4": {
+        "prompt": "Which statements about dividend yield are correct?",
+        "o1": "It equals annual dividend per share ÷ current price",
+        "o2": "A falling share price can raise the yield",
+        "o3": "The yield is a guaranteed return",
+        "o4": "A very high yield may not be sustainable",
+        "explain": "Yield moves with price; a falling price raises it. It is not guaranteed, and a high yield can reflect risk or an unsustainable payout."
+      },
+      "q5": {
+        "prompt": "What does the payout ratio measure?",
+        "o1": "Share price ÷ EPS",
+        "o2": "Debt ÷ equity",
+        "o3": "Dividend per share ÷ earnings per share",
+        "o4": "Dividend ÷ share price",
+        "explain": "Payout ratio = dividend per share ÷ EPS. It shows how much of earnings the company distributes."
+      },
+      "q6": {
+        "prompt": "Annual dividend per share is {annual} and the share price is {price}. What is the dividend yield in percent?",
+        "work": "Yield = {annual} ÷ {price} × 100% = {answer}%.",
+        "explain": "The yield converts the annual dividend per share into a percentage of the share price; price changes move the yield."
+      }
+    },
+    "u6": {
+      "q1": {
+        "prompt": "What is the most typical feature of a growth stock?",
+        "o1": "Revenue and earnings grow above average and profits are usually reinvested",
+        "o2": "It pays a high fixed dividend",
+        "o3": "Its earnings move exactly with the economic cycle",
+        "o4": "Its price is always below book value",
+        "explain": "Growth stocks are defined by growth rather than current income. They often reinvest profits, so dividends are low."
+      },
+      "q2": {
+        "prompt": "Why might a value stock be cheap?",
+        "o1": "The market may be undervaluing it, or fundamentals may be deteriorating",
+        "o2": "It is guaranteed to go bankrupt",
+        "o3": "It never pays a dividend",
+        "o4": "It must have the fastest growth",
+        "explain": "A low valuation can come from a market misunderstanding or from real fundamental problems. Cheap alone is not a reason to buy."
+      },
+      "q3": {
+        "prompt": "Which statement about cyclical stocks is correct?",
+        "o1": "Their earnings are closely tied to the economic cycle",
+        "o2": "Their earnings are always stable",
+        "o3": "They are completely unaffected by rates and demand",
+        "o4": "They must be high-dividend stocks",
+        "explain": "Cyclical earnings swing with expansions and recessions; they are common in industrials, materials and energy."
+      },
+      "q4": {
+        "prompt": "Which statements about stock style labels are correct?",
+        "o1": "A style label is a starting point, not a return guarantee",
+        "o2": "A company's style can change over time",
+        "o3": "A high dividend always means low risk",
+        "o4": "Growth stocks can also suffer large drawdowns",
+        "explain": "Style describes characteristics; companies change, high yields may not last, and growth valuations can fall sharply."
+      }
+    },
+    "u7": {
+      "q1": {
+        "prompt": "Which description of an ETF is most accurate?",
+        "o1": "A long-term bond from a single company",
+        "o2": "A basket of assets traded on an exchange",
+        "o3": "A fund that can only be bought off-exchange",
+        "o4": "A product that guarantees principal and return",
+        "explain": "ETFs trade like stocks, but the underlying is a basket of assets, usually tracking an index, sector or theme."
+      },
+      "q2": {
+        "prompt": "What risk does diversification mainly reduce?",
+        "o1": "Company- or sector-specific risk",
+        "o2": "Overall market (systematic) risk",
+        "o3": "All risk",
+        "o4": "Trading commissions",
+        "explain": "Diversification softens individual company or sector shocks, but cannot remove overall market risk."
+      },
+      "q3": {
+        "prompt": "Which statements about diversification are correct?",
+        "o1": "Lower correlation usually improves diversification",
+        "o2": "More holdings is not always better",
+        "o3": "Diversification can remove systematic risk",
+        "o4": "Sector ETFs can still be highly concentrated",
+        "explain": "Diversification depends on correlation; over-diversifying adds complexity; systematic risk remains; sector ETFs are concentrated bets."
+      },
+      "q4": {
+        "prompt": "{weight}% of a portfolio returns {r1} and the rest returns {r2}. What is the portfolio return in percent?",
+        "work": "Portfolio return = {weight}% × {r1} + (100 − {weight})% × {r2} = {answer}%.",
+        "explain": "Portfolio return is the weighted average of asset returns; the weights sum to 100%."
+      }
+    },
+    "u8": {
+      "q1": {
+        "prompt": "What is the main difference between compound and simple interest?",
+        "o1": "Compound interest is paid only on the original principal",
+        "o2": "Compound interest adds interest to principal so it earns further interest",
+        "o3": "Simple interest always earns more",
+        "o4": "They always produce the same result",
+        "explain": "Compounding reinvests interest: each period's interest becomes part of the next period's principal."
+      },
+      "q2": {
+        "prompt": "Principal is {principal}, the annual return is {rate}%, compounded annually for {years} years. What is the future value in USD?",
+        "work": "Future value = {principal} × (1 + {rate}%)^{years} = {answer}.",
+        "explain": "Future value equals principal times (1 + annual return) raised to the number of years, assuming all interest is reinvested."
+      },
+      "q3": {
+        "prompt": "Which statement about time and compounding is correct?",
+        "o1": "Longer horizons amplify compounding, but risk does not disappear",
+        "o2": "Longer horizons guarantee a positive return",
+        "o3": "Time has no effect on compounding",
+        "o4": "Short horizons always compound faster",
+        "explain": "Time magnifies both compounding and uncertainty; long-term investing can still suffer losses and drawdowns."
+      },
+      "q4": {
+        "prompt": "Which statements about long-term investing are correct?",
+        "o1": "Inflation reduces the purchasing power of cash and returns",
+        "o2": "A 50% fall requires a 100% gain to recover",
+        "o3": "Fees continuously erode compounding",
+        "o4": "Historical returns guarantee future returns",
+        "explain": "Inflation, drawdowns and fees all affect real outcomes; history does not guarantee future performance."
+      }
+    },
+    "u9": {
+      "q1": {
+        "prompt": "Which two prices form the body of a candlestick?",
+        "o1": "Open and close",
+        "o2": "High and low",
+        "o3": "Open and high",
+        "o4": "Close and low",
+        "explain": "The body connects open and close; the wicks extend to the high and low."
+      },
+      "q2": {
+        "prompt": "A candle whose close is above its open is usually called what?",
+        "o1": "Bearish candle",
+        "o2": "Bullish candle",
+        "o3": "Doji",
+        "o4": "Gap",
+        "explain": "Close above open is bullish (green in this game); close below open is bearish (red)."
+      },
+      "q3": {
+        "prompt": "Which statements about candles and volume are correct?",
+        "o1": "Different timeframes change candle shapes",
+        "o2": "Volume reflects trading activity in the period",
+        "o3": "One candle can accurately predict the future",
+        "o4": "Shapes must be read with trend and location",
+        "explain": "Timeframe, volume and trend location all matter; a single candle cannot accurately predict the future."
+      },
+      "q4": {
+        "prompt": "A session opens at {open} and closes at {close}. What is the candle body size in USD?",
+        "work": "Body = |close − open| = |{close} − {open}| = {answer}.",
+        "explain": "Body size is the absolute difference between open and close, independent of high and low."
+      }
+    },
+    "u10": {
+      "q1": {
+        "prompt": "What does SMA20 mean?",
+        "o1": "The arithmetic average of the last 20 closes",
+        "o2": "The highest price of the last 20 days",
+        "o3": "The close of the 20th trading day",
+        "o4": "A forecast of the next 20 days",
+        "explain": "SMA is a simple moving average of the last N closes and never uses future data."
+      },
+      "q2": {
+        "prompt": "RSI above 70 usually indicates what?",
+        "o1": "The price must fall",
+        "o2": "Volume must shrink",
+        "o3": "Strong recent upward momentum; possibly overbought",
+        "o4": "Fundamentals have deteriorated",
+        "explain": "RSI above 70 shows strong recent gains and possible overbought conditions; strong trends can stay high."
+      },
+      "q3": {
+        "prompt": "Which statements about technical indicators are correct?",
+        "o1": "They are computed from history and lag",
+        "o2": "Different parameters produce different signals",
+        "o3": "They guarantee profitable trades",
+        "o4": "They help confirm trends and manage risk",
+        "explain": "Indicators describe and lag; parameters matter; they cannot guarantee profits."
+      },
+      "q4": {
+        "prompt": "The last three closes are {p1}, {p2} and {p3}. What is SMA3 in USD?",
+        "work": "SMA3 = ({p1} + {p2} + {p3}) ÷ 3 = {answer}.",
+        "explain": "A simple moving average is the arithmetic average of the last N closes."
+      }
+    },
+    "u11": {
+      "q1": {
+        "prompt": "In the income statement, how is net income typically derived?",
+        "o1": "Revenue minus costs and expenses",
+        "o2": "Assets minus liabilities",
+        "o3": "Cash flow plus dividends",
+        "o4": "Share price times shares",
+        "explain": "The income statement starts with revenue, subtracts operating costs, expenses and taxes, and ends with net income."
+      },
+      "q2": {
+        "prompt": "What is the fundamental balance-sheet identity?",
+        "o1": "Assets = revenue − expenses",
+        "o2": "Assets = liabilities + shareholders' equity",
+        "o3": "Liabilities = assets + equity",
+        "o4": "Equity = revenue + cash flow",
+        "explain": "Assets are financed by liabilities and equity, so assets = liabilities + equity."
+      },
+      "q3": {
+        "prompt": "Which statements about earnings quality are correct?",
+        "o1": "Net income is not the same as cash",
+        "o2": "Free cash flow can fund dividends, buybacks and debt repayment",
+        "o3": "More debt is always better",
+        "o4": "Margin trends are worth monitoring",
+        "explain": "Profit needs cash support; FCF is a key source; too much debt raises risk; margin trends reveal operating quality."
+      },
+      "q4": {
+        "prompt": "A company has revenue of {revenue}M and cost of goods sold of {cogs}M. What is gross profit in millions?",
+        "work": "Gross profit = revenue − COGS = {revenue} − {cogs} = {answer}.",
+        "explain": "Gross profit is revenue minus cost of goods sold, the first step of the income statement."
+      }
+    },
+    "u12": {
+      "q1": {
+        "prompt": "What is the core idea of DCF valuation?",
+        "o1": "Multiply the current price by shares",
+        "o2": "Discount future free cash flow to today's value",
+        "o3": "Use the historical high as value",
+        "o4": "Use book value instead of market value",
+        "explain": "DCF discounts future cash flow at a risk-adjusted rate to estimate enterprise value."
+      },
+      "q2": {
+        "prompt": "All else equal, what happens to a DCF valuation if the discount rate rises?",
+        "o1": "The valuation falls",
+        "o2": "The valuation rises",
+        "o3": "No effect",
+        "o4": "Value per share must be zero",
+        "explain": "A higher discount rate reduces the present value of future cash flow, so the valuation falls."
+      },
+      "q3": {
+        "prompt": "Which statements about DCF assumptions are correct?",
+        "o1": "Growth and discount rate are highly sensitive inputs",
+        "o2": "Terminal value can dominate enterprise value",
+        "o3": "DCF gives an exact real value to the cent",
+        "o4": "Perpetual growth must stay below the discount rate",
+        "explain": "DCF is highly assumption-sensitive and terminal-heavy; it is not an exact answer; the perpetual model requires r > g."
+      },
+      "q4": {
+        "prompt": "Next year's free cash flow is {fcf}M, the discount rate is {discount}%, and there is no terminal value. What is the present value in millions?",
+        "work": "Present value = {fcf} ÷ (1 + {discount}%) = {answer}.",
+        "explain": "Cash flow one year ahead is discounted by (1+r) to today's value."
+      }
+    },
+    "u13": {
+      "q1": {
+        "prompt": "What does GDP measure?",
+        "o1": "The total output of an economy",
+        "o2": "A company's net income",
+        "o3": "The total market cap of the stock market",
+        "o4": "Cash held by the central bank",
+        "explain": "GDP, gross domestic product, measures the total output of an economy over a period."
+      },
+      "q2": {
+        "prompt": "How does rising inflation usually affect the purchasing power of cash?",
+        "o1": "Purchasing power rises",
+        "o2": "Purchasing power falls",
+        "o3": "No change",
+        "o4": "Cash automatically earns dividends",
+        "explain": "Higher prices mean the same amount buys less, so cash purchasing power falls."
+      },
+      "q3": {
+        "prompt": "Which statements about rates and valuation are correct?",
+        "o1": "Rate hikes usually raise the discount rate and lower valuations",
+        "o2": "High-growth stocks are more sensitive to the discount rate",
+        "o3": "Rates have no effect on equity valuation",
+        "o4": "Rate cuts usually support risk assets",
+        "explain": "Higher discount rates reduce present values; growth stocks have longer duration and are more sensitive; cuts ease financial conditions."
+      },
+      "q4": {
+        "prompt": "Policy rate 3%, inflation 4%. What is the real rate?",
+        "o1": "+7%",
+        "o2": "+1%",
+        "o3": "-1%",
+        "o4": "0%",
+        "explain": "Real rate = nominal rate − inflation = 3% − 4% = −1%."
+      }
+    },
+    "u14": {
+      "q1": {
+        "prompt": "What does asset allocation mainly determine?",
+        "o1": "The portfolio's risk and return structure",
+        "o2": "The name of a single stock",
+        "o3": "The exact commission amount",
+        "o4": "The exchange closing time",
+        "explain": "Weights across asset classes determine expected return, volatility and the sources of risk."
+      },
+      "q2": {
+        "prompt": "Which situation usually gives better diversification?",
+        "o1": "All assets perfectly correlated",
+        "o2": "All assets in the same sector",
+        "o3": "Assets with low correlation",
+        "o4": "Holding one stock",
+        "explain": "Lower correlation means assets are less likely to fall together, so portfolio volatility usually improves."
+      },
+      "q3": {
+        "prompt": "Which statements about portfolio construction are correct?",
+        "o1": "A very large single position magnifies drawdowns",
+        "o2": "Rebalancing can restore the intended risk exposure",
+        "o3": "More holdings is always better",
+        "o4": "Historical correlations can change",
+        "explain": "Concentration increases risk; rebalancing controls drift; over-diversification adds cost; correlations change."
+      },
+      "q4": {
+        "prompt": "{stock}% of assets return {stockReturn} and the rest return {bondReturn}. What is the portfolio return in percent?",
+        "work": "Portfolio return = {stock}% × {stockReturn} + (100 − {stock})% × {bondReturn} = {answer}%.",
+        "explain": "Portfolio return is the weighted average of asset returns."
+      }
+    },
+    "u15": {
+      "q1": {
+        "prompt": "What is the basic position-sizing formula?",
+        "o1": "Risk amount ÷ risk per share",
+        "o2": "Account balance ÷ share price",
+        "o3": "Share price ÷ stop price",
+        "o4": "Return ÷ commission",
+        "explain": "Take the risk you can accept and divide it by the per-share risk (entry minus stop) to get shares."
+      },
+      "q2": {
+        "prompt": "After a 50% fall, what gain is needed to get back to the starting value?",
+        "o1": "50%",
+        "o2": "100%",
+        "o3": "25%",
+        "o4": "75%",
+        "explain": "From 100 down to 50, recovering to 100 requires a 100% gain."
+      },
+      "q3": {
+        "prompt": "Which statements about risk management are correct?",
+        "o1": "Highly correlated positions should be combined when measuring risk",
+        "o2": "Stops can be jumped by gaps",
+        "o3": "More leverage is safer",
+        "o4": "Limiting drawdowns helps protect compounding",
+        "explain": "Correlated risk adds up; stops have gap risk; leverage magnifies risk; drawdown control protects long-term compounding."
+      },
+      "q4": {
+        "prompt": "Account {account}, risk per trade {risk}%, entry {entry}, stop {stop}. How many shares should you buy?",
+        "work": "Risk amount = {account} × {risk}%; risk per share = {entry} − {stop}; shares = risk amount ÷ risk per share (rounded down) = {answer}.",
+        "explain": "Shares = risk amount ÷ risk per share, rounded down to whole shares."
+      }
+    },
+    "u16": {
+      "q1": {
+        "prompt": "What does a value strategy typically look for?",
+        "o1": "Assets priced low relative to fundamentals",
+        "o2": "Assets with the strongest recent rally",
+        "o3": "The largest companies by market cap",
+        "o4": "Companies with zero dividends",
+        "explain": "Value focuses on opportunities that are cheap relative to earnings, assets or cash flow."
+      },
+      "q2": {
+        "prompt": "What is the core assumption of momentum?",
+        "o1": "Prices always mean-revert",
+        "o2": "Recent trends may persist",
+        "o3": "Dividends always grow",
+        "o4": "Valuation always works",
+        "explain": "Momentum assumes recent strength persists, buying winners and selling losers."
+      },
+      "q3": {
+        "prompt": "Which statements about strategy backtests are correct?",
+        "o1": "Look-ahead bias must be avoided",
+        "o2": "Out-of-sample validation is needed",
+        "o3": "Strong in-sample results guarantee future performance",
+        "o4": "Trading costs erode strategy returns",
+        "explain": "Backtests need no look-ahead, out-of-sample testing and cost assumptions; in-sample performance is not a guarantee."
+      },
+      "q4": {
+        "prompt": "What does a dividend strategy mainly focus on?",
+        "o1": "Short-term momentum",
+        "o2": "Short volatility",
+        "o3": "Leverage multiples",
+        "o4": "Stable and sustainable cash dividends",
+        "explain": "Dividend strategies focus on cash returns, but must check whether the payout is sustainable."
+      }
+    }
+  },
+  "demo": {
+    "common": {
+      "note": "This is a teaching demo with its own parameters. It never changes your simulated account, positions or orders."
+    },
+    "marketCap": {
+      "title": "Share Price and Market Cap Lab",
+      "desc": "Drag the share price to see how one company's market cap changes, and compare it with the others.",
+      "company": "Company",
+      "price": "Share price",
+      "shares": "Shares outstanding",
+      "cap": "Market cap",
+      "compare": "Market cap comparison"
+    },
+    "spread": {
+      "title": "Bid/Ask Spread Lab",
+      "desc": "Change the quantity and see how the gap between the bid and ask becomes a real cost.",
+      "bid": "Bid",
+      "ask": "Ask",
+      "hint": "The gap between what buyers offer and sellers ask is the spread.",
+      "qty": "Quantity",
+      "spread": "Spread per share",
+      "roundTrip": "Spread cost for your quantity",
+      "cost": "Total spread cost",
+      "pctCost": "Spread as % of price"
+    },
+    "pnl": {
+      "title": "Profit and Loss Calculator",
+      "desc": "Adjust the buy price, sell price and quantity to see net P&L and return change.",
+      "buyPrice": "Buy price",
+      "sellPrice": "Sell price",
+      "qty": "Quantity",
+      "invested": "Cost invested",
+      "proceeds": "Net sale proceeds",
+      "fees": "Total fees",
+      "net": "Net P&L",
+      "returnLine": "Return: {pct}",
+      "chartTitle": "Net P&L across sell prices",
+      "chartNote": "The x-axis spans the sell price range; the y-axis is net P&L.",
+      "breakeven": "Breakeven (zero P&L)"
+    },
+    "limitOrder": {
+      "title": "Limit Order Fill Simulator",
+      "desc": "Set a limit and simulate a price path over time to see whether the order would fill.",
+      "current": "Current price",
+      "limit": "Limit price",
+      "qty": "Quantity",
+      "simulate": "Simulate 24 time steps",
+      "hint": "The path uses its own random numbers and is unrelated to your real account.",
+      "limitLabel": "Limit",
+      "idle": "Set a limit and run the simulation to watch the path and result.",
+      "filled": "The price touched your limit at step {tick}, filling the order at {price}.",
+      "notFilled": "The price never reached your limit within {ticks} steps, so the order stayed unfilled."
+    },
+    "dividend": {
+      "title": "Dividend Cash-Flow Lab",
+      "desc": "Change shares, price and yield to see annual income and the effect of ten years of reinvestment.",
+      "shares": "Shares",
+      "price": "Share price",
+      "yield": "Dividend yield (%)",
+      "perShare": "Annual dividend per share",
+      "annual": "Annual dividend income",
+      "quarterly": "Quarterly cash",
+      "tenYear": "Annual income after 10 years of reinvestment",
+      "note": "Reinvestment assumes dividends buy more shares at the same price each year and a constant yield. Taxes and price changes are excluded."
+    },
+    "stockStyle": {
+      "title": "Stock Style Explorer",
+      "desc": "Pick a company to see its style label, sector and dividend yield, and compare what each style means.",
+      "company": "Company",
+      "style": "Stock style",
+      "sector": "Sector",
+      "yield": "Dividend yield",
+      "noDividend": "No dividend"
+    },
+    "diversification": {
+      "title": "Diversification Lab",
+      "desc": "Compare the annualised volatility of one stock with an equal-weight basket of three companies from different sectors.",
+      "basket": "Equal-weight basket",
+      "singleVol": "Single-stock volatility",
+      "basketVol": "Basket volatility",
+      "note": "Volatility uses the last 60 daily returns, annualised. Past volatility is not a forecast, and a basket does not guarantee lower risk.",
+      "start": "60 sessions ago"
+    },
+    "compounding": {
+      "title": "Compounding Calculator",
+      "desc": "Adjust starting capital, monthly contributions, annual return and years to see the compounding curve and final value.",
+      "initial": "Starting capital",
+      "monthly": "Monthly contribution",
+      "rate": "Annual return (%)",
+      "years": "Years",
+      "final": "Final value",
+      "contributed": "Total contributed",
+      "growth": "Compounding growth",
+      "note": "Assumes contributions at month-end, a constant return and monthly compounding. Taxes, inflation and volatility are excluded.",
+      "start": "Start",
+      "end": "After {years} years"
+    },
+    "candle": {
+      "title": "Candle Anatomy Lab",
+      "desc": "Change open, high, low and close to see how the body, wicks and bullish/bearish colour change.",
+      "open": "Open",
+      "high": "High",
+      "low": "Low",
+      "close": "Close",
+      "session": "One trading session",
+      "type": "Candle type",
+      "bull": "Bullish (close ≥ open)",
+      "bear": "Bearish (close < open)",
+      "body": "Body size",
+      "range": "Full range",
+      "note": "High and low are adjusted to cover open and close so impossible candles cannot be drawn."
+    },
+    "indicators": {
+      "title": "Technical Indicators Lab",
+      "desc": "Pick a company to see price, SMA20, SMA50 and RSI, and observe trend and momentum.",
+      "company": "Company",
+      "sma20": "SMA20",
+      "sma50": "SMA50",
+      "rsi": "RSI14",
+      "golden": "SMA20 is above SMA50: the short-term trend is stronger.",
+      "death": "SMA20 is below SMA50: the short-term trend is weaker.",
+      "notEnough": "Not enough history to compute the long moving average yet.",
+      "note": "Blue is SMA20 and orange is SMA50. Indicators use only current and past data.",
+      "start": "60 sessions ago"
+    },
+    "financials": {
+      "title": "Simplified Financials Lab",
+      "desc": "Pick a company to see key income statement, balance sheet and cash-flow figures.",
+      "company": "Company",
+      "revenue": "Revenue",
+      "grossProfit": "Gross profit",
+      "netIncome": "Net income",
+      "assets": "Assets",
+      "liabilities": "Liabilities",
+      "equity": "Equity",
+      "cash": "Cash",
+      "debt": "Debt",
+      "fcf": "Free cash flow",
+      "note": "Figures are generated from company fundamentals and keep assets = liabilities + equity, but are simplified teaching simulations. Units are millions of USD."
+    },
+    "dcf": {
+      "title": "DCF Valuation Lab",
+      "desc": "Change cash flow, growth, discount rate and shares to see how enterprise and per-share value move.",
+      "fcf": "Next-year FCF (M)",
+      "growth": "Growth (%)",
+      "years": "Explicit years",
+      "discount": "Discount rate (%)",
+      "terminal": "Perpetual growth (%)",
+      "shares": "Shares (M)",
+      "netDebt": "Net debt (M)",
+      "enterprise": "Enterprise value",
+      "equity": "Equity value",
+      "perShare": "Value per share",
+      "terminalShare": "Terminal share of value",
+      "invalid": "Current assumptions are invalid: the discount rate must exceed perpetual growth, and cash flow and shares must be positive.",
+      "note": "This is a transparent teaching model that ignores taxes, working-capital changes and scenario probabilities. Not investment advice."
+    },
+    "macro": {
+      "title": "Macro Scenario Lab",
+      "desc": "Adjust policy rate, inflation and growth to see the real rate, cycle regime and a sample discount rate.",
+      "rate": "Policy rate (%)",
+      "inflation": "Inflation (%)",
+      "growth": "Growth (%)",
+      "realRate": "Real rate",
+      "regime": "Cycle regime",
+      "discount": "Sample discount rate (rate + 5%)",
+      "note": "A simplified macro teaching model. The numbers do not represent any real economy and are not a forecast."
+    },
+    "allocation": {
+      "title": "Asset Allocation Lab",
+      "desc": "Adjust stock and bond weights to see the allocation, expected return and volatility.",
+      "stocks": "Stock weight (%)",
+      "bonds": "Bond weight (%)",
+      "stockWeight": "Stocks",
+      "bondWeight": "Bonds",
+      "cashWeight": "Cash",
+      "expected": "Weighted expected return",
+      "volatility": "Weighted volatility",
+      "note": "Assumes stocks 7% / 16% volatility, bonds 3.5% / 6%, cash 1.5% / 0.5%. Correlations are ignored, so actual portfolio volatility can differ."
+    },
+    "risk": {
+      "title": "Position Sizing Lab",
+      "desc": "Use account risk and stop distance to calculate shares, position value and exposure.",
+      "account": "Account size",
+      "riskPct": "Risk per trade (%)",
+      "entry": "Entry price",
+      "stop": "Stop price",
+      "riskAmount": "Risk amount",
+      "perShare": "Risk per share",
+      "shares": "Shares",
+      "position": "Position value",
+      "exposure": "Account exposure",
+      "note": "Ignores commissions, slippage and gaps; a stop price does not guarantee a fill."
+    },
+    "strategies": {
+      "title": "Style Strategy Comparison",
+      "desc": "Compare equal-weight style baskets over different lookback windows using the simulated market history.",
+      "horizon": "Lookback window",
+      "sessions": "{days} sessions",
+      "note": "Simulated equal-weight history, not a real backtest, and not a forecast of future returns."
+    }
+  },
+  "unlock": {
+    "marketBrowse": {
+      "title": "Browse the market",
+      "desc": "View quotes, market caps and profiles for fictional companies."
+    },
+    "marketInspect": {
+      "title": "Inspect a company",
+      "desc": "Open a single stock's quote, price chart and order entry."
+    },
+    "tradeMarket": {
+      "title": "Market orders",
+      "desc": "Buy or sell shares immediately at the current quote."
+    },
+    "limitOrder": {
+      "title": "Limit orders",
+      "desc": "Set an acceptable price and wait for the market to reach it."
+    },
+    "short": {
+      "title": "Short selling",
+      "desc": "Borrow shares and sell them to profit from a decline. High risk, with borrow costs and margin requirements."
+    },
+    "margin": {
+      "title": "Margin and leverage",
+      "desc": "Borrow to buy stock, magnifying gains and losses and risking forced liquidation."
+    },
+    "options": {
+      "title": "Options trading",
+      "desc": "Trade calls and puts; learn premiums, time value, Greeks and expiry settlement."
+    },
+    "futures": {
+      "title": "Futures",
+      "desc": "Trade standardised contracts on margin and learn daily mark-to-market and delivery."
+    },
+    "category": {
+      "market": "Market features",
+      "trading": "Trading tools",
+      "options": "Derivatives",
+      "futures": "Derivatives"
+    },
+    "phase": {
+      "2": "Phase 2",
+      "3": "Phase 3",
+      "4": "Phase 4",
+      "5": "Phase 5"
+    },
+    "requiresSection": "Unlocks after you read “{section}” in the “{unit}” unit.",
+    "requiresUnit": "Unlocks after you complete the “{unit}” unit.",
+    "unknown": "The unlock requirement is not defined.",
+    "howToUnlock": "How to unlock",
+    "prereqTitle": "Prerequisites",
+    "unlockedLabel": "Unlocked",
+    "phaseNote": "This feature is not implemented in the current build (Phase 1); it is never presented as available."
+  },
+  "achievement": {
+    "observer": {
+      "title": "Market Observer",
+      "desc": "Inspect two different companies."
+    },
+    "firstTrade": {
+      "title": "First Trade",
+      "desc": "Complete any buy or sell."
+    },
+    "firstPractice": {
+      "title": "Hands On",
+      "desc": "Complete any unit's practice task."
+    },
+    "academyInitiate": {
+      "title": "Academy Initiate",
+      "desc": "Complete Unit 1, “What Is a Stock?”."
+    },
+    "quizAce": {
+      "title": "Perfect Paper",
+      "desc": "Score 100% on any unit quiz."
+    },
+    "limitMaster": {
+      "title": "Limit Order Master",
+      "desc": "Get a limit order filled."
+    },
+    "bilingual": {
+      "title": "Bilingual Learner",
+      "desc": "Switch the interface language while learning."
+    },
+    "glossaryExplorer": {
+      "title": "Term Explorer",
+      "desc": "Open at least three glossary terms."
+    },
+    "stageOneGraduate": {
+      "title": "Stage 1 Graduate",
+      "desc": "Complete all four units of Stage 1."
+    }
+  },
+  "glossary": {
+    "eyebrow": "Glossary",
+    "title": "Financial Glossary",
+    "subtitle": "Understand terms in Chinese and English. {count} foundational concepts included.",
+    "searchPlaceholder": "Search terms (Chinese or English)",
+    "twoLanguages": "Every term includes explanations in both languages",
+    "noResults": "No matching terms found.",
+    "disclaimer": "Definitions are simplified for teaching and are not investment advice.",
+    "example": "Example",
+    "related": "Related terms",
+    "openLesson": "Open the lesson",
+    "termTitle": "Financial term",
+    "open": "View definition",
+    "lesson": "Lesson: {unit}",
+    "zhVersion": "中文解释",
+    "enVersion": "English explanation",
+    "terms": {
+      "stock": {
+        "name": "Stock",
+        "def": "A tradable certificate representing a share of ownership in a company. Holding stock makes you a shareholder with a proportional claim on profits and residual assets.",
+        "example": "A company issues one million shares. Owning 1,000 shares gives you 0.1% ownership."
+      },
+      "shareholder": {
+        "name": "Shareholder",
+        "def": "A person or institution that owns shares in a company. Shareholders typically have voting rights, dividend rights and the right to transfer their shares.",
+        "example": "When you buy AURA, you become one of Auralis Robotics' shareholders."
+      },
+      "ticker": {
+        "name": "Ticker symbol",
+        "def": "A short code used by an exchange to identify a listed company, usually one to five letters.",
+        "example": "AURA is the ticker for Auralis Robotics in this game."
+      },
+      "marketCap": {
+        "name": "Market capitalisation",
+        "def": "The total market value of a company, equal to share price times shares outstanding. It reflects overall company size, not the price of one share.",
+        "example": "$42.50 × 180 million shares = about $7.65 billion market cap."
+      },
+      "sharePrice": {
+        "name": "Share price",
+        "def": "The current market price of one share, continually updated by quotes and trades.",
+        "example": "A last price of $42.50 means the most recent trade happened at that price."
+      },
+      "exchange": {
+        "name": "Stock exchange",
+        "def": "An organised marketplace that matches buy and sell orders, publishes prices and sets trading rules. The exchange itself does not trade shares.",
+        "example": "All fictional company orders in this game match on the simulated exchange."
+      },
+      "broker": {
+        "name": "Broker",
+        "def": "A financial firm or platform that accepts investor orders and sends them to an exchange for execution. Brokers charge commissions.",
+        "example": "The order ticket in this game plays the role of a broker."
+      },
+      "bid": {
+        "name": "Bid",
+        "def": "The highest price a buyer is currently willing to pay. Sells usually execute at the bid.",
+        "example": "A bid of $49.98 means someone is willing to buy at that price."
+      },
+      "ask": {
+        "name": "Ask",
+        "def": "The lowest price a seller is currently willing to accept. Buys usually execute at the ask.",
+        "example": "An ask of $50.02 means someone is willing to sell at that price."
+      },
+      "spread": {
+        "name": "Bid/ask spread",
+        "def": "The difference between the ask and the bid. It is an implicit trading cost and is usually wider for less liquid stocks.",
+        "example": "Bid $49.98 and ask $50.02 means a $0.04 spread."
+      },
+      "marketOrder": {
+        "name": "Market order",
+        "def": "An order to trade immediately at the best available price. It prioritises execution speed over price certainty.",
+        "example": "A market buy of 10 shares fills at the current ask."
+      },
+      "limitOrder": {
+        "name": "Limit order",
+        "def": "An order that sets a maximum purchase price or minimum sale price. It fills only at that price or better.",
+        "example": "With the market at $50, a buy limit at $48 fills only if the price falls to $48 or lower."
+      },
+      "costBasis": {
+        "name": "Cost basis",
+        "def": "The total amount paid for a position, including the purchase price and buy fees. Average cost = cost basis ÷ shares held.",
+        "example": "Buying 20 shares at $50 with a $1 commission gives a $1,001 cost basis."
+      },
+      "unrealizedPnl": {
+        "name": "Unrealized P&L",
+        "def": "The floating gain or loss on a position you still hold, equal to current market value minus cost basis. It moves with the price.",
+        "example": "Cost basis $1,001, current value $1,100: unrealized gain of $99."
+      },
+      "realizedPnl": {
+        "name": "Realized P&L",
+        "def": "The gain or loss locked in after selling, equal to net sale proceeds minus the matching cost basis.",
+        "example": "Net sale proceeds $1,099 against a $1,001 cost basis: realized gain of $98."
+      },
+      "returnRate": {
+        "name": "Return",
+        "def": "P&L expressed as a percentage of the capital invested, allowing comparison across different position sizes.",
+        "example": "Invest $1,001 and gain $98: a return of about 9.79%."
+      },
+      "commission": {
+        "name": "Commission",
+        "def": "A fee charged by a broker for executing a trade. Commissions directly reduce net profit.",
+        "example": "This game charges a flat $1.00 commission per fill."
+      },
+      "liquidity": {
+        "name": "Liquidity",
+        "def": "How easily a stock trades and how close fills are to the expected price. Liquid stocks have tight spreads and fast execution.",
+        "example": "A heavily traded large cap is usually more liquid than an obscure small cap."
+      },
+      "slippage": {
+        "name": "Slippage",
+        "def": "The difference between the expected price at order entry and the actual fill. It is more visible in volatile or illiquid markets.",
+        "example": "You see $50.00 but fill at $50.40; the extra $0.40 is slippage."
+      },
+      "dividend": {
+        "name": "Dividend",
+        "def": "Cash a company distributes to shareholders from profits. It is not guaranteed: the payout can be cut, suspended or cancelled.",
+        "example": "You hold 100 shares with a $0.60 dividend per share, so you receive $60 in cash."
+      },
+      "dividendYield": {
+        "name": "Dividend yield",
+        "def": "Annual dividend per share ÷ current share price × 100%. A falling price raises the yield, but that does not make the company stronger.",
+        "example": "Annual dividend $1.20 per share and a $40.00 price give a yield of 3.00%."
+      },
+      "exDividendDate": {
+        "name": "Ex-dividend date",
+        "def": "Buyers on or after this date normally do not receive the declared dividend, and the share price adjusts down by roughly the dividend.",
+        "example": "Hold 200 shares paying $0.50 each before the ex-date to receive $100; the price moves from about $25.00 to $24.50."
+      },
+      "payoutRatio": {
+        "name": "Payout ratio",
+        "def": "Dividend per share ÷ earnings per share. It shows how much profit is distributed rather than retained for reinvestment.",
+        "example": "EPS of $2.00 with a $1.00 annual dividend gives a 50% payout ratio."
+      },
+      "growthStock": {
+        "name": "Growth stock",
+        "def": "A company growing revenue and earnings faster than the market, usually reinvesting profits, paying little or no dividend, with higher valuation and volatility.",
+        "example": "A company growing revenue 25% a year may earn a high P/E, but the price can fall sharply when growth slows."
+      },
+      "valueStock": {
+        "name": "Value stock",
+        "def": "A stock priced low relative to earnings, assets or cash flow. It may be undervalued, or cheap because fundamentals are weakening.",
+        "example": "A P/E of 10 may look cheap, but you still need to check whether earnings are stable."
+      },
+      "cyclicalStock": {
+        "name": "Cyclical stock",
+        "def": "A stock whose earnings swing with the economic cycle, common in industrials, materials, energy and discretionary consumer sectors.",
+        "example": "Orders and profits rise in expansions and can fall sharply in recessions."
+      },
+      "etf": {
+        "name": "ETF",
+        "def": "A basket of assets traded on an exchange like a stock, usually tracking an index, sector or theme.",
+        "example": "One broad-market ETF share gives exposure to all of its underlying holdings."
+      },
+      "diversification": {
+        "name": "Diversification",
+        "def": "Spreading money across different assets to reduce company- or sector-specific risk. It cannot remove overall market risk.",
+        "example": "Spreading money equally across three sectors softens the impact of one company failing."
+      },
+      "compounding": {
+        "name": "Compounding",
+        "def": "Reinvesting interest or returns so that future periods earn a return on them too. The effect grows with time.",
+        "example": "$1,000 at 8% compounded annually is about $2,158.92 after 10 years."
+      },
+      "candle": {
+        "name": "Candlestick",
+        "def": "A chart shape built from one period's open, high, low and close; the body connects open and close while wicks reach the high and low.",
+        "example": "Open $48, high $52, low $46.5, close $51.2 forms a bullish candle."
+      },
+      "sma": {
+        "name": "Simple moving average (SMA)",
+        "def": "The arithmetic average of the last N closes, used to smooth noise and observe trend.",
+        "example": "Closes of 10, 11 and 12 give SMA3 = 11."
+      },
+      "rsi": {
+        "name": "Relative Strength Index (RSI)",
+        "def": "A momentum indicator comparing recent gains and losses on a 0–100 scale, with common thresholds of 70 and 30.",
+        "example": "RSI above 70 shows strong momentum and possible overbought conditions, but does not guarantee a fall."
+      },
+      "incomeStatement": {
+        "name": "Income statement",
+        "def": "A report starting with revenue, subtracting costs and expenses and ending with net income; margins measure profitability.",
+        "example": "Revenue $1,000M, gross profit $520M and net income $200M gives a 20% net margin."
+      },
+      "balanceSheet": {
+        "name": "Balance sheet",
+        "def": "A snapshot of assets, liabilities and shareholders' equity; the identity is assets = liabilities + equity.",
+        "example": "Assets $1,000M, liabilities $400M and equity $600M."
+      },
+      "freeCashFlow": {
+        "name": "Free cash flow",
+        "def": "Operating cash flow minus capital expenditure; cash available for dividends, buybacks and debt repayment.",
+        "example": "Operating cash flow $300M minus capex $80M gives free cash flow of $220M."
+      },
+      "dcf": {
+        "name": "Discounted cash flow (DCF)",
+        "def": "Valuation that discounts future free cash flow at a risk-adjusted rate and adds a terminal value to estimate enterprise value.",
+        "example": "Next-year FCF of $100M at a 10% discount rate is worth about $90.91M today."
+      },
+      "gdp": {
+        "name": "Gross domestic product (GDP)",
+        "def": "The total output of an economy over a period, used to measure economic growth.",
+        "example": "GDP growing 3% year over year usually means an expanding economy."
+      },
+      "inflation": {
+        "name": "Inflation",
+        "def": "A broad and sustained rise in prices, which reduces the purchasing power of cash and fixed income.",
+        "example": "At 4% inflation, goods costing 100 today may cost about 104 next year."
+      },
+      "interestRate": {
+        "name": "Interest rate",
+        "def": "The cost of money. Higher rates raise discount rates and funding costs, usually lowering asset valuations.",
+        "example": "A discount rate rising from 8% to 10% lowers the present value of future cash flow."
+      },
+      "assetAllocation": {
+        "name": "Asset allocation",
+        "def": "The process of dividing money across asset classes and weights, shaping a portfolio's risk and return.",
+        "example": "A 60% stock / 40% bond portfolio is usually steadier than an all-stock portfolio."
+      },
+      "positionSizing": {
+        "name": "Position sizing",
+        "def": "Calculating position size from acceptable risk and stop distance rather than buying on impulse.",
+        "example": "A $10,000 account risking 1% with $4 risk per share buys 25 shares."
+      },
+      "drawdown": {
+        "name": "Drawdown",
+        "def": "The fall in equity from a previous peak; large drawdowns significantly slow compounding.",
+        "example": "Falling from $10,000 to $6,000 is a 40% drawdown."
+      },
+      "momentum": {
+        "name": "Momentum",
+        "def": "The tendency of recent price trends to persist; momentum strategies buy strength and sell weakness.",
+        "example": "A stock that outperformed over three months may stay in a momentum portfolio."
+      }
+    }
+  },
+  "dashboard": {
+    "eyebrow": "Dashboard",
+    "greetingMorning": "Good morning, investor",
+    "greetingAfternoon": "Good afternoon, investor",
+    "greetingEvening": "Good evening, investor",
+    "subtitle": "Stage 1: {done} of {total} units completed. Learn first, then trade.",
+    "continueEyebrow": "Continue learning",
+    "unitPill": "Unit {number}",
+    "sectionsRead": "{read} of {total} sections read",
+    "practiceDone": "Practice complete",
+    "practicePending": "Practice pending",
+    "quizPassed": "Quiz {score}%",
+    "quizPending": "Quiz not passed",
+    "resumeLesson": "Resume lesson",
+    "goPractice": "Go to practice",
+    "openAcademy": "Open Academy",
+    "stageCompleteEyebrow": "Stage 1 complete",
+    "stageCompleteTitle": "You now speak the language of markets",
+    "stageCompleteText": "You finished the four units on stocks, trading, P&L and order basics. The next stage arrives in a later build.",
+    "certificateBadge": "Stage 1 badge",
+    "stageUnits": "{done} of {total} units",
+    "reviewAcademy": "Review lessons",
+    "seeRoadmap": "See roadmap",
+    "certificateNote": "This badge reflects game completion only and is not a formal financial qualification.",
+    "portfolioEyebrow": "Simulated account",
+    "sinceStart": "since inception",
+    "cashLine": "Cash {value}",
+    "positionsLine": "{value} positions",
+    "marketPulse": "Market pulse",
+    "marketPulseSubtitle": "Fictional index and today's movers",
+    "indexLabel": "SMA Composite Index",
+    "gainers": "Gainers",
+    "losers": "Losers",
+    "statCash": "Available cash",
+    "statCashSub": "Buying power",
+    "statHoldings": "Position value",
+    "statHoldingsSub": "At last price",
+    "statUnrealized": "Unrealized P&L",
+    "statUnrealizedSub": "Not yet sold",
+    "statLevel": "Learning level",
+    "statLevelSub": "{xp} / {need} XP",
+    "pathTitle": "Stage 1 path",
+    "pathSubtitle": "Four units, one step at a time",
+    "unitMeta": "{minutes} min · {read}/{total} read",
+    "activityTitle": "Recent trades",
+    "activitySubtitle": "Your simulated fills",
+    "tradeMeta": "{qty} shares @ {price}",
+    "noTradesTitle": "No trades yet",
+    "noTradesText": "Your first buy will appear here with its fill and P&L.",
+    "goTrade": "Explore the market",
+    "achievementsTitle": "Achievements",
+    "achievementsSubtitle": "{earned} of {total} earned",
+    "noAchievements": "Learning achievements appear here as you complete lessons and actions."
+  },
+  "academy": {
+    "eyebrow": "Academy",
+    "title": "Academy",
+    "subtitle": "Progress is verified by the teaching engine. Read, experiment, practise, pass the quiz, then unlock tools.",
+    "roadmap": "Roadmap",
+    "review": "Review",
+    "continue": "Continue",
+    "start": "Start",
+    "quiz": "Quiz",
+    "testOut": "Test out",
+    "completed": "Completed",
+    "minutes": "{minutes} min",
+    "lockedByUnit": "Complete “{unit}” to unlock",
+    "checkSections": "Lessons {read}/{total}",
+    "checkPractice": "Practice",
+    "checkQuiz": "Quiz",
+    "placementPassed": "Placement test passed",
+    "placementWaived": "Lessons and practice waived",
+    "phaseBadge": "Planned for Phase {phase}",
+    "stageProgress": "{done} / {total} units",
+    "stages": "Stages",
+    "stageOneDoneTitle": "Stage 1 complete",
+    "stageOneDoneText": "You finished the foundations of stocks, trading, P&L and orders.",
+    "stageOneDoneNote": "Stage 2 and later arrive in future builds. Nothing unfinished is presented as available.",
+    "whatsNext": "What comes next",
+    "notBuilt": "Not implemented yet",
+    "notBuiltText": "This stage is planned for Phase {phase}. The current build contains Stage 1 only; clicking here will not open simulated trading.",
+    "unitUnavailable": "Unit unavailable",
+    "unitUnavailableText": "That unit does not exist or is not implemented in this build.",
+    "unitPlannedText": "This unit belongs to a later stage and is not implemented yet.",
+    "overall": "Stage 1 completion",
+    "overallMeta": "{done} of {total} units completed"
+  },
+  "market": {
+    "eyebrow": "Market",
+    "title": "Market",
+    "subtitle": "Every listed company, price and headline is fictional. Watch how a market behaves with virtual money.",
+    "practiceTitle": "Unit 1 practice task",
+    "practiceText": "Open two different companies and inspect their price and market cap ({current}/{target}).",
+    "practiceLink": "View task",
+    "indexName": "SMA Composite Index",
+    "indexNote": "A cap-weighted fictional index for teaching only.",
+    "searchPlaceholder": "Search ticker or company",
+    "allSectors": "All sectors",
+    "companiesTitle": "Fictional listed companies",
+    "companiesSubtitle": "{unlocked} of {total} fictional companies unlocked · open any row to see its quote and market cap",
+    "company": "Company",
+    "sector": "Sector",
+    "last": "Last",
+    "change": "Change",
+    "marketCap": "Market cap",
+    "spread": "Spread",
+    "trend": "Recent trend",
+    "inspect": "Inspect",
+    "noResults": "No matching companies.",
+    "disclaimer": "Fictional market · Virtual money · Not investment advice",
+    "virtualCompany": "Fictional company",
+    "bid": "Bid",
+    "ask": "Ask",
+    "dayRange": "Day range",
+    "volume": "Volume",
+    "segmentsTitle": "Market segments",
+    "segmentsSubtitle": "{unlocked} of {total} segments unlocked. New companies open unit by unit as you finish the course.",
+    "showAll": "Show all",
+    "segmentCount": "{count} companies",
+    "segmentUnlocked": "Unlocked",
+    "segmentLocked": "Requires {unit}",
+    "segmentLockedShort": "This segment is locked",
+    "segmentCompanies": "Companies in this segment",
+    "segmentUnlockHint": "Complete every requirement in “{unit}” to unlock it.",
+    "goUnlock": "Go unlock",
+    "segment": {
+      "core": {
+        "name": "Core market",
+        "desc": "Established fictional large caps across eight sectors. Available from the start."
+      },
+      "growth": {
+        "name": "Growth & innovation",
+        "desc": "High-growth technology, healthcare and mobility names with wider swings."
+      },
+      "consumer": {
+        "name": "Consumer & healthcare",
+        "desc": "Food retail, pharmaceuticals and medical devices with a defensive tilt."
+      },
+      "industry": {
+        "name": "Finance & industry",
+        "desc": "Banks, insurers, equipment makers and freight, sensitive to the economic cycle."
+      },
+      "frontier": {
+        "name": "Energy & frontier",
+        "desc": "Utilities, materials and volatile technology where risk and opportunity meet."
+      }
+    }
+  },
+  "trade": {
+    "eyebrow": "Trading",
+    "chartTitle": "Price history",
+    "chartSubtitle": "Daily candlesticks · open / high / low / close",
+    "chartRange": "Last {days} sessions",
+    "avgCostLine": "Your average cost is {cost} for {qty} shares. The dashed line marks your cost.",
+    "candleNote": "Each candle is one trading session: green closes above the open, red closes below. The bars below show volume. Advanced layout shows 90 sessions.",
+    "orderTicket": "Order ticket",
+    "orderTicketSubtitle": "All orders match in the simulated market",
+    "buy": "Buy",
+    "sell": "Sell",
+    "orderType": "Order type",
+    "marketOrder": "Market",
+    "limitOrder": "Limit",
+    "quantity": "Quantity",
+    "max": "Max",
+    "buyingPower": "Buying power {value}",
+    "sellable": "{value} shares available to sell",
+    "limitPrice": "Limit price",
+    "limitLocked": "Limit orders unlock after Unit 4, Section 3",
+    "estimatePrice": "Est. execution price",
+    "estimateGross": "Trade value",
+    "commission": "Commission",
+    "estimateTotal": "Est. total cost",
+    "estimateNet": "Est. net proceeds",
+    "afterPower": "Buying power after",
+    "estimateNoteMarket": "Market orders fill at the best current quote; the actual price may differ slightly.",
+    "estimateNoteLimit": "A limit order does not fill until triggered; the cash is reserved.",
+    "feeNote": "A {fee} virtual commission is charged per fill.",
+    "submitBuy": "Submit buy",
+    "submitSell": "Submit sell",
+    "explain": {
+      "buy": {
+        "market": "A market buy fills immediately at the ask and makes you a shareholder.",
+        "limit": "A buy limit waits to fill at your limit price or lower."
+      },
+      "sell": {
+        "market": "A market sell fills immediately at the bid and locks in realized P&L.",
+        "limit": "A sell limit waits to fill at your limit price or higher."
+      },
+      "always": "Check the quantity, price and total cost before submitting."
+    },
+    "reservedCash": "Reserved cash {value}",
+    "spreadCost": "Current spread per share {value}",
+    "companyTitle": "Company profile",
+    "companySubtitle": "Fictional fundamentals",
+    "sharesOutstanding": "Shares outstanding",
+    "revenue": "Revenue",
+    "netIncome": "Net income",
+    "eps": "EPS",
+    "pe": "P/E",
+    "pb": "P/B",
+    "fundamentalsLocked": "Detailed financials",
+    "unlockStage3": "Unlocks in Stage 3",
+    "stockStyle": "Stock style",
+    "dividendYield": "Annual dividend yield",
+    "dividendPerShare": "Quarterly dividend per share",
+    "nextDividend": "Next ex-dividend date",
+    "noDividend": "No dividend",
+    "inDays": "in about {days} sessions",
+    "ordersTitle": "Orders",
+    "ordersSubtitle": "{open} open · {total} total",
+    "side": "Side",
+    "status": "Status",
+    "fillPrice": "Fill price",
+    "placed": "Placed",
+    "cancel": "Cancel",
+    "noOrders": "No orders for this stock yet. Submitted orders appear here.",
+    "tradesTitle": "Fills",
+    "tradesSubtitle": "Recent simulated executions",
+    "ticker": "Ticker",
+    "price": "Price",
+    "fee": "Fee",
+    "realized": "Realized",
+    "date": "Date",
+    "noTrades": "No fills yet.",
+    "positionLabel": "Position",
+    "positionValue": "Position value",
+    "positionPnl": "Unrealized P&L",
+    "avgCostMarker": "Average cost",
+    "tipLabel": "Trading tip",
+    "tipText": "Decide whether this is a learning task or free trading. Practice tasks verify your real actions.",
+    "unknownTicker": "Stock not found",
+    "lockedTitle": "This stock is not unlocked yet",
+    "lockedText": "It belongs to the “{segment}” segment. Complete “{unit}” to unlock its full quote and trading.",
+    "lockedNote": "Companies in unlocked segments appear immediately in the market list and symbol picker.",
+    "backToMarket": "Back to market",
+    "validation": {
+      "qty": "Enter a whole number of shares greater than 0.",
+      "limit": "Enter a valid limit price.",
+      "cash": "Not enough available cash.",
+      "shares": "Not enough available shares."
+    },
+    "indicatorsTitle": "Technical indicators",
+    "indicatorsSubtitle": "Based on current and past closes only, no future data",
+    "sma20": "SMA20",
+    "sma50": "SMA50",
+    "rsi14": "RSI14",
+    "trend": "MA trend",
+    "trendUp": "Short-term strong",
+    "trendDown": "Short-term weak",
+    "trendFlat": "Flat",
+    "trendUnknown": "Not enough data",
+    "volatility": "Annualised volatility",
+    "drawdown": "Max drawdown (90d)",
+    "indicatorsNote": "Indicators describe and lag; they are not buy or sell signals.",
+    "indicatorsEmpty": "Not enough history to compute indicators yet.",
+    "financialsTitle": "Simplified financials",
+    "financialsSubtitle": "Generated from company fundamentals; teaching simulation",
+    "grossProfit": "Gross profit",
+    "netMargin": "Net margin",
+    "assets": "Assets",
+    "liabilities": "Liabilities",
+    "equity": "Equity",
+    "freeCashFlow": "Free cash flow",
+    "financialsNote": "Assets = liabilities + equity; figures are simplified simulations, not audited statements."
+  },
+  "order": {
+    "status": {
+      "open": "Open",
+      "filled": "Filled",
+      "cancelled": "Cancelled",
+      "rejected": "Rejected"
+    }
+  },
+  "portfolio": {
+    "eyebrow": "Portfolio",
+    "title": "Portfolio",
+    "subtitle": "Cash, positions, realized P&L and your equity curve.",
+    "equity": "Total equity",
+    "equitySub": "Cash + position value",
+    "cash": "Cash",
+    "cashSub": "Available now",
+    "holdingsValue": "Position value",
+    "holdingsSub": "At last price",
+    "unrealized": "Unrealized P&L",
+    "unrealizedSub": "Not yet sold",
+    "realized": "Realized P&L",
+    "realizedSub": "Locked in after selling",
+    "return": "Total return",
+    "allocationTitle": "Allocation",
+    "allocationSubtitle": "Position value and cash as a share of equity",
+    "noAllocation": "No allocation to display yet.",
+    "sectorTitle": "Sector mix",
+    "holdingsTitle": "Holdings",
+    "holdingsCount": "{count} stocks",
+    "qty": "Qty",
+    "avgCost": "Avg cost",
+    "value": "Value",
+    "weight": "Weight",
+    "pnl": "P&L",
+    "trade": "Trade",
+    "emptyTitle": "No positions yet",
+    "emptyText": "Complete your first buy in the Market and your holdings and P&L appear here.",
+    "browseMarket": "Browse the Market",
+    "equityCurveTitle": "Equity curve",
+    "equityCurveSubtitle": "Total equity at each session close",
+    "equityCurveNote": "The curve is recorded per trading day. Teaching demos never affect it.",
+    "tradesTitle": "Trade history",
+    "tradesSubtitle": "{count} fills",
+    "noTrades": "No fills yet.",
+    "dividendsTitle": "Dividend income",
+    "dividendsSubtitle": "{total} received so far",
+    "noDividends": "No dividends yet. Hold a dividend-paying stock through its ex-dividend date to receive cash.",
+    "dividendQty": "Shares",
+    "dividendPerShare": "Per share",
+    "dividendAmount": "Amount",
+    "startLabel": "Start",
+    "riskTitle": "Risk analysis",
+    "riskSubtitle": "Computed from your equity curve and current holdings",
+    "volatility": "Annualised volatility",
+    "drawdown": "Max drawdown",
+    "exposure": "Holding exposure",
+    "topWeight": "Largest position",
+    "concentration": "Concentration HHI",
+    "riskNoHistory": "Not enough equity samples yet; volatility and drawdown appear after a few sessions.",
+    "riskNote": "Metrics use historical equity and current weights, not forecasts. A higher HHI means a more concentrated portfolio."
+  },
+  "news": {
+    "eyebrow": "News",
+    "title": "Market News",
+    "subtitle": "Fictional headlines from the simulation's event engine. Events really move simulated prices.",
+    "kind": {
+      "company": "Company event",
+      "macro": "Macro event"
+    },
+    "emptyTitle": "No news yet",
+    "emptyText": "New company and macro events appear as trading days advance.",
+    "disclaimer": "All news is fictional teaching content, unrelated to real companies, markets or media.",
+    "template": {
+      "earningsBeat": "{company} reported quarterly results above expectations, and the simulated share price rose sharply (about {pct}).",
+      "earningsMiss": "{company} reported quarterly results below expectations, and the simulated share price fell (about {pct}).",
+      "contractWin": "{company} announced a large supply contract, lifting the share price by about {pct}.",
+      "lawsuit": "{company} faces a new lawsuit, weakening investor sentiment; the share price fell about {pct}.",
+      "ceoExit": "{company}'s chief executive is leaving, raising concerns about management stability; the share price fell about {pct}.",
+      "recall": "{company} announced a product recall, raising short-term costs; the share price fell about {pct}.",
+      "upgrade": "Analysts upgraded {company}, lifting the share price about {pct}.",
+      "downgrade": "Analysts downgraded {company}, pushing the share price down about {pct}.",
+      "rateCut": "The central bank cut interest rates, improving risk appetite; the simulated index rose about {pct}.",
+      "rateHike": "The central bank raised interest rates, increasing financing costs; the simulated index fell about {pct}.",
+      "inflationCool": "Inflation data cooled, supporting expectations of easier policy; the simulated index rose about {pct}.",
+      "inflationHot": "Inflation came in above expectations, raising fears of tighter policy; the simulated index fell about {pct}.",
+      "growthStrong": "Strong growth data improved sentiment; the simulated index rose about {pct}.",
+      "recessionFear": "Recession fears increased and investors turned defensive; the simulated index fell about {pct}."
+    }
+  },
+  "settings": {
+    "eyebrow": "Settings",
+    "title": "Settings",
+    "subtitle": "Language, simulation speed, display options and local saves.",
+    "languageTitle": "Language",
+    "languageSubtitle": "Switching language never resets lessons, account or orders.",
+    "languageZhNote": "Simplified Chinese interface and lessons",
+    "languageEnNote": "English interface and lessons",
+    "languageHint": "Amounts always stay in virtual USD; changing language never converts currency.",
+    "simulationTitle": "Simulation",
+    "simulationSubtitle": "Control the market clock and information density",
+    "speed": "Market speed",
+    "layoutTitle": "Trading layout",
+    "layoutHint": "Beginner hides advanced financial data and adds explanations; advanced exposes more order and company detail.",
+    "beginner": "Beginner",
+    "advanced": "Advanced",
+    "themeTitle": "Interface theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "themeHint": "Dark is the default terminal look; light suits bright rooms. Charts and colours switch with the theme.",
+    "reducedMotion": "Reduce motion",
+    "reducedMotionHint": "Disable decorative animation and transitions.",
+    "dataTitle": "Save and data",
+    "dataSubtitle": "Progress, orders and positions are stored locally in your browser",
+    "saveStatus": "Local save",
+    "lastSaved": "Last saved: {time}",
+    "notSavedYet": "Not saved yet",
+    "saveNow": "Save now",
+    "exportSave": "Export save",
+    "importSave": "Import save",
+    "resetProgress": "Reset progress",
+    "dataHint": "Importing a save overwrites current progress. Resetting clears local academy progress and the simulated account.",
+    "scopeTitle": "Current build scope",
+    "scopeSubtitle": "What Phase 1 implements and what comes later",
+    "scopeText": "This is the first complete playable version of Stock Market Academy. The rule is simple: never present an unfinished feature as available.",
+    "scopeIncluded": "Implemented",
+    "scopePlanned": "Not implemented",
+    "scope": {
+      "p1a": "Bilingual interface, lessons and glossary",
+      "p1b": "Stage 1: four units, demos, practice tasks and quizzes",
+      "p1c": "Simulated market, daily candlesticks, basic trading, orders and positions",
+      "p1d": "Learning progress, achievements and local saves",
+      "future": {
+        "a": "ETFs, financial statements, indicators and macro lessons (Phase 2)",
+        "b": "Short selling, margin and advanced orders (Phase 3)",
+        "c": "Option chains, pricing, Greeks and multi-leg strategies (Phase 4)",
+        "d": "Futures, hedging and the capstone challenge (Phase 5)",
+        "e": "Sandbox Mode: custom starting capital, fees and market settings (future build)"
+      },
+      "p1e": "Real US historical lab (2008 / 2015–2026 75 symbols / 2020 / 2022, 11 sector packs)",
+      "p1f": "First-run language choice and game creation; dark / light themes"
+    },
+    "disclaimer": "This game uses fictional companies and virtual money. Everything is for education only, not investment, legal or tax advice, and it is not a formal financial qualification.",
+    "resetTitle": "Reset learning progress?",
+    "resetMessage": "This clears lessons, achievements, orders, positions and the simulated account, and starts a new fictional market. It cannot be undone.",
+    "resetConfirm": "Reset everything"
+  },
+  "roadmap": {
+    "eyebrow": "Roadmap",
+    "title": "Development Roadmap",
+    "subtitle": "The current build completes Phase 1 only. The rest is planned and will never be presented as available early.",
+    "statusShipped": "Shipped",
+    "statusPlanned": "Planned",
+    "note": "The roadmap may change. This build implements no options, short selling, margin or futures trading.",
+    "p1": {
+      "title": "Phase 1 · Teaching foundation",
+      "text": "A complete learning and trading loop for Stage 1, starting from zero.",
+      "i1": "Bilingual switching and a full glossary",
+      "i2": "Stage 1: stocks, trading, P&L and order basics",
+      "i3": "Interactive demos, verified practice tasks and graded quizzes",
+      "i4": "Simulated market, daily candlesticks, market/limit orders, positions and P&L",
+      "i5": "Progress, achievements, IndexedDB saves and core-logic tests"
+    },
+    "p2": {
+      "title": "Phase 2 · Investing academy",
+      "text": "Stages 2–4: fundamentals, analysis and portfolio management.",
+      "i1": "Dividends, stock types, ETFs and compounding",
+      "i2": "Technical indicators, financial statements and valuation",
+      "i3": "Macro, portfolios, risk management and strategies",
+      "i4": "Economic calendar, portfolio analytics and strategy challenges"
+    },
+    "p3": {
+      "title": "Phase 3 · Advanced trading",
+      "text": "Short selling, margin and advanced order types.",
+      "i1": "Short selling, borrow costs and squeezes",
+      "i2": "Margin, interest and forced liquidation",
+      "i3": "Stops, stop-limit, trailing stops and OCO"
+    },
+    "p4": {
+      "title": "Phase 4 · Options academy",
+      "text": "Option chains, Black-Scholes pricing, Greeks and a strategy lab.",
+      "i1": "Calls and puts, expiry payoffs, exercise and assignment",
+      "i2": "Black-Scholes, implied volatility and Greeks",
+      "i3": "Selling options, spreads and volatility strategies",
+      "i4": "Multi-leg payoff diagrams and margin requirements"
+    },
+    "p5": {
+      "title": "Phase 5 · Expert mode",
+      "text": "Futures, hedging, crisis scenarios and the capstone challenge.",
+      "i1": "Futures contracts, mark-to-market and delivery",
+      "i2": "Delta hedging and imperfect hedges",
+      "i3": "Financial crisis scenarios and the completion certificate"
+    }
+  },
+  "locked": {
+    "eyebrow": "Feature preview",
+    "options": {
+      "title": "Options trading",
+      "text": "Options are contracts linked to stocks: you pay a premium for the right to buy or sell the underlying at a set price on or before expiry. Pricing, Greeks and multi-leg strategies require a full risk and margin system.",
+      "i1": "Option chains: calls, puts, strikes, expiries and implied volatility",
+      "i2": "Black-Scholes pricing and Delta / Gamma / Theta / Vega",
+      "i3": "Expiry payoff diagrams, breakevens and maximum risk",
+      "i4": "Covered calls, spreads, straddles and iron condors"
+    },
+    "challenges": {
+      "title": "Challenge mode",
+      "text": "Challenges test decision-making under constraints: build a portfolio within risk limits, identify short-selling risks, calculate option payoffs at expiry, or execute a risk plan under market stress.",
+      "i1": "Complete trading tasks within budget and risk limits",
+      "i2": "Analyse financial statements, valuation and short risk",
+      "i3": "Risk management in stressed market scenarios"
+    },
+    "subtitle": "Planned for Phase {phase}",
+    "notAvailable": "Not available in this build",
+    "notAvailableText": "This build is Phase 1 and only implements Stage 1 lessons plus basic stock trading. Options and challenges are planned for Phase {phase}; no simulated entry point exists yet.",
+    "backToAcademy": "Back to Academy"
+  },
+  "history": {
+    "eyebrow": "Real historical replay",
+    "title": "Historical Replay Lab",
+    "subtitle": "Replay well-known market years with real US daily bars. A separate virtual account, one day at a time, fills at the adjusted close.",
+    "realDataBadge": "Real US daily bars",
+    "periodLabel": "Period",
+    "universeLabel": "Universe",
+    "durationLabel": "Sessions",
+    "tickersCount": "{count} companies",
+    "daysCount": "{count} trading days",
+    "startHint": "Start from day one with a separate $10,000 account",
+    "continueHint": "Continue your saved replay",
+    "start": "Start replay",
+    "continue": "Continue",
+    "sourceTitle": "Data source and boundaries",
+    "sourceNote": "Prices come from a Yahoo Finance daily snapshot adjusted for splits and dividends. This is a real US universe, Nasdaq-heavy and including large NYSE names in industrials, energy, utilities and real estate; the exchange is labelled. Local educational data, not a real-time or licensed feed.",
+    "adjustedNote": "Adjusted prices keep returns continuous; volume is unadjusted.",
+    "disclaimerLabel": "Important",
+    "disclaimer": "A historical replay does not predict future returns and is not investment advice. You only see data up to the current replay date; do not judge decisions with hindsight.",
+    "scenarioEyebrow": "Historical replay · day by day",
+    "independentAccount": "Separate virtual account",
+    "currentDate": "Current date",
+    "day": "day",
+    "dayShort": "days",
+    "dayOf": "Session {index} of {total}",
+    "nextEvent": "Jump to next event",
+    "atEnd": "End of data",
+    "reset": "Reset",
+    "resetShort": "Reset replay",
+    "resetTitle": "Reset this replay?",
+    "resetMessage": "This clears this scenario's virtual account, positions and trades. Academy progress and the academy account are untouched.",
+    "resetConfirm": "Reset replay",
+    "resetDone": "Replay reset.",
+    "statEquity": "Account equity",
+    "sinceStartPct": "{pct} since start",
+    "statCash": "Cash",
+    "statCashSub": "Available now",
+    "statPnl": "Total P&L",
+    "statPnlSub": "Realized plus unrealized",
+    "statBenchmark": "QQQ benchmark",
+    "statBenchmarkSub": "Buy and hold from start",
+    "chartTitle": "Historical chart",
+    "chartSubtitle": "Real adjusted daily closes",
+    "chartNote": "Only data up to the current date is shown, so you cannot see the future.",
+    "avgCostLine": "The dashed line is your average cost {cost}",
+    "avgCostMarker": "Average cost",
+    "ticketTitle": "Trade at the close",
+    "ticketSubtitle": "The replay simplifies fills to the adjusted close",
+    "selected": "Selected symbol",
+    "cashLine": "Cash {value}",
+    "sharesLine": "{value} shares available to sell",
+    "closePrice": "Adjusted close",
+    "fillNote": "Fill price = adjusted close; no slippage.",
+    "feeNote": "A {fee} commission is charged per fill.",
+    "universeTitle": "Real US stocks",
+    "universeSubtitle": "{count} symbols · filter by sector and chart one",
+    "owned": "Held",
+    "benchmark": "Benchmark",
+    "select": "Chart",
+    "selectedLabel": "Selected",
+    "positionsTitle": "Scenario positions",
+    "positionsSubtitle": "{count} holdings",
+    "noPositions": "No positions yet. Buy from the ticket.",
+    "tradesTitle": "Scenario trades",
+    "tradesSubtitle": "Most recent fills",
+    "noTrades": "No trades yet.",
+    "eventsTitle": "Historical timeline",
+    "eventsSubtitle": "Real milestones that have occurred",
+    "eventsEmpty": "Advance the date and real historical events will appear here.",
+    "tipsTitle": "What this replay practises",
+    "independentLabel": "Separate account",
+    "independentNote": "The replay uses a separate virtual account and never changes academy cash, positions or course progress.",
+    "loading": "Loading historical data…",
+    "loadError": "Historical data failed to load. Check the data/history files or use the offline build.",
+    "backToList": "Back to scenarios",
+    "buyToast": "Bought {qty} {symbol} @ {price}",
+    "sellToast": "Sold {qty} {symbol} @ {price}",
+    "eventReached": "Historical event: {title} ({date})",
+    "endReached": "You have reached the end of the data. Reset the replay or review your decisions.",
+    "scenario": {
+      "2008": {
+        "title": "2008 Financial Crisis",
+        "subtitle": "Lehman, bailouts and the bottom",
+        "desc": "Start on the eve of the crisis and live through the subprime shock, Lehman's collapse, TARP and the 2009 bottom using real Nasdaq daily bars.",
+        "period": "Jul 2007 – Jun 2009",
+        "difficulty": "Advanced · high volatility",
+        "tip1": "Leverage and liquidity contract together in a crisis, so drawdowns dwarf normal volatility.",
+        "tip2": "Correlations rise in a crisis, so diversification can temporarily fail.",
+        "tip3": "Policy pivots often precede the bottom, but nobody can pick it precisely."
+      },
+      "2015": {
+        "title": "2015–2026 Long Cycle",
+        "subtitle": "Low rates, pandemic, hikes and AI",
+        "desc": "Replay real US stocks from 2015 onward across technology, healthcare, industrials, energy, utilities and communication: trade tensions, the pandemic crash, the hiking cycle and the AI wave.",
+        "period": "Jan 2015 – Oct 2026",
+        "difficulty": "Long-term · elevated volatility",
+        "tip1": "Long-term returns come from a few big trends, but the path includes drawdowns beyond 30%.",
+        "tip2": "Concentrated positions look brilliant in rallies and amplify losses in drawdowns.",
+        "tip3": "The replay only shows data up to today; do not replace decision-making with hindsight."
+      },
+      "2020": {
+        "title": "2020 Pandemic Crash & Rebound",
+        "subtitle": "Circuit breakers, zero rates and a tech bull market",
+        "desc": "Start at record highs, live through three circuit breakers, zero rates and a historic tech rebound, then the vaccine breakthrough.",
+        "period": "Jan 2020 – Dec 2020",
+        "difficulty": "Event-driven · extreme volatility",
+        "tip1": "Crashes move fast; position sizing and a cash buffer matter more than calling the bottom.",
+        "tip2": "The policy bottom and the market bottom may differ; rebounds often precede economic recovery.",
+        "tip3": "Different sectors recovered at very different speeds in the same crisis."
+      },
+      "2022": {
+        "title": "2022 Rate-Hike Drawdown",
+        "subtitle": "Inflation, hikes and a growth de-rating",
+        "desc": "Replay real US stocks through a hiking cycle: growth valuation compression, bear-market rallies and the year-end low.",
+        "period": "Jan 2022 – Dec 2022",
+        "difficulty": "Macro-driven · deep drawdown",
+        "tip1": "Rising rates lower the value of distant cash flows; long-duration growth stocks suffer most.",
+        "tip2": "Bear-market rallies can be violent without a trend reversal.",
+        "tip3": "Use the replay to test stops and sizing rules, not just hindsight."
+      }
+    },
+    "events": {
+      "2008": {
+        "e1": {
+          "title": "Subprime stress surfaces",
+          "text": "BNP Paribas froze three funds and global markets began repricing subprime mortgage risk."
+        },
+        "e2": {
+          "title": "The Fed starts cutting",
+          "text": "The Federal Reserve cut rates by 50 basis points. Markets bounced briefly, but credit problems persisted."
+        },
+        "e3": {
+          "title": "Nasdaq peaks",
+          "text": "The Nasdaq Composite peaked in autumn 2007 and then entered a long decline."
+        },
+        "e4": {
+          "title": "Bear Stearns rescue",
+          "text": "With Fed support, JPMorgan acquired Bear Stearns, turning investment-bank risk into a systemic event."
+        },
+        "e5": {
+          "title": "Fannie and Freddie backstop",
+          "text": "The US Treasury pledged support for the two mortgage giants and markets stabilised briefly."
+        },
+        "e6": {
+          "title": "Lehman Brothers fails",
+          "text": "Lehman Brothers filed for bankruptcy, one of the largest corporate failures in US history, freezing global credit."
+        },
+        "e7": {
+          "title": "AIG is rescued",
+          "text": "The US government provided an emergency loan to AIG as fear spread from banks to insurers and the financial system."
+        },
+        "e8": {
+          "title": "TARP vote fails",
+          "text": "The House rejected the bailout plan and the Dow fell about 777 points in a single session."
+        },
+        "e9": {
+          "title": "TARP signed into law",
+          "text": "The rescue plan passed, but markets still had to digest recession and deleveraging pressure."
+        },
+        "e10": {
+          "title": "Quantitative easing begins",
+          "text": "The Fed announced large purchases of mortgage-backed securities; the policy pivot became a major support."
+        },
+        "e11": {
+          "title": "The market bottom",
+          "text": "Amid extreme pessimism, major indices hit their crisis lows and began to recover."
+        },
+        "e12": {
+          "title": "Recovery hopes build",
+          "text": "Economic data showed signs of stabilisation and markets rebounded from the bottom, though jobs and credit remained weak."
+        }
+      },
+      "2015": {
+        "e1": {
+          "title": "Global risk-off selloff",
+          "text": "A renminbi devaluation and China growth fears triggered a global selloff and violent Nasdaq swings."
+        },
+        "e2": {
+          "title": "Brexit referendum",
+          "text": "The UK voted to leave the EU, sparking a global flight to safety and a technology selloff."
+        },
+        "e3": {
+          "title": "Volatility spike",
+          "text": "Crowded low-volatility trades unwound, the VIX surged and major indices fell sharply."
+        },
+        "e4": {
+          "title": "Year-end growth scare",
+          "text": "Rate-hike expectations and growth fears combined to knock markets down before Christmas."
+        },
+        "e5": {
+          "title": "Pandemic shock begins",
+          "text": "COVID-19 spread globally and markets entered a rapid decline."
+        },
+        "e6": {
+          "title": "Pandemic bottom",
+          "text": "With Fed and fiscal support expectations, the Nasdaq hit a cycle low and began a historic rebound."
+        },
+        "e7": {
+          "title": "Tech peaks",
+          "text": "Low rates and stay-at-home demand drove record technology gains; the Nasdaq peaked in late 2021."
+        },
+        "e8": {
+          "title": "Hiking cycle starts",
+          "text": "The Fed began raising rates and growth-stock valuations came under pressure."
+        },
+        "e9": {
+          "title": "2022 low",
+          "text": "Inflation and rate hikes drove a deep technology drawdown."
+        },
+        "e10": {
+          "title": "Silicon Valley Bank fails",
+          "text": "Rapid hikes exposed bank asset-liability mismatches; SVB was taken over and contagion fears spread."
+        },
+        "e11": {
+          "title": "Yen carry unwind",
+          "text": "A stronger yen triggered an unwinding of carry trades and a sharp but brief global selloff."
+        },
+        "e12": {
+          "title": "AI competition shock",
+          "text": "A low-cost AI model forced a repricing of compute demand and whipsawed chip and technology shares."
+        }
+      },
+      "2020": {
+        "e1": {
+          "title": "The year opens at highs",
+          "text": "Markets entered the pandemic at record highs, dominated by low volatility and optimism."
+        },
+        "e2": {
+          "title": "Pandemic shock begins",
+          "text": "COVID-19 spread globally and risk assets began a rapid decline."
+        },
+        "e3": {
+          "title": "First circuit breaker",
+          "text": "Falling oil and pandemic fears triggered a 15-minute market halt."
+        },
+        "e4": {
+          "title": "Second circuit breaker",
+          "text": "WHO declared a pandemic and travel restrictions spread; markets halted again."
+        },
+        "e5": {
+          "title": "Emergency cut to zero",
+          "text": "The Fed cut rates to zero and restarted asset purchases; futures still swung violently."
+        },
+        "e6": {
+          "title": "Pandemic bottom",
+          "text": "The Fed announced unlimited QE and major indices bottomed in extreme fear."
+        },
+        "e7": {
+          "title": "Rebound begins",
+          "text": "Virus curves showed signs of flattening and technology led a market rebound."
+        },
+        "e8": {
+          "title": "Nasdaq recovers all losses",
+          "text": "The Nasdaq erased its 2020 decline and set a new high."
+        },
+        "e9": {
+          "title": "Tech accelerates",
+          "text": "Remote-work and digital demand pushed mega-cap technology higher."
+        },
+        "e10": {
+          "title": "Vaccine breakthrough",
+          "text": "Vaccine efficacy data triggered a rotation from technology into cyclicals."
+        },
+        "e11": {
+          "title": "2020 closes",
+          "text": "The Nasdaq finished the year sharply higher as the pandemic became a tech catalyst."
+        }
+      },
+      "2022": {
+        "e1": {
+          "title": "Year opens at highs",
+          "text": "Growth stocks were valued for a low-rate world and highly sensitive to rates."
+        },
+        "e2": {
+          "title": "The Fed turns hawkish",
+          "text": "Tightening signals pressured long-duration assets."
+        },
+        "e3": {
+          "title": "First hike",
+          "text": "The Fed raised rates by 25bp, starting the tightening cycle."
+        },
+        "e4": {
+          "title": "A 50bp hike",
+          "text": "The first 50bp increase since 2000."
+        },
+        "e5": {
+          "title": "A 75bp hike",
+          "text": "Inflation surprised to the upside and the Fed hiked 75bp."
+        },
+        "e6": {
+          "title": "Another 75bp",
+          "text": "Tightening continued and technology valuations compressed further."
+        },
+        "e7": {
+          "title": "CPI reversal",
+          "text": "A hot CPI print triggered a selloff, then a violent intraday reversal."
+        },
+        "e8": {
+          "title": "Inflation cools",
+          "text": "CPI came in below expectations, lifting hopes of slower tightening and tech rallied."
+        },
+        "e9": {
+          "title": "Hikes slow",
+          "text": "The Fed reduced the pace to 50bp."
+        },
+        "e10": {
+          "title": "Year-end low",
+          "text": "Growth stocks reached their bear-market low near year end."
+        },
+        "e11": {
+          "title": "2022 closes",
+          "text": "The Nasdaq fell sharply for the year as both valuations and earnings expectations were cut."
+        }
+      }
+    },
+    "noMoreEvents": "No more curated events remain. Keep stepping day by day or reset the replay.",
+    "topbarChip": "Historical replay · real data",
+    "allGroups": "All symbols",
+    "filterPlaceholder": "Search ticker or company",
+    "noMatches": "No matching symbols.",
+    "pack": {
+      "semiconductors": "Semiconductors",
+      "software": "Software",
+      "biotech": "Biotech",
+      "healthcare": "Medical devices",
+      "realestate": "Real estate",
+      "financials": "Financials",
+      "consumer": "Consumer & retail",
+      "industrials": "Industrials",
+      "energy": "Energy",
+      "utilities": "Utilities",
+      "communication": "Communication services"
+    }
+  },
+  "macro": {
+    "regime": {
+      "expansion": "Expansion",
+      "slowdown": "Slowdown",
+      "inflation": "High inflation",
+      "neutral": "Neutral"
+    }
+  }
+}
