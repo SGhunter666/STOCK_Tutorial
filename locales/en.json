@@ -17,7 +17,8 @@
     "history": "Historical Lab",
     "futures": "Futures",
     "branches": "Branches",
-    "sandbox": "Sandbox"
+    "sandbox": "Sandbox",
+    "career": "Career"
   },
   "common": {
     "close": "Close",
@@ -135,7 +136,9 @@
     "challengeStarted": "Challenge started: {challenge}",
     "challengeCompleted": "Challenge completed: {challenge} · +{xp} XP",
     "challengeFailed": "Challenge timed out: {challenge}",
-    "optionAssignedEarly": "{count} short {ticker} option(s) were assigned early and settled by stock delivery at the strike."
+    "optionAssignedEarly": "{count} short {ticker} option(s) were assigned early and settled by stock delivery at the strike.",
+    "careerPromoted": "Promoted to {rank} · +{xp} XP",
+    "careerSalary": "Career salary paid: {amount} ({rank})"
   },
   "stage": {
     "stage1": {
@@ -6380,5 +6383,89 @@
     "note": "These boundaries apply across stocks, ETFs, options, futures, history scenarios and challenge mode.",
     "back": "Back to settings",
     "settingsLink": "View simulation boundaries"
+  },
+  "career": {
+    "eyebrow": "Career mode",
+    "title": "Career mode",
+    "subtitle": "Promote from a retail investor to a financial group CEO. Every rank has real requirements, salary and job tasks.",
+    "note": "Promotion never resets your account or courses. Salary is paid every 21 trading days and tracked as career income.",
+    "sandboxNote": "Sandbox mode does not pay career salary, and promotions are saved only to the sandbox save.",
+    "currentTitle": "Current career assignment",
+    "currentRank": "Current rank",
+    "rankLabel": "Rank {number}",
+    "salaryLabel": "Salary",
+    "salaryValue": "{amount} / {days} days",
+    "noSalary": "No salary yet",
+    "noSalarySub": "Starts after promotion",
+    "salaryIn": "Paid in {days} trading days",
+    "careerIncome": "Career income",
+    "careerIncomeSub": "Cumulative salary, separate from trading P&L",
+    "xpLabel": "Total XP",
+    "xpSub": "Courses, branches and challenges",
+    "nextRankLabel": "Next rank",
+    "current": "Current",
+    "achieved": "Promoted",
+    "locked": "Locked",
+    "ladderTitle": "Career ladder",
+    "ladderSubtitle": "Eight ranks from research and quant to portfolio management, hedge funds and group leadership.",
+    "promote": "Promote to “{rank}”",
+    "promoteHint": "Meet every requirement to promote; promotion awards extra XP.",
+    "currentNote": "Requirements come from real course progress, trades, branches, challenges and account equity.",
+    "maxRank": "Top rank",
+    "maxRankReached": "Financial group CEO reached",
+    "maxRankText": "You have completed every promotion. Keep trading, managing the portfolio or pursuing higher returns.",
+    "progressValue": "{current} / {target}",
+    "progressMoney": "{current} / {target}",
+    "errorMaxRank": "You are already at the top rank.",
+    "errorNotReady": "Not every promotion requirement is met yet.",
+    "req": {
+      "unit": "Complete “{unit}”",
+      "units": "Complete {target} core units",
+      "trades": "Complete {target} stock trades",
+      "inspected": "Inspect {target} companies",
+      "demo": "Complete the “{demo}” lab",
+      "equity": "Reach {value} equity",
+      "options": "Complete {target} option trades",
+      "futures": "Complete {target} futures trades",
+      "challenge": "Complete the “{challenge}” challenge",
+      "challenges": "Complete {target} challenges",
+      "branch": "Complete the “{branch}” branch",
+      "branches": "Complete {target} professional branches",
+      "xp": "Earn {target} XP"
+    },
+    "rank": {
+      "retail": {
+        "title": "Retail investor",
+        "desc": "Start with a simulated account and build trading and learning habits."
+      },
+      "trader": {
+        "title": "Independent trader",
+        "desc": "Execute a repeatable trading plan and build a track record."
+      },
+      "research": {
+        "title": "Equity research analyst",
+        "desc": "Turn financial statements and valuation into explainable research."
+      },
+      "quant": {
+        "title": "Quantitative analyst",
+        "desc": "Evaluate strategies with data, factors and risk metrics."
+      },
+      "pm": {
+        "title": "Portfolio manager",
+        "desc": "Own portfolio return, drawdown and risk budget."
+      },
+      "hedge": {
+        "title": "Hedge fund manager",
+        "desc": "Run multi-asset strategies and hedge with options and futures."
+      },
+      "founder": {
+        "title": "Fund founder",
+        "desc": "Build your own fund and complete branches and multiple challenges."
+      },
+      "ceo": {
+        "title": "Financial group CEO",
+        "desc": "Oversee research, trading and funds while completing every career goal."
+      }
+    }
   }
 }

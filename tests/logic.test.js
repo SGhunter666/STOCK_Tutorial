@@ -62,6 +62,10 @@ import { createStore } from '../js/core/store.js';
 import {
   CHALLENGES, startChallenge, abandonChallenge, checkChallenge, challengeProgress,
 } from '../js/education/challenges.js';
+import {
+  CAREER_RANKS, CAREER_SALARY_INTERVAL, normalizeCareer, careerProgress,
+  promoteCareer, applyCareerSalary,
+} from '../js/education/career.js';
 import { createBus } from '../js/core/bus.js';
 import { money, pct, compactNumber, clamp } from '../js/core/format.js';
 
@@ -1084,6 +1088,50 @@ test('challenge progress reports the active checks', () => {
   assertEqual(progress.remaining, 30, 'full deadline remains');
   abandonChallenge(store, null);
   assertEqual(state.challenges.active, null, 'abandon clears active challenge');
+});
+
+suite('Career mode');
+
+test('career starts at rank 1 and promotes when its real requirements are met', () => {
+  const state = createGameState({ seed: 'career' });
+  const store = createStore({ bus: createBus(), initialState: state });
+  assertEqual(normalizeCareer(null, 0).rank, 1, 'new career starts at rank 1');
+  assertEqual(CAREER_RANKS.length, 8, 'eight career ranks');
+  let progress = careerProgress(state);
+  assertEqual(progress.ready, false, 'rank 1 not ready at start');
+  state.education.units.u4.completedAt = Date.now();
+  state.account.trades = [{ id: 1, side: 'buy', ticker: 'AURA', qty: 1, price: 10, day: 1 }];
+  state.education.inspectedTickers = ['AURA', 'HLIX', 'VRDN'];
+  progress = careerProgress(state);
+  assertEqual(progress.ready, true, 'requirements complete');
+  const promoted = promoteCareer(store, null);
+  assert(promoted.ok, 'promotion succeeds');
+  assertEqual(state.career.rank, 2, 'rank 2 reached');
+  assert(state.education.xp >= 100, 'promotion XP awarded');
+  assertEqual(careerProgress(state).salary, 200, 'rank 2 salary');
+});
+
+test('career salary is paid once per 21 trading days', () => {
+  const account = { cash: 10000, careerIncome: 0 };
+  const career = normalizeCareer({ rank: 2, salaryPaidDay: 0 }, 0);
+  const early = applyCareerSalary(account, career, 20);
+  assertEqual(early.amount, 0, 'not paid before the interval');
+  const paid = applyCareerSalary(early.account, early.career, CAREER_SALARY_INTERVAL);
+  assertEqual(paid.amount, 200, 'salary paid');
+  assertEqual(paid.account.cash, 10200, 'cash credited');
+  assertEqual(paid.account.careerIncome, 200, 'career income recorded');
+  assertEqual(paid.career.salaryPaidDay, CAREER_SALARY_INTERVAL, 'next salary day advanced');
+  const repeated = applyCareerSalary(paid.account, paid.career, CAREER_SALARY_INTERVAL);
+  assertEqual(repeated.amount, 0, 'same day is not paid twice');
+});
+
+test('the top career rank cannot be promoted further', () => {
+  const state = createGameState({ seed: 'career-max' });
+  state.career.rank = CAREER_RANKS.length;
+  const store = createStore({ bus: createBus(), initialState: state });
+  const result = promoteCareer(store, null);
+  assertEqual(result.ok, false, 'top rank is capped');
+  assertEqual(result.error, 'career.errorMaxRank', 'clear error');
 });
 
 test('Stage 2 units 6-8 are implemented in order', () => {

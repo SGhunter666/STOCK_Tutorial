@@ -19,6 +19,7 @@ export function createAccount(initialCash = 10000) {
     realizedPnl: 0,
     feesPaid: 0,
     financingPaid: 0,
+    careerIncome: 0,
     marginCalls: [],
     options: [],
     optionTrades: [],

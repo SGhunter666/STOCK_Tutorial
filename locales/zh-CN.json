@@ -17,7 +17,8 @@
     "history": "历史实战",
     "futures": "期货",
     "branches": "专业分支",
-    "sandbox": "沙盒模式"
+    "sandbox": "沙盒模式",
+    "career": "职业模式"
   },
   "common": {
     "close": "关闭",
@@ -135,7 +136,9 @@
     "challengeStarted": "挑战开始：{challenge}",
     "challengeCompleted": "挑战完成：{challenge} · +{xp} XP",
     "challengeFailed": "挑战超时：{challenge}",
-    "optionAssignedEarly": "{ticker} 的空头期权被提前指派（共 {count} 笔），已按行权价交割股票。"
+    "optionAssignedEarly": "{ticker} 的空头期权被提前指派（共 {count} 笔），已按行权价交割股票。",
+    "careerPromoted": "晋升成功：{rank} · +{xp} XP",
+    "careerSalary": "职业薪资到账：{amount}（{rank}）"
   },
   "stage": {
     "stage1": {
@@ -6380,5 +6383,89 @@
     "note": "这些边界适用于整个游戏：股票、ETF、期权、期货、历史场景与挑战模式。",
     "back": "返回设置",
     "settingsLink": "查看模拟边界"
+  },
+  "career": {
+    "eyebrow": "职业生涯",
+    "title": "职业模式",
+    "subtitle": "从个人投资者晋升到金融集团 CEO。每一级都有真实进度要求、薪资与职业任务。",
+    "note": "职业晋升不会重置账户或课程；薪资按每 21 个交易日发放一次，并计入职业收入。",
+    "sandboxNote": "沙盒模式不会发放职业薪资，晋升也只写入沙盒存档，不影响职业存档。",
+    "currentTitle": "当前职业任务",
+    "currentRank": "当前职级",
+    "rankLabel": "第 {number} 级",
+    "salaryLabel": "月薪",
+    "salaryValue": "{amount} / {days} 日",
+    "noSalary": "暂无薪资",
+    "noSalarySub": "晋升后开始发放",
+    "salaryIn": "{days} 个交易日后发放",
+    "careerIncome": "职业收入",
+    "careerIncomeSub": "累计薪资，不计入交易盈亏",
+    "xpLabel": "总 XP",
+    "xpSub": "课程、分支与挑战累计",
+    "nextRankLabel": "下一职级",
+    "current": "当前",
+    "achieved": "已晋升",
+    "locked": "待晋升",
+    "ladderTitle": "职业阶梯",
+    "ladderSubtitle": "八级职业路线：研究、量化、组合管理、对冲基金与集团管理层。",
+    "promote": "晋升为「{rank}」",
+    "promoteHint": "满足全部条件后即可晋升；晋升会获得额外 XP。",
+    "currentNote": "条件来自真实学习进度、交易记录、分支、挑战与账户权益。",
+    "maxRank": "最高职级",
+    "maxRankReached": "已达到金融集团 CEO",
+    "maxRankText": "你已完成全部职业晋升，可以继续自由交易、管理组合或挑战更高收益。",
+    "progressValue": "{current} / {target}",
+    "progressMoney": "{current} / {target}",
+    "errorMaxRank": "已经达到最高职级。",
+    "errorNotReady": "尚未满足全部晋升条件。",
+    "req": {
+      "unit": "完成「{unit}」",
+      "units": "完成 {target} 个核心单元",
+      "trades": "完成 {target} 笔股票交易",
+      "inspected": "查看 {target} 家公司",
+      "demo": "完成「{demo}」实验",
+      "equity": "账户权益达到 {value}",
+      "options": "完成 {target} 笔期权交易",
+      "futures": "完成 {target} 笔期货交易",
+      "challenge": "完成挑战「{challenge}」",
+      "challenges": "完成 {target} 个挑战",
+      "branch": "完成分支「{branch}」",
+      "branches": "完成 {target} 个专业分支",
+      "xp": "累计 {target} XP"
+    },
+    "rank": {
+      "retail": {
+        "title": "个人投资者",
+        "desc": "从模拟账户开始，建立交易与学习习惯。"
+      },
+      "trader": {
+        "title": "独立交易员",
+        "desc": "稳定执行交易计划，靠自己的账户积累业绩。"
+      },
+      "research": {
+        "title": "股票研究分析师",
+        "desc": "用财报与估值形成可解释的研究结论。"
+      },
+      "quant": {
+        "title": "量化分析师",
+        "desc": "用数据、因子与风险指标评估策略。"
+      },
+      "pm": {
+        "title": "投资组合经理",
+        "desc": "对组合收益、回撤与风险预算负责。"
+      },
+      "hedge": {
+        "title": "对冲基金经理",
+        "desc": "管理多资产策略，使用期权与期货对冲风险。"
+      },
+      "founder": {
+        "title": "基金创始人",
+        "desc": "建立自己的基金，完成分支课程与多项挑战。"
+      },
+      "ceo": {
+        "title": "金融集团 CEO",
+        "desc": "统筹基金、研究与交易，完成全部职业目标。"
+      }
+    }
   }
 }

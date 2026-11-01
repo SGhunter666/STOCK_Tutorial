@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { id: 'dashboard', path: '/dashboard', labelKey: 'nav.dashboard', icon: 'dashboard' },
   { id: 'academy', path: '/academy', labelKey: 'nav.academy', icon: 'academy' },
   { id: 'branches', path: '/branches', labelKey: 'nav.branches', icon: 'academy', requiresUnit: 'u32' },
+  { id: 'career', path: '/career', labelKey: 'nav.career', icon: 'portfolio' },
   { id: 'history', path: '/history', labelKey: 'nav.history', icon: 'roadmap' },
   { id: 'market', path: '/market', labelKey: 'nav.market', icon: 'market' },
   { id: 'trading', path: '/trade', labelKey: 'nav.trading', icon: 'trading' },
@@ -45,6 +46,7 @@ export function createShell({
   function currentSection(path) {
     if (path.startsWith('/academy')) return 'academy';
     if (path.startsWith('/branches')) return 'academy';
+    if (path.startsWith('/career')) return 'career';
     if (path.startsWith('/trade')) return 'trading';
     if (path.startsWith('/market')) return 'market';
     if (path.startsWith('/portfolio')) return 'portfolio';

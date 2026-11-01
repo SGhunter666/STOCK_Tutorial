@@ -44,6 +44,9 @@ import { gradeQuiz } from './education/quizEngine.js';
 import { allTools, isToolUnlocked, TOOL_DEFS } from './education/unlockManager.js';
 import { isCompanyUnlocked, newlyUnlockedSegments, segmentById } from './market/marketAccess.js';
 import { evaluateAchievements, achievementById } from './education/progress.js';
+import {
+  careerProgress, promoteCareer, applyCareerSalary, careerRankByNumber,
+} from './education/career.js';
 import { getUnit } from './education/curriculum.js';
 import { getCompany } from './data/companies.js';
 import { createShell } from './ui/shell.js';
@@ -53,6 +56,7 @@ import { viewSubscription } from './ui/dom.js';
 import { createDashboardView } from './ui/views/dashboard.js';
 import { createAcademyView } from './ui/views/academy.js';
 import { createBranchesView } from './ui/views/branches.js';
+import { createCareerView } from './ui/views/career.js';
 import { createLessonView } from './ui/views/lesson.js';
 import { createQuizView } from './ui/views/quiz.js';
 import { createPracticeView } from './ui/views/practice.js';
@@ -125,6 +129,7 @@ function buildSandboxState(config, careerState, locale) {
   state.sandbox = { ...config };
   if (careerState) {
     state.education = careerState.education;
+    state.career = careerState.career;
     state.settings.layout = careerState.settings.layout;
     state.settings.reducedMotion = careerState.settings.reducedMotion;
     state.settings.theme = careerState.settings.theme;
@@ -258,6 +263,13 @@ async function boot() {
     const title = challenge ? i18n.t(challenge.titleKey) : id;
     toast(i18n.t('toast.challengeFailed', { challenge: title }), 'warning', 5200);
   });
+  bus.on('career:promoted', ({ rank, xpGained }) => {
+    const def = careerRankByNumber(rank);
+    toast(i18n.t('toast.careerPromoted', {
+      rank: i18n.t(def.titleKey),
+      xp: xpGained,
+    }), 'success', 5600);
+  });
 
   store.subscribe((stateNow, meta = {}) => {
     if (meta.type !== 'market:tick') shell.onState();
@@ -353,6 +365,10 @@ function launchChallenge(id) {
 
 function haltChallenge() {
   return abandonChallenge(store, bus);
+}
+
+function advanceCareer() {
+  return promoteCareer(store, bus);
 }
 
 const actions = {
@@ -844,6 +860,15 @@ const actions = {
     scheduleSave();
     return result;
   },
+  promoteCareer() {
+    const result = advanceCareer();
+    if (!result.ok) toast(i18n.t(result.error), 'warning');
+    scheduleSave();
+    return result;
+  },
+  getCareerProgress() {
+    return careerProgress(store.get());
+  },
   getAppMode() {
     return appMode;
   },
@@ -921,6 +946,8 @@ function runSimulation(ticks) {
   const state = store.get();
   let account = state.account;
   let orders = state.orders;
+  let career = state.career;
+  let careerSalary = 0;
   let fills = [];
   let dividends = [];
   let optionSettlements = [];
@@ -971,6 +998,12 @@ function runSimulation(ticks) {
       const futuresSettled = settleFutures(account, state.market.quotes, Math.max(0, prevDay));
       account = futuresSettled.account;
       futuresSettlements = [...futuresSettlements, ...futuresSettled.settlements];
+      if (appMode === 'career') {
+        const salary = applyCareerSalary(account, career, Math.max(0, prevDay));
+        account = salary.account;
+        career = salary.career;
+        careerSalary += salary.amount;
+      }
       if (allowDebit || (account.positions && Object.keys(account.positions).length)) {
         const status = marginStatus(account, state.market.quotes);
         if (status.breached) {
@@ -1004,6 +1037,7 @@ function runSimulation(ticks) {
   store.update((s) => {
     s.account = account;
     s.orders = orders;
+    s.career = career;
   }, {
     type: 'market:tick',
     fills: fills.length,
@@ -1032,6 +1066,12 @@ function runSimulation(ticks) {
   }
   if (financing > 0) {
     toast(i18n.t('toast.financingCharged', { amount: money(financing, i18n.locale) }), 'warning', 3600);
+  }
+  if (careerSalary > 0) {
+    toast(i18n.t('toast.careerSalary', {
+      amount: money(careerSalary, i18n.locale),
+      rank: i18n.t(careerRankByNumber(career.rank).titleKey),
+    }), 'success', 4600);
   }
   if (optionSettlements.length) {
     const pnl = optionSettlements.reduce((sum, row) => sum + row.realized, 0);
@@ -1173,7 +1213,7 @@ function renderRoute(route) {
 
   let view = null;
   const ctx = {
-    i18n, store, bus, router, actions, toast, clock, openLockedToolModal,
+    i18n, store, bus, router, actions, toast, clock, openLockedToolModal, appMode,
   };
 
   switch (section) {
@@ -1195,6 +1235,9 @@ function renderRoute(route) {
     }
     case 'branches':
       view = createBranchesView(ctx);
+      break;
+    case 'career':
+      view = createCareerView(ctx);
       break;
     case 'market':
       view = createMarketView(ctx);

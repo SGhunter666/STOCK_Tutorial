@@ -6,6 +6,7 @@ import { MarketEngine } from '../market/marketEngine.js';
 import { createAccount } from '../trading/account.js';
 import { ALL_UNITS } from '../education/curriculum.js';
 import { ensureUnitProgress } from '../education/lessonEngine.js';
+import { normalizeCareer } from '../education/career.js';
 
 export const SAVE_VERSION = 2;
 export const DEFAULT_CASH = 10000;
@@ -31,6 +32,7 @@ export function createGameState({ locale = 'en', seed = DEFAULT_SEED, initialCas
     orderSeq: 1,
     historyRuns: {},
     challenges: { active: null, completed: [], failed: [] },
+    career: normalizeCareer(null, 0),
     education: {
       units: {},
       inspectedTickers: [],
@@ -94,6 +96,7 @@ export function hydrateState(saved) {
   state.challenges.active = isPlainObject(state.challenges.active) ? state.challenges.active : null;
   state.challenges.completed = Array.isArray(state.challenges.completed) ? state.challenges.completed : [];
   state.challenges.failed = Array.isArray(state.challenges.failed) ? state.challenges.failed : [];
+  state.career = normalizeCareer(state.career, state.market.day);
   state.education = {
     units: isPlainObject(state.education.units) ? state.education.units : {},
     inspectedTickers: Array.isArray(state.education.inspectedTickers) ? state.education.inspectedTickers : [],
@@ -120,6 +123,7 @@ export function hydrateState(saved) {
     realizedPnl: Number.isFinite(state.account.realizedPnl) ? state.account.realizedPnl : 0,
     feesPaid: Number.isFinite(state.account.feesPaid) ? state.account.feesPaid : 0,
     financingPaid: Number.isFinite(state.account.financingPaid) ? state.account.financingPaid : 0,
+    careerIncome: Number.isFinite(state.account.careerIncome) ? state.account.careerIncome : 0,
     marginCalls: Array.isArray(state.account.marginCalls) ? state.account.marginCalls : [],
     options: Array.isArray(state.account.options) ? state.account.options : [],
     optionTrades: Array.isArray(state.account.optionTrades) ? state.account.optionTrades : [],

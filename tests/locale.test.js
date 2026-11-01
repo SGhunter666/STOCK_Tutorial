@@ -11,6 +11,7 @@ import { ACHIEVEMENTS } from '../js/education/progress.js';
 import { COMPANIES, SECTORS, getCompany } from '../js/data/companies.js';
 import { MARKET_SEGMENTS } from '../js/market/marketAccess.js';
 import { HISTORY_SCENARIOS, HISTORY_SECTOR_PACKS } from '../js/data/historyScenarios.js';
+import { CAREER_RANKS } from '../js/education/career.js';
 
 const zhResponse = await fetch('../locales/zh-CN.json');
 const enResponse = await fetch('../locales/en.json');
@@ -614,6 +615,34 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'unlock.category.market', 'unlock.category.trading', 'unlock.category.options',
     'unlock.category.futures',
   ].forEach((key) => check(key));
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
+suite('Career mode copy');
+
+test('career rank names, requirements and salary UI are localised', () => {
+  const { check, missing } = required();
+  check('nav.career');
+  [
+    'career.eyebrow', 'career.title', 'career.subtitle', 'career.note',
+    'career.currentTitle', 'career.currentRank', 'career.rankLabel',
+    'career.salaryLabel', 'career.salaryValue', 'career.noSalary', 'career.noSalarySub',
+    'career.salaryIn', 'career.careerIncome', 'career.careerIncomeSub',
+    'career.xpLabel', 'career.xpSub', 'career.nextRankLabel', 'career.current',
+    'career.achieved', 'career.locked', 'career.ladderTitle', 'career.ladderSubtitle',
+    'career.promote', 'career.promoteHint', 'career.currentNote', 'career.maxRank',
+    'career.maxRankReached', 'career.maxRankText', 'career.progressValue',
+    'career.progressMoney', 'career.errorMaxRank', 'career.errorNotReady',
+    'career.req.unit', 'career.req.units', 'career.req.trades', 'career.req.inspected',
+    'career.req.demo', 'career.req.equity', 'career.req.options', 'career.req.futures',
+    'career.req.challenge', 'career.req.challenges', 'career.req.branch',
+    'career.req.branches', 'career.req.xp',
+    'toast.careerPromoted', 'toast.careerSalary',
+  ].forEach((key) => check(key));
+  for (const rank of CAREER_RANKS) {
+    check(`career.rank.${rank.id}.title`);
+    check(`career.rank.${rank.id}.desc`);
+  }
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 

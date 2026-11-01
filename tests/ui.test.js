@@ -10,6 +10,7 @@ import { createTradeView } from '../js/ui/views/trading.js';
 import { createBranchesView } from '../js/ui/views/branches.js';
 import { createChallengesView } from '../js/ui/views/challenges.js';
 import { createSandboxView } from '../js/ui/views/sandbox.js';
+import { createCareerView } from '../js/ui/views/career.js';
 
 const fakeI18n = {
   locale: 'en',
@@ -72,6 +73,23 @@ test('branches view renders six cards once Unit 32 is complete', () => {
   const cards = host.querySelectorAll('.branch-card');
   assertEqual(cards.length, 6, 'six branch cards');
   assert(host.textContent.includes('branch.asset.name'), 'branch metadata is rendered');
+  view.destroy();
+  host.remove();
+});
+
+test('career view shows the ladder and a ready promotion button', () => {
+  const state = createGameState({ seed: 'ui-career' });
+  state.education.units.u4.completedAt = Date.now();
+  state.account.trades = [{ id: 1, side: 'buy', ticker: 'AURA', qty: 1, price: 10, day: 1 }];
+  state.education.inspectedTickers = ['AURA', 'HLIX', 'VRDN'];
+  const { ctx } = makeCtx(state);
+  ctx.actions.promoteCareer = () => ({ ok: true });
+  const view = createCareerView(ctx);
+  const host = mountView(view);
+  assertEqual(host.querySelectorAll('.career-rank').length, 8, 'eight career ranks');
+  const promote = host.querySelector('[data-career-promote]');
+  assert(promote, 'promotion button exists');
+  assert(!promote.disabled, 'promotion button is enabled when requirements are met');
   view.destroy();
   host.remove();
 });

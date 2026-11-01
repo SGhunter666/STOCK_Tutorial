@@ -1,6 +1,6 @@
-# Stock Market Academy — 架构设计说明（Phase 1–3 完成・Stage 8 基线）
+# Stock Market Academy — 架构设计说明（Phase 1–7 完成・Stage 8 基线）
 
-本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 1–3（Stage 1–8）与扩展层（可交易 ETF、6 个专业分支、Sandbox / Challenge、模拟边界）均已完成。
+本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 1–3（Stage 1–8）与扩展层（可交易 ETF、6 个专业分支、Sandbox / Challenge、模拟边界、Career Mode）均已完成。
 
 ## 1. 技术栈与约束
 
@@ -19,7 +19,7 @@
 | 数据 | `js/data/` | 40 家虚构公司 + 5 只 ETF、板块定义、历史场景元数据 |
 | 市场 | `js/market/` | 价格模拟、交易日历、市场时钟、板块解锁 |
 | 交易 | `js/trading/` | 账户数学、订单撮合、组合估值 |
-| 教学 | `js/education/` | 课程、章节引擎、练习校验、测验评分、解锁、成就、词典 |
+| 教学 | `js/education/` | 课程、章节引擎、练习校验、测验评分、解锁、成就、词典、分支、挑战与职业晋升 |
 | 历史 | `js/history/` | 真实日线回放引擎、数据加载、独立账户动作 |
 | UI | `js/ui/` | Shell、Router、组件库、Canvas 图表、演示、页面视图 |
 | 国际化 | `js/i18n/`、`locales/` | 词典加载、键值查找、占位符、缺失键报告、运行时切换 |
@@ -48,6 +48,7 @@ account { cash, initialCash, positions, trades, realizedPnl, feesPaid, equityHis
 orders[], orderSeq
 historyRuns { scenarioId: { dayIndex, account, selectedTicker, ... } }
 challenges { active { id, startDay, startEquity, startTradeSeq, ... }, completed[], failed[] }
+career { rank, promotedAtDay, salaryPaidDay, history[] }
 sandbox { cash, seed, difficulty, commission }   // 仅沙盒状态
 education { units, xp, achievements, practice, inspections, quizAttempts, ... }
 ```
@@ -132,8 +133,8 @@ P(t+1) = P(t) × exp(r(t))
 ## 12. 测试体系
 
 - `tests/index.html` 浏览器内运行，`tests/harness.js` 提供 suite / test / assert。
-- 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、日内 tick 路径与成交、回放成交与无未来数据、事件时间线、双语结构与页面键覆盖。
-- 当前 145 项全部通过。新增能力必须同时补逻辑测试与双语键。
+- 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、日内 tick 路径与成交、回放成交与无未来数据、事件时间线、职业晋升与薪资、双语结构与页面键覆盖。
+- 当前 150 项全部通过。新增能力必须同时补逻辑测试与双语键。
 
 ## 13. Phase 2 实现状态
 
@@ -222,3 +223,19 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | Sandbox | `core/persistence.js` 的 `SANDBOX_KEY`、`app.js` 的 `appMode` / `readSandboxConfig`、`ui/views/sandbox.js` | 独立存档与账户；可配置资金、种子、难度（佣金）；职业课程解锁复制到沙盒；交易、订单、成就不会写回职业账户；退出 / 重开通过切换存档键并刷新 |
 | Challenge | `education/challenges.js`、`ui/views/challenges.js`、`app.js` 的 `checkChallenge` | 6 个目标；启动时记录权益、日期与股票 / 期权 / 期货交易序号；按启动后的活动计算收益、回撤、对冲、收入、波动率与全能目标；完成 XP 只发一次；超时或放弃后清空进行中状态 |
 | 模拟边界 | `ui/views/boundaries.js` + `#/boundaries`、期货 / 期权页提示 | 期货现金结算不交割股票；空头期权深度实值 + 10 天内到期时确定性提前指派并按行权价交割股票；历史样本包含幸存者偏差并在界面与文档中明示 |
+
+## 19. Phase 7 Career Mode
+
+职业模式把学习、交易与挑战记录收束为一条八级晋升路线；不新增独立货币，也不重置账户。
+
+| 能力 | 扩展位置 | 关键约束 |
+| --- | --- | --- |
+| 职级定义 | `education/career.js` 的 `CAREER_RANKS` | 8 级：个人投资者、独立交易员、研究分析师、量化分析师、组合经理、对冲基金经理、基金创始人、金融集团 CEO；每级含薪资与晋升 XP |
+| 晋升条件 | `careerProgress` / `requirementProgress` | 条件类型包括单元、交易、查看公司、演示、权益、期权 / 期货交易、挑战、专业分支与 XP；全部读取真实 `GameState`，没有手动完成按钮 |
+| 晋升 | `promoteCareer(store, bus)` + `actions.promoteCareer` | 检查最高职级与全部条件；成功后写入 `career.rank`、`promotedAtDay`、`history`，并用 `awardXp(education, 'career:rank:N', xp)` 防重复发奖；广播 `career:promoted` |
+| 薪资 | `applyCareerSalary(account, career, day)`，由 `runSimulation` 日结调用 | 每 21 个交易日发放一次；现金与 `account.careerIncome` 同时增加；`salaryPaidDay` 防止同一天重复发放；沙盒模式跳过 |
+| 状态与存档 | `gameState.js` / `hydrateState` | `career` 有默认值并在旧存档中补 `rank / promotedAtDay / salaryPaidDay / history`；`normalizeCareer` 对非法 rank 与日期做钳制 |
+| 界面 | `ui/views/career.js` + `#/career` + 导航项 | 当前职级、下一职级条件进度、薪资倒计时、职业收入、总 XP 与 8 级职业阶梯；沙盒模式显示「不发放薪资」提示 |
+
+边界：薪资是教学用固定金额，不代表真实薪酬；晋升只看可验证的记录，不评价收益率；职业收入计入现金与权益，但不计入交易已实现盈亏。
+
