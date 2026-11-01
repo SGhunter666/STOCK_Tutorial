@@ -59,8 +59,14 @@ export const TOOL_DEFS = {
     descKey: 'unlock.options.desc',
     categoryKey: 'unlock.category.options',
   },
+  'options.sell': {
+    rule: { unitId: 'u25', sectionId: 's1' },
+    titleKey: 'unlock.optionsSell.title',
+    descKey: 'unlock.optionsSell.desc',
+    categoryKey: 'unlock.category.options',
+  },
   'trade.futures': {
-    phase: 5,
+    rule: { unitId: 'u29', sectionId: 's1' },
     titleKey: 'unlock.futures.title',
     descKey: 'unlock.futures.desc',
     categoryKey: 'unlock.category.futures',

@@ -1599,6 +1599,491 @@ const UNIT_24 = {
   quiz: { id: 'u24', passScore: 80 },
 };
 
+const UNIT_25 = {
+  id: 'u25',
+  number: 25,
+  stageId: 'stage7',
+  implemented: true,
+  titleKey: 'curriculum.u25.title',
+  summaryKey: 'curriculum.u25.summary',
+  minutes: 16,
+  prerequisites: ['u24'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u25.s1.title',
+      blocks: [
+        p('lesson.u25.s1.p1'),
+        p('lesson.u25.s1.p2'),
+        term('assignment'),
+        demo('strategyPayoff'),
+        example('lesson.u25.s1.example.title', ['lesson.u25.s1.example.l1', 'lesson.u25.s1.example.l2']),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u25.s2.title',
+      blocks: [
+        p('lesson.u25.s2.p1'),
+        p('lesson.u25.s2.p2'),
+        list('lesson.u25.s2.list.title', [
+          'lesson.u25.s2.list.i1',
+          'lesson.u25.s2.list.i2',
+          'lesson.u25.s2.list.i3',
+        ]),
+        callout('warning', 'lesson.u25.s2.warn.title', 'lesson.u25.s2.warn.text'),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u25.s3.title',
+      blocks: [
+        p('lesson.u25.s3.p1'),
+        p('lesson.u25.s3.p2'),
+        example('lesson.u25.s3.example.title', ['lesson.u25.s3.example.l1', 'lesson.u25.s3.example.l2']),
+        callout('pro', 'lesson.u25.s3.pro.title', 'lesson.u25.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u25-p1',
+    check: 'option-sell',
+    titleKey: 'practice.u25.title',
+    requirementKey: 'practice.u25.requirement',
+    hintKey: 'practice.u25.hint',
+    actionKey: 'practice.u25.action',
+    actionHref: '#/options',
+  },
+  quiz: { id: 'u25', passScore: 80 },
+};
+
+const UNIT_26 = {
+  id: 'u26',
+  number: 26,
+  stageId: 'stage7',
+  implemented: true,
+  titleKey: 'curriculum.u26.title',
+  summaryKey: 'curriculum.u26.summary',
+  minutes: 16,
+  prerequisites: ['u25'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u26.s1.title',
+      blocks: [
+        p('lesson.u26.s1.p1'),
+        p('lesson.u26.s1.p2'),
+        term('coveredCall'),
+        demo('strategyPayoff'),
+        example('lesson.u26.s1.example.title', ['lesson.u26.s1.example.l1', 'lesson.u26.s1.example.l2']),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u26.s2.title',
+      blocks: [
+        p('lesson.u26.s2.p1'),
+        p('lesson.u26.s2.p2'),
+        term('cashSecuredPut'),
+        example('lesson.u26.s2.example.title', ['lesson.u26.s2.example.l1', 'lesson.u26.s2.example.l2']),
+        list('lesson.u26.s2.list.title', [
+          'lesson.u26.s2.list.i1',
+          'lesson.u26.s2.list.i2',
+          'lesson.u26.s2.list.i3',
+        ]),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u26.s3.title',
+      blocks: [
+        p('lesson.u26.s3.p1'),
+        p('lesson.u26.s3.p2'),
+        callout('warning', 'lesson.u26.s3.warn.title', 'lesson.u26.s3.warn.text'),
+        callout('pro', 'lesson.u26.s3.pro.title', 'lesson.u26.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u26-p1',
+    check: 'income-strategy',
+    titleKey: 'practice.u26.title',
+    requirementKey: 'practice.u26.requirement',
+    hintKey: 'practice.u26.hint',
+    actionKey: 'practice.u26.action',
+    actionHref: '#/options',
+  },
+  quiz: { id: 'u26', passScore: 80 },
+};
+
+const UNIT_27 = {
+  id: 'u27',
+  number: 27,
+  stageId: 'stage7',
+  implemented: true,
+  titleKey: 'curriculum.u27.title',
+  summaryKey: 'curriculum.u27.summary',
+  minutes: 15,
+  prerequisites: ['u26'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u27.s1.title',
+      blocks: [
+        p('lesson.u27.s1.p1'),
+        p('lesson.u27.s1.p2'),
+        term('verticalSpread'),
+        demo('strategyPayoff'),
+        example('lesson.u27.s1.example.title', ['lesson.u27.s1.example.l1', 'lesson.u27.s1.example.l2']),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u27.s2.title',
+      blocks: [
+        p('lesson.u27.s2.p1'),
+        p('lesson.u27.s2.p2'),
+        formula('lesson.u27.s2.formula', 'lesson.u27.s2.note'),
+        list('lesson.u27.s2.list.title', [
+          'lesson.u27.s2.list.i1',
+          'lesson.u27.s2.list.i2',
+          'lesson.u27.s2.list.i3',
+        ]),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u27.s3.title',
+      blocks: [
+        p('lesson.u27.s3.p1'),
+        p('lesson.u27.s3.p2'),
+        callout('info', 'lesson.u27.s3.info.title', 'lesson.u27.s3.info.text'),
+        callout('pro', 'lesson.u27.s3.pro.title', 'lesson.u27.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u27-p1',
+    check: 'vertical-spread',
+    titleKey: 'practice.u27.title',
+    requirementKey: 'practice.u27.requirement',
+    hintKey: 'practice.u27.hint',
+    actionKey: 'practice.u27.action',
+    actionHref: '#/options',
+  },
+  quiz: { id: 'u27', passScore: 80 },
+};
+
+const UNIT_28 = {
+  id: 'u28',
+  number: 28,
+  stageId: 'stage7',
+  implemented: true,
+  titleKey: 'curriculum.u28.title',
+  summaryKey: 'curriculum.u28.summary',
+  minutes: 16,
+  prerequisites: ['u27'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u28.s1.title',
+      blocks: [
+        p('lesson.u28.s1.p1'),
+        p('lesson.u28.s1.p2'),
+        term('straddle'),
+        demo('strategyPayoff'),
+        example('lesson.u28.s1.example.title', ['lesson.u28.s1.example.l1', 'lesson.u28.s1.example.l2']),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u28.s2.title',
+      blocks: [
+        p('lesson.u28.s2.p1'),
+        p('lesson.u28.s2.p2'),
+        term('strangle'),
+        example('lesson.u28.s2.example.title', ['lesson.u28.s2.example.l1', 'lesson.u28.s2.example.l2']),
+        list('lesson.u28.s2.list.title', [
+          'lesson.u28.s2.list.i1',
+          'lesson.u28.s2.list.i2',
+          'lesson.u28.s2.list.i3',
+        ]),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u28.s3.title',
+      blocks: [
+        p('lesson.u28.s3.p1'),
+        p('lesson.u28.s3.p2'),
+        callout('warning', 'lesson.u28.s3.warn.title', 'lesson.u28.s3.warn.text'),
+        callout('pro', 'lesson.u28.s3.pro.title', 'lesson.u28.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u28-p1',
+    check: 'volatility-long',
+    titleKey: 'practice.u28.title',
+    requirementKey: 'practice.u28.requirement',
+    hintKey: 'practice.u28.hint',
+    actionKey: 'practice.u28.action',
+    actionHref: '#/options',
+  },
+  quiz: { id: 'u28', passScore: 80 },
+};
+
+const UNIT_29 = {
+  id: 'u29',
+  number: 29,
+  stageId: 'stage8',
+  implemented: true,
+  titleKey: 'curriculum.u29.title',
+  summaryKey: 'curriculum.u29.summary',
+  minutes: 17,
+  prerequisites: ['u28'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u29.s1.title',
+      blocks: [
+        p('lesson.u29.s1.p1'),
+        p('lesson.u29.s1.p2'),
+        term('futuresContract'),
+        list('lesson.u29.s1.list.title', [
+          'lesson.u29.s1.list.i1',
+          'lesson.u29.s1.list.i2',
+          'lesson.u29.s1.list.i3',
+          'lesson.u29.s1.list.i4',
+        ]),
+        example('lesson.u29.s1.example.title', ['lesson.u29.s1.example.l1', 'lesson.u29.s1.example.l2']),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u29.s2.title',
+      blocks: [
+        p('lesson.u29.s2.p1'),
+        p('lesson.u29.s2.p2'),
+        demo('futuresPnl'),
+        formula('lesson.u29.s2.formula', 'lesson.u29.s2.note'),
+        callout('warning', 'lesson.u29.s2.warn.title', 'lesson.u29.s2.warn.text'),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u29.s3.title',
+      blocks: [
+        p('lesson.u29.s3.p1'),
+        p('lesson.u29.s3.p2'),
+        term('basis'),
+        example('lesson.u29.s3.example.title', ['lesson.u29.s3.example.l1', 'lesson.u29.s3.example.l2']),
+        callout('pro', 'lesson.u29.s3.pro.title', 'lesson.u29.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u29-p1',
+    check: 'futures-trade',
+    titleKey: 'practice.u29.title',
+    requirementKey: 'practice.u29.requirement',
+    hintKey: 'practice.u29.hint',
+    actionKey: 'practice.u29.action',
+    actionHref: '#/futures',
+  },
+  quiz: { id: 'u29', passScore: 80 },
+};
+
+const UNIT_30 = {
+  id: 'u30',
+  number: 30,
+  stageId: 'stage8',
+  implemented: true,
+  titleKey: 'curriculum.u30.title',
+  summaryKey: 'curriculum.u30.summary',
+  minutes: 16,
+  prerequisites: ['u29'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u30.s1.title',
+      blocks: [
+        p('lesson.u30.s1.p1'),
+        p('lesson.u30.s1.p2'),
+        term('hedge'),
+        demo('hedge'),
+        example('lesson.u30.s1.example.title', ['lesson.u30.s1.example.l1', 'lesson.u30.s1.example.l2']),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u30.s2.title',
+      blocks: [
+        p('lesson.u30.s2.p1'),
+        p('lesson.u30.s2.p2'),
+        list('lesson.u30.s2.list.title', [
+          'lesson.u30.s2.list.i1',
+          'lesson.u30.s2.list.i2',
+          'lesson.u30.s2.list.i3',
+        ]),
+        callout('warning', 'lesson.u30.s2.warn.title', 'lesson.u30.s2.warn.text'),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u30.s3.title',
+      blocks: [
+        p('lesson.u30.s3.p1'),
+        p('lesson.u30.s3.p2'),
+        example('lesson.u30.s3.example.title', ['lesson.u30.s3.example.l1', 'lesson.u30.s3.example.l2']),
+        callout('pro', 'lesson.u30.s3.pro.title', 'lesson.u30.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u30-p1',
+    check: 'hedge-position',
+    titleKey: 'practice.u30.title',
+    requirementKey: 'practice.u30.requirement',
+    hintKey: 'practice.u30.hint',
+    actionKey: 'practice.u30.action',
+    actionHref: '#/futures',
+  },
+  quiz: { id: 'u30', passScore: 80 },
+};
+
+const UNIT_31 = {
+  id: 'u31',
+  number: 31,
+  stageId: 'stage8',
+  implemented: true,
+  titleKey: 'curriculum.u31.title',
+  summaryKey: 'curriculum.u31.summary',
+  minutes: 16,
+  prerequisites: ['u30'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u31.s1.title',
+      blocks: [
+        p('lesson.u31.s1.p1'),
+        p('lesson.u31.s1.p2'),
+        term('systemicRisk'),
+        demo('stressTest'),
+        example('lesson.u31.s1.example.title', ['lesson.u31.s1.example.l1', 'lesson.u31.s1.example.l2']),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u31.s2.title',
+      blocks: [
+        p('lesson.u31.s2.p1'),
+        p('lesson.u31.s2.p2'),
+        list('lesson.u31.s2.list.title', [
+          'lesson.u31.s2.list.i1',
+          'lesson.u31.s2.list.i2',
+          'lesson.u31.s2.list.i3',
+        ]),
+        callout('warning', 'lesson.u31.s2.warn.title', 'lesson.u31.s2.warn.text'),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u31.s3.title',
+      blocks: [
+        p('lesson.u31.s3.p1'),
+        p('lesson.u31.s3.p2'),
+        example('lesson.u31.s3.example.title', ['lesson.u31.s3.example.l1', 'lesson.u31.s3.example.l2']),
+        callout('pro', 'lesson.u31.s3.pro.title', 'lesson.u31.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u31-p1',
+    check: 'demo',
+    demoId: 'stressTest',
+    titleKey: 'practice.u31.title',
+    requirementKey: 'practice.u31.requirement',
+    hintKey: 'practice.u31.hint',
+    actionKey: 'practice.u31.action',
+    actionHref: '#/academy/u31/s1',
+  },
+  quiz: { id: 'u31', passScore: 80 },
+};
+
+const UNIT_32 = {
+  id: 'u32',
+  number: 32,
+  stageId: 'stage8',
+  implemented: true,
+  titleKey: 'curriculum.u32.title',
+  summaryKey: 'curriculum.u32.summary',
+  minutes: 18,
+  prerequisites: ['u31'],
+  unlocks: [],
+  sections: [
+    {
+      id: 's1',
+      titleKey: 'lesson.u32.s1.title',
+      blocks: [
+        p('lesson.u32.s1.p1'),
+        p('lesson.u32.s1.p2'),
+        list('lesson.u32.s1.list.title', [
+          'lesson.u32.s1.list.i1',
+          'lesson.u32.s1.list.i2',
+          'lesson.u32.s1.list.i3',
+        ]),
+        example('lesson.u32.s1.example.title', ['lesson.u32.s1.example.l1', 'lesson.u32.s1.example.l2']),
+      ],
+    },
+    {
+      id: 's2',
+      titleKey: 'lesson.u32.s2.title',
+      blocks: [
+        p('lesson.u32.s2.p1'),
+        p('lesson.u32.s2.p2'),
+        formula('lesson.u32.s2.formula', 'lesson.u32.s2.note'),
+        list('lesson.u32.s2.list.title', [
+          'lesson.u32.s2.list.i1',
+          'lesson.u32.s2.list.i2',
+          'lesson.u32.s2.list.i3',
+        ]),
+      ],
+    },
+    {
+      id: 's3',
+      titleKey: 'lesson.u32.s3.title',
+      blocks: [
+        p('lesson.u32.s3.p1'),
+        p('lesson.u32.s3.p2'),
+        list('lesson.u32.s3.list.title', [
+          'lesson.u32.s3.list.i1',
+          'lesson.u32.s3.list.i2',
+          'lesson.u32.s3.list.i3',
+        ]),
+        callout('pro', 'lesson.u32.s3.pro.title', 'lesson.u32.s3.pro.text'),
+      ],
+    },
+  ],
+  practice: {
+    id: 'u32-p1',
+    check: 'graduation',
+    titleKey: 'practice.u32.title',
+    requirementKey: 'practice.u32.requirement',
+    hintKey: 'practice.u32.hint',
+    actionKey: 'practice.u32.action',
+    actionHref: '#/market',
+  },
+  quiz: { id: 'u32', passScore: 80 },
+};
+
 const plannedUnit = (number, titleKey, summaryKey) => ({
   id: `u${number}`,
   number,
@@ -1613,6 +2098,8 @@ export const STAGE_3_UNITS = [UNIT_9, UNIT_10, UNIT_11, UNIT_12];
 export const STAGE_4_UNITS = [UNIT_13, UNIT_14, UNIT_15, UNIT_16];
 export const STAGE_5_UNITS = [UNIT_17, UNIT_18, UNIT_19, UNIT_20];
 export const STAGE_6_UNITS = [UNIT_21, UNIT_22, UNIT_23, UNIT_24];
+export const STAGE_7_UNITS = [UNIT_25, UNIT_26, UNIT_27, UNIT_28];
+export const STAGE_8_UNITS = [UNIT_29, UNIT_30, UNIT_31, UNIT_32];
 
 export const STAGES = [
   {
@@ -1672,29 +2159,19 @@ export const STAGES = [
     id: 'stage7',
     number: 7,
     phase: 4,
-    implemented: false,
+    implemented: true,
     titleKey: 'stage.stage7.title',
     summaryKey: 'stage.stage7.summary',
-    units: [
-      plannedUnit(25, 'curriculum.u25.title', 'curriculum.u25.summary'),
-      plannedUnit(26, 'curriculum.u26.title', 'curriculum.u26.summary'),
-      plannedUnit(27, 'curriculum.u27.title', 'curriculum.u27.summary'),
-      plannedUnit(28, 'curriculum.u28.title', 'curriculum.u28.summary'),
-    ],
+    units: STAGE_7_UNITS,
   },
   {
     id: 'stage8',
     number: 8,
     phase: 5,
-    implemented: false,
+    implemented: true,
     titleKey: 'stage.stage8.title',
     summaryKey: 'stage.stage8.summary',
-    units: [
-      plannedUnit(29, 'curriculum.u29.title', 'curriculum.u29.summary'),
-      plannedUnit(30, 'curriculum.u30.title', 'curriculum.u30.summary'),
-      plannedUnit(31, 'curriculum.u31.title', 'curriculum.u31.summary'),
-      plannedUnit(32, 'curriculum.u32.title', 'curriculum.u32.summary'),
-    ],
+    units: STAGE_8_UNITS,
   },
 ];
 

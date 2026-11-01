@@ -396,9 +396,46 @@ test('demo and practice content is localised', () => {
     'options.positionsTitle', 'options.positionsSubtitle', 'options.expiryShort',
     'options.gamma', 'options.theta', 'options.noContract', 'options.educationTitle',
     'options.educationText',
+    'options.buyMode', 'options.sellMode', 'options.sellButton', 'options.netCredit',
+    'options.collateral', 'options.coveredShares', 'options.longPosition', 'options.shortPosition',
+    'options.sellLockedHint',
+    'strategies.locked', 'strategies.lockedAction',
     'toast.optionBought', 'toast.optionClosed', 'toast.optionSettled',
     'error.optionsLocked', 'error.contractNotFound', 'error.noOptionPosition',
     'error.insufficientContracts',
+    'demo.strategyPayoff.title', 'demo.strategyPayoff.desc', 'demo.strategyPayoff.ticker',
+    'demo.strategyPayoff.strategy', 'demo.strategyPayoff.expiry', 'demo.strategyPayoff.qty',
+    'demo.strategyPayoff.netCost', 'demo.strategyPayoff.maxLoss', 'demo.strategyPayoff.maxProfit',
+    'demo.strategyPayoff.unlimited', 'demo.strategyPayoff.unavailable', 'demo.strategyPayoff.note',
+    'strategies.title', 'strategies.subtitle', 'strategies.qty', 'strategies.maxLoss',
+    'strategies.note',
+    'error.insufficientOptionCollateral', 'error.needCoveredShares', 'error.optionIsShort',
+    'error.optionIsLong', 'error.optionsSellLocked', 'toast.optionSold', 'toast.strategyOpened',
+  ].forEach((key) => check(key));
+  for (const strategy of ['coveredCall', 'cashSecuredPut', 'bullCallSpread', 'bearPutSpread', 'longStraddle', 'longStrangle']) {
+    ['name', 'desc', 'risk'].forEach((field) => check(`strategies.${strategy}.${field}`));
+  }
+  const stage8DemoKeys = {
+    futuresPnl: ['title', 'desc', 'side', 'entry', 'exit', 'qty', 'notional', 'margin', 'pnl', 'return', 'note'],
+    hedge: ['title', 'desc', 'shares', 'stockPrice', 'ratio', 'futuresPrice', 'stockValue', 'contracts', 'residual', 'note'],
+    stressTest: ['title', 'desc', 'equity', 'leverage', 'shock', 'loss', 'remaining', 'status', 'survive', 'wipeout', 'note'],
+  };
+  for (const [demoId, fields] of Object.entries(stage8DemoKeys)) {
+    fields.forEach((field) => check(`demo.${demoId}.${field}`));
+  }
+  [
+    'nav.futures',
+    'futures.eyebrow', 'futures.title', 'futures.subtitle', 'futures.lockedTitle',
+    'futures.lockedText', 'futures.lockedAction', 'futures.chainTitle', 'futures.chainSubtitle',
+    'futures.spotLabel', 'futures.expiry', 'futures.price', 'futures.basis', 'futures.marginPer',
+    'futures.chainNote', 'futures.ticketTitle', 'futures.ticketSubtitle', 'futures.long',
+    'futures.short', 'futures.contracts', 'futures.cashAvailable', 'futures.notional',
+    'futures.marginRequired', 'futures.openButton', 'futures.feeNote', 'futures.positionsTitle',
+    'futures.positionsSubtitle', 'futures.contract', 'futures.entry', 'futures.current',
+    'futures.pnl', 'futures.margin', 'futures.close', 'futures.noPositions',
+    'futures.educationTitle', 'futures.educationText', 'futures.noContract',
+    'error.futuresLocked', 'error.insufficientFuturesMargin', 'error.noFuturesPosition',
+    'toast.futureOpened', 'toast.futureClosed', 'toast.futuresVariation', 'toast.futuresSettled',
   ].forEach((key) => check(key));
   for (const unit of ALL_UNITS.filter((entry) => entry.implemented)) {
     check(`practice.${unit.id}.title`);

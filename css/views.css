@@ -401,9 +401,54 @@
   gap: 8px;
 }
 
+.strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.strategy-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.strategy-card:hover {
+  border-color: var(--accent);
+}
+
+.strategy-card span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.strategy-card em {
+  color: var(--faint);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.strategy-qty {
+  margin-top: 10px;
+  align-items: center;
+}
+
 @media (max-width: 960px) {
   .options-grid { grid-template-columns: 1fr; }
   .greeks-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .strategy-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 620px) {
+  .strategy-grid { grid-template-columns: 1fr; }
 }
 
 .ticket__types .segmented__item { flex: 1; justify-content: center; }

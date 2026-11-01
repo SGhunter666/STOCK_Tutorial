@@ -59,6 +59,16 @@ export const GLOSSARY_TERMS = [
   { id: 'optionPremium', unitId: 'u21', related: ['strikePrice', 'impliedVolatility', 'greeks'] },
   { id: 'impliedVolatility', unitId: 'u24', related: ['optionPremium', 'greeks'] },
   { id: 'greeks', unitId: 'u24', related: ['optionPremium', 'impliedVolatility', 'callOption'] },
+  { id: 'assignment', unitId: 'u25', related: ['optionContract', 'margin'] },
+  { id: 'coveredCall', unitId: 'u26', related: ['callOption', 'assignment', 'optionPremium'] },
+  { id: 'cashSecuredPut', unitId: 'u26', related: ['putOption', 'optionPremium', 'margin'] },
+  { id: 'verticalSpread', unitId: 'u27', related: ['callOption', 'putOption', 'strikePrice'] },
+  { id: 'straddle', unitId: 'u28', related: ['callOption', 'putOption', 'impliedVolatility'] },
+  { id: 'strangle', unitId: 'u28', related: ['straddle', 'optionPremium', 'impliedVolatility'] },
+  { id: 'futuresContract', unitId: 'u29', related: ['margin', 'basis', 'hedge'] },
+  { id: 'basis', unitId: 'u29', related: ['futuresContract', 'interestRate'] },
+  { id: 'hedge', unitId: 'u30', related: ['futuresContract', 'diversification', 'drawdown'] },
+  { id: 'systemicRisk', unitId: 'u31', related: ['drawdown', 'marginCall', 'liquidity'] },
 ];
 
 export function getGlossaryTerm(termId) {

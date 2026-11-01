@@ -14,6 +14,9 @@ import { dcf } from '../education/valuation.js';
 import { macroSnapshot, regimeKey } from '../market/macro.js';
 import { buildOrderBook, estimateMarketFill } from '../market/orderBook.js';
 import { blackScholes, payoffAtExpiry, CONTRACT_SIZE } from '../options/pricing.js';
+import { buildOptionChain } from '../options/chains.js';
+import { STRATEGY_DEFS, buildStrategy, strategyPayoff } from '../options/strategies.js';
+import { getCompany } from '../data/companies.js';
 
 function demoShell(title, desc, body) {
   return `
@@ -1433,6 +1436,233 @@ function mountGreeks(node, ctx) {
   return () => {};
 }
 
+function mountStrategyPayoff(node, ctx) {
+  const { i18n, store } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  const companies = unlockedCompanies(store.get());
+  let ticker = companies[0] ? companies[0].ticker : 'AURA';
+  let strategyId = 'coveredCall';
+  let expiryDays = 30;
+  let qty = 1;
+  let chart = null;
+
+  function render() {
+    const state = store.get();
+    const quote = state.market.quotes[ticker];
+    const company = getCompany(ticker);
+    const chain = company && quote ? buildOptionChain(company, quote, state.market.day) : null;
+    const strategy = chain ? buildStrategy(strategyId, chain, expiryDays, qty) : null;
+    if (chart) chart.destroy();
+    if (!strategy) {
+      node.innerHTML = demoShell(
+        t('demo.strategyPayoff.title'),
+        t('demo.strategyPayoff.desc'),
+        `<p class="muted">${t('demo.strategyPayoff.unavailable')}</p>`,
+      );
+      return;
+    }
+    const low = chain.spot * 0.7;
+    const high = chain.spot * 1.3;
+    const values = [];
+    for (let index = 0; index <= 40; index += 1) {
+      const spot = low + (high - low) * (index / 40);
+      values.push(strategyPayoff(strategy, spot));
+    }
+    node.innerHTML = demoShell(
+      t('demo.strategyPayoff.title'),
+      t('demo.strategyPayoff.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.strategyPayoff.ticker')}</span>
+            <select class="input" id="st-ticker">
+              ${companies.map((entry) => `<option value="${entry.ticker}" ${entry.ticker === ticker ? 'selected' : ''}>${entry.ticker}</option>`).join('')}
+            </select>
+          </label>
+          <label class="demo-field"><span class="field-label">${t('demo.strategyPayoff.strategy')}</span>
+            <select class="input" id="st-strategy">
+              ${STRATEGY_DEFS.map((def) => `<option value="${def.id}" ${def.id === strategyId ? 'selected' : ''}>${t(def.nameKey)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="demo-field"><span class="field-label">${t('demo.strategyPayoff.expiry')}</span>
+            <select class="input" id="st-expiry">
+              ${[30, 60, 90].map((days) => `<option value="${days}" ${days === expiryDays ? 'selected' : ''}>${t('options.expiryOption', { days })}</option>`).join('')}
+            </select>
+          </label>
+          <label class="demo-field"><span class="field-label">${t('demo.strategyPayoff.qty')}</span><input class="input" id="st-qty" type="number" min="1" step="1" value="${qty}"></label>
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.strategyPayoff.netCost')}</span><strong class="${strategy.netCost < 0 ? 'up' : ''}">${signedMoney(-strategy.netCost, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.strategyPayoff.maxLoss')}</span><strong class="down">${money(strategy.maxLoss, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.strategyPayoff.maxProfit')}</span><strong class="up">${strategy.maxProfit === null ? t('demo.strategyPayoff.unlimited') : money(strategy.maxProfit, i18n.locale)}</strong></div>
+        </div>
+        <div class="chart-wrap"><canvas id="strategy-chart" style="height:200px"></canvas></div>
+        ${demoNote(t('demo.strategyPayoff.note'))}`,
+    );
+    const canvas = node.querySelector('#strategy-chart');
+    if (canvas) {
+      chart = new LineChart(canvas, {
+        height: 200,
+        color: '#5eead4',
+        yFormat: (value) => money(value, i18n.locale, 2),
+        padding: { top: 12, right: 12, bottom: 22, left: 78 },
+      });
+      chart.setData({ values, labels: [money(low, i18n.locale), money(high, i18n.locale)] });
+    }
+    ['#st-ticker', '#st-strategy', '#st-expiry', '#st-qty'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        ticker = node.querySelector('#st-ticker').value;
+        strategyId = node.querySelector('#st-strategy').value;
+        expiryDays = Number(node.querySelector('#st-expiry').value) || 30;
+        qty = Math.max(1, Math.floor(Number(node.querySelector('#st-qty').value) || 1));
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {
+    if (chart) chart.destroy();
+  };
+}
+
+function mountFuturesPnl(node, ctx) {
+  const { i18n } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  let entry = 50;
+  let exit = 55;
+  let qty = 1;
+  let side = 'long';
+
+  function render() {
+    const direction = side === 'long' ? 1 : -1;
+    const pnl = (exit - entry) * direction * qty * 100;
+    const notional = entry * qty * 100;
+    const margin = notional * 0.15;
+    node.innerHTML = demoShell(
+      t('demo.futuresPnl.title'),
+      t('demo.futuresPnl.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.futuresPnl.side')}</span>
+            <select class="input" id="fp-side">
+              <option value="long" ${side === 'long' ? 'selected' : ''}>${t('futures.long')}</option>
+              <option value="short" ${side === 'short' ? 'selected' : ''}>${t('futures.short')}</option>
+            </select>
+          </label>
+          <label class="demo-field"><span class="field-label">${t('demo.futuresPnl.entry')}</span><input class="input" id="fp-entry" type="number" min="1" step="0.5" value="${entry}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.futuresPnl.exit')}</span><input class="input" id="fp-exit" type="number" min="1" step="0.5" value="${exit}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.futuresPnl.qty')}</span><input class="input" id="fp-qty" type="number" min="1" step="1" value="${qty}"></label>
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.futuresPnl.notional')}</span><strong>${money(notional, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.futuresPnl.margin')}</span><strong>${money(margin, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.futuresPnl.pnl')}</span><strong class="${pnl > 0 ? 'up' : pnl < 0 ? 'down' : ''}">${signedMoney(pnl, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.futuresPnl.return')}</span><strong>${margin > 0 ? pct(pnl / margin * 100, i18n.locale, 1) : '—'}</strong></div>
+        </div>
+        ${demoNote(t('demo.futuresPnl.note'))}`,
+    );
+    ['#fp-side', '#fp-entry', '#fp-exit', '#fp-qty'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        side = node.querySelector('#fp-side').value;
+        entry = Math.max(1, Number(node.querySelector('#fp-entry').value) || entry);
+        exit = Math.max(1, Number(node.querySelector('#fp-exit').value) || exit);
+        qty = Math.max(1, Math.floor(Number(node.querySelector('#fp-qty').value) || qty));
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {};
+}
+
+function mountHedge(node, ctx) {
+  const { i18n, actions } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  let shares = 1000;
+  let stockPrice = 50;
+  let ratio = 1;
+  let futuresPrice = 50;
+
+  function render() {
+    const stockValue = shares * stockPrice;
+    const notional = futuresPrice * 100;
+    const contracts = notional > 0 ? (stockValue * ratio) / notional : 0;
+    const residual = stockValue - contracts * notional;
+    node.innerHTML = demoShell(
+      t('demo.hedge.title'),
+      t('demo.hedge.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.hedge.shares')}</span><input class="input" id="hd-shares" type="number" min="100" step="100" value="${shares}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.hedge.stockPrice')}</span><input class="input" id="hd-stock" type="number" min="1" step="0.5" value="${stockPrice}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.hedge.ratio')}</span><input class="input" id="hd-ratio" type="number" min="0.1" max="2" step="0.1" value="${ratio}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.hedge.futuresPrice')}</span><input class="input" id="hd-futures" type="number" min="1" step="0.5" value="${futuresPrice}"></label>
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.hedge.stockValue')}</span><strong>${money(stockValue, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.hedge.contracts')}</span><strong>${num(contracts, i18n.locale, 2)}</strong></div>
+          <div class="demo-result"><span>${t('demo.hedge.residual')}</span><strong>${money(residual, i18n.locale)}</strong></div>
+        </div>
+        ${demoNote(t('demo.hedge.note'))}`,
+    );
+    ['#hd-shares', '#hd-stock', '#hd-ratio', '#hd-futures'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        shares = Math.max(100, Math.floor(Number(node.querySelector('#hd-shares').value) || shares));
+        stockPrice = Math.max(1, Number(node.querySelector('#hd-stock').value) || stockPrice);
+        ratio = Math.max(0.1, Number(node.querySelector('#hd-ratio').value) || ratio);
+        futuresPrice = Math.max(1, Number(node.querySelector('#hd-futures').value) || futuresPrice);
+        if (actions && actions.completeDemo) actions.completeDemo('hedge');
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {};
+}
+
+function mountStressTest(node, ctx) {
+  const { i18n, actions } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  let equity = 10000;
+  let leverage = 2;
+  let shock = 20;
+
+  function render() {
+    const loss = equity * leverage * shock / 100;
+    const remaining = equity - loss;
+    node.innerHTML = demoShell(
+      t('demo.stressTest.title'),
+      t('demo.stressTest.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.stressTest.equity')}</span><input class="input" id="ss-equity" type="number" min="1000" step="100" value="${equity}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.stressTest.leverage')}</span><input class="input" id="ss-leverage" type="number" min="1" max="5" step="0.5" value="${leverage}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.stressTest.shock')}</span><input class="input" id="ss-shock" type="number" min="1" max="80" step="1" value="${shock}"></label>
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.stressTest.loss')}</span><strong class="down">${money(loss, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.stressTest.remaining')}</span><strong class="${remaining >= 0 ? 'up' : 'down'}">${money(remaining, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.stressTest.status')}</span><strong>${remaining >= 0 ? t('demo.stressTest.survive') : t('demo.stressTest.wipeout')}</strong></div>
+        </div>
+        ${demoNote(t('demo.stressTest.note'))}`,
+    );
+    ['#ss-equity', '#ss-leverage', '#ss-shock'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        equity = Math.max(1000, Number(node.querySelector('#ss-equity').value) || equity);
+        leverage = Math.max(1, Number(node.querySelector('#ss-leverage').value) || leverage);
+        shock = Math.max(1, Number(node.querySelector('#ss-shock').value) || shock);
+        if (actions && actions.completeDemo) actions.completeDemo('stressTest');
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {};
+}
+
 const DEMOS = {
   marketCap: mountMarketCap,
   spread: mountSpread,
@@ -1456,6 +1686,10 @@ const DEMOS = {
   orderBook: mountOrderBook,
   optionPayoff: mountOptionPayoff,
   greeks: mountGreeks,
+  strategyPayoff: mountStrategyPayoff,
+  futuresPnl: mountFuturesPnl,
+  hedge: mountHedge,
+  stressTest: mountStressTest,
 };
 
 export function mountDemo(demoId, node, ctx) {

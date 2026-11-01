@@ -1,6 +1,6 @@
-# Stock Market Academy — 架构设计说明（Phase 2–3 Stage 6 基线）
+# Stock Market Academy — 架构设计说明（Phase 1–3 完成・Stage 8 基线）
 
-本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 2（Stage 2–4）与 Phase 3 的 Stage 5–6 已完成，未改变分层。
+本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 1–3（Stage 1–8）已完成，Phase 4 起为后续扩展。
 
 ## 1. 技术栈与约束
 
@@ -88,13 +88,13 @@ P(t+1) = P(t) × exp(r(t))
 
 ## 8. 教学引擎
 
-- `curriculum.js`：Stage 1–6 共二十四个单元，章节由 block 组成（`paragraph / list / callout / formula / example / term / demo / table`），并附带练习定义与测验题库。
+- `curriculum.js`：Stage 1–8 共三十二个单元，章节由 block 组成（`paragraph / list / callout / formula / example / term / demo / table`），并附带练习定义与测验题库。
 - `lessonEngine.js`：记录已读章节；只有读完必要章节 + 通过实战 + 测验 ≥ 80% 才完成单元。
 - `practiceEngine.js`：订阅交易 / 查看 / 课程事件，自动验证真实操作（例如完成一次买入、查看订单状态）。
 - `quizEngine.js`：评分、补考、跳级测试；答案与解析均来自双语词典。
 - `unlockManager.js` + `marketAccess.js`：工具与市场板块按单元完成度解锁；视图与下单接口都校验。
 - `progress.js`：XP、等级、成就评估。
-- `glossary.js`：56 个术语，含中英名称、定义、示例、所属单元、相关术语。
+- `glossary.js`：66 个术语，含中英名称、定义、示例、所属单元、相关术语。
 
 教学闭环：Learn（章节）→ Demonstrate（Canvas 互动演示）→ Practice（真实操作校验）→ Test（测验）→ Unlock（工具 / 板块 / 下一单元）。
 
@@ -125,7 +125,7 @@ P(t+1) = P(t) × exp(r(t))
 
 - `tests/index.html` 浏览器内运行，`tests/harness.js` 提供 suite / test / assert。
 - 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、回放成交与无未来数据、事件时间线、双语结构与页面键覆盖。
-- 当前 115 项全部通过。新增能力必须同时补逻辑测试与双语键。
+- 当前 128 项全部通过。新增能力必须同时补逻辑测试与双语键。
 
 ## 13. Phase 2 实现状态
 
@@ -172,4 +172,33 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 账户权益 | `trading/account.js`：`optionValue` / `optionUnrealizedPnl` 计入 `equity` 与组合汇总 | 期权市值影响保证金检查、组合市值与未实现盈亏；期权不参与股票持仓行 |
 | 界面 | `ui/views/options.js` + `#/options` | 期权链、买入票、Greeks、持仓与平仓；未解锁时显示第 21 单元解锁说明 |
 
-边界：不支持卖出开仓、指派或多腿策略；欧式期权只在到期日结算；模型价格不是真实报价。
+边界：Stage 6 只覆盖买入；卖出、指派与多腿策略在 Stage 7 实现；欧式期权只在到期日结算；模型价格不是真实报价。
+
+## 16. Phase 3 Stage 7 实现状态
+
+期权持仓扩展为带符号数量：正数为买入，负数为卖出；空头需要担保并在到期时支付内在价值。
+
+| 能力 | 扩展位置 | 关键约束 |
+| --- | --- | --- |
+| 卖出期权 | `options/optionsEngine.js` 的 `sellOption`、`closeOption`、`settleOptions` | 卖出收取权利金并记负持仓；平仓按模型价值；到期为空头支付内在价值，记为指派 |
+| 担保 | `optionCollateral`、`availableOptionCash`、`availableCoveredShares` | 现金担保 Put = 行权价 × 100；持股或买入 Call 可覆盖卖出 Call；裸 Call 收 20% 名义保证金 |
+| 策略卡片 | `options/strategies.js`：`STRATEGY_DEFS`、`buildStrategy`、`strategyEconomics`、`strategyPayoff` | 6 种预设：Covered Call、CSP、Bull Call / Bear Put Spread、Long Straddle / Strangle；按当前链解析行权价与到期 |
+| 多腿成交 | `executeOptionLegs` + `actions.openOptionStrategy` | 先卖后买以减少现金峰值；任一条腿失败即整体失败；按净支出 / 担保校验 |
+| 界面 | `ui/views/options.js` 的卖出模式、策略卡片与策略损益实验室 | 卖出与策略在 Unit 25 第一节后解锁；未解锁时显示提示 |
+
+边界：空头期权按内在价值现金结算，不模拟真实股票交割；价差担保为简化规则；策略仅限预设的 6 种；提前指派不模拟。
+
+## 17. Phase 3 Stage 8 实现状态
+
+期货为单只股票合约，保证金占用、每日盯市、到期现金结算；Stage 8 同时收束前期工具。
+
+| 能力 | 扩展位置 | 关键约束 |
+| --- | --- | --- |
+| 期货合约 | `futures/futuresEngine.js`：`buildFuturesChain`、`futuresPrice` | 30 / 60 / 90 天；每张 100 股；价格 = 现货 × (1 + 4% × 剩余天数 / 365)；保证金 15% |
+| 开仓 / 平仓 | `openFuture`、`closeFuture` | 保证金只占用不扣除；平仓释放保证金并按入场价确认已实现盈亏 |
+| 每日盯市 | `markFutures`、`applyFuturesVariation`、`settleFutures` | 每个交易日收盘把浮动盈亏转入现金并重置结算价；到期按现货现金结算 |
+| 账户权益 | `account.futuresPnl` 计入 `equity` | 盘中浮动盈亏进入权益；结算后归零 |
+| 界面 | `ui/views/futures.js` + `#/futures` + 导航项 | 合约链、多空开仓、保证金、持仓与平仓；Unit 29 第一节后解锁 |
+| 对冲 / 压力测试 | 演示 `hedge`、`stressTest` + Unit 29–32 课程 | 对冲比率、残余暴露、杠杆冲击与生存检查；毕业任务要求股票 / 期权 / 期货各一笔真实交易 |
+
+边界：期货为现金结算、不交割股票；保证金率与持有成本固定；对冲演示假设完全相关；毕业任务只检查真实交易记录，不评价收益。

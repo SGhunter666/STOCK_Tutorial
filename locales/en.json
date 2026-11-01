@@ -14,7 +14,8 @@
     "challenges": "Challenges",
     "glossary": "Glossary",
     "settings": "Settings",
-    "history": "Historical Lab"
+    "history": "Historical Lab",
+    "futures": "Futures"
   },
   "common": {
     "close": "Close",
@@ -84,7 +85,15 @@
     "optionsLocked": "Options are locked. Read section 1 of Unit 21 first.",
     "contractNotFound": "That option contract could not be found.",
     "noOptionPosition": "There is no option position to close.",
-    "insufficientContracts": "Not enough contracts available to close."
+    "insufficientContracts": "Not enough contracts available to close.",
+    "insufficientOptionCollateral": "Not enough collateral to sell that contract.",
+    "needCoveredShares": "A covered call needs at least 100 shares per contract.",
+    "optionIsShort": "That contract already has a short position; close it instead.",
+    "optionIsLong": "That contract already has a long position; close it instead.",
+    "optionsSellLocked": "Option selling is locked. Read section 1 of Unit 25 first.",
+    "futuresLocked": "Futures are locked. Read section 1 of Unit 29 first.",
+    "insufficientFuturesMargin": "Not enough free margin to open that contract.",
+    "noFuturesPosition": "There is no futures position to close."
   },
   "toast": {
     "welcome": "Welcome to Stock Market Academy. Start with the first lesson and practise real market logic with virtual money.",
@@ -114,7 +123,13 @@
     "marginCall": "Margin call: {count} positions were liquidated",
     "optionBought": "Bought {qty} {type} contract(s) at strike {strike}",
     "optionClosed": "Option closed with realised P&L {pnl}",
-    "optionSettled": "{count} contract(s) settled at expiry, P&L {amount}"
+    "optionSettled": "{count} contract(s) settled at expiry, P&L {amount}",
+    "optionSold": "Sold {qty} {type} contract(s) at strike {strike}",
+    "strategyOpened": "Opened {strategy} · {qty} contract(s)",
+    "futureOpened": "Opened {qty} {side} {ticker} contract(s), margin {margin}",
+    "futureClosed": "Futures closed with realised P&L {pnl}",
+    "futuresVariation": "Futures daily settlement: {amount}",
+    "futuresSettled": "{count} futures contract(s) settled, P&L {amount}"
   },
   "stage": {
     "stage1": {
@@ -248,36 +263,36 @@
       "summary": "Intrinsic value, time value, Black-Scholes and the five Greeks."
     },
     "u25": {
-      "title": "Selling Options",
-      "summary": "Selling calls and puts, collecting premium, assignment risk and naked options."
+      "title": "Selling Options & Assignment",
+      "summary": "Collect premium, accept obligations, and understand collateral and assignment."
     },
     "u26": {
-      "title": "Income Strategies",
-      "summary": "Covered calls, cash-secured puts, requirements, maximum gain and maximum risk."
+      "title": "Covered Calls & Cash-Secured Puts",
+      "summary": "Income strategies backed by stock or cash."
     },
     "u27": {
-      "title": "Spread Strategies",
-      "summary": "Bull call spreads, bear put spreads, credit spreads and debit spreads."
+      "title": "Vertical Spreads",
+      "summary": "Risk and reward of bull call and bear put spreads."
     },
     "u28": {
-      "title": "Volatility Strategies",
-      "summary": "Straddles, strangles, iron condors and changes in implied volatility."
+      "title": "Straddles & Strangles",
+      "summary": "Buy volatility with same-strike or different-strike combinations."
     },
     "u29": {
-      "title": "Futures Basics",
-      "summary": "Futures contracts, contract size, margin, daily mark-to-market and delivery."
+      "title": "Futures Trading",
+      "summary": "Contracts, margin, daily settlement and cash expiry."
     },
     "u30": {
-      "title": "Hedging",
-      "summary": "Stock and option hedges, delta hedging, hedge costs and imperfect hedges."
+      "title": "Financial Hedging",
+      "summary": "Hedging stock risk with futures, basis and hedge ratios."
     },
     "u31": {
-      "title": "Financial Crises",
-      "summary": "Liquidity crises, deleveraging, volatility spikes and systemic risk."
+      "title": "Crises & Systemic Risk",
+      "summary": "Leverage, liquidity spirals, correlation and stress tests."
     },
     "u32": {
-      "title": "Capstone Challenge",
-      "summary": "Analyse the macro backdrop, research stocks, build a portfolio, manage risk and explain your reasoning."
+      "title": "Final Trading Challenge",
+      "summary": "Combine stocks, options and futures inside a risk budget."
     }
   },
   "sector": {
@@ -1691,6 +1706,339 @@
           "text": "Use Greeks to manage portfolio risk, not to predict direction. Watch delta and theta first, then volatility exposure."
         }
       }
+    },
+    "u25": {
+      "s1": {
+        "title": "Selling options for premium",
+        "p1": "Selling an option collects premium immediately but transfers the obligation to the buyer. The buyer chooses whether to exercise.",
+        "p2": "A short call’s maximum profit is the premium while its loss can be far larger; a short put’s maximum loss is the strike minus premium.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Sell one $50 call for $2 and collect $200.",
+          "l2": "At expiry the stock is $60: pay $10 × 100 = $1,000, a net loss of $800."
+        }
+      },
+      "s2": {
+        "title": "Collateral and assignment",
+        "p1": "Short options need collateral: a cash-secured put reserves strike × 100 in cash, while uncovered calls need extra margin.",
+        "p2": "In-the-money short options are assigned at expiry. This game cash-settles intrinsic value; real brokers may deliver stock.",
+        "list": {
+          "title": "Check before selling",
+          "i1": "Whether cash or shares cover the obligation",
+          "i2": "The worst-case loss",
+          "i3": "Whether you accept buying or delivering at the strike"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "A naked call has no theoretical loss limit. Do not confuse a high win rate with low risk."
+        }
+      },
+      "s3": {
+        "title": "The seller’s time advantage",
+        "p1": "Time favours sellers: theta erodes option value every day, so the contract can be bought back cheaper.",
+        "p2": "Rising volatility, gaps and event risk can still expand losses quickly, so position size is critical.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Sell a $2 put; if the stock finishes flat the premium expires worthless.",
+          "l2": "The gain is $200 before collateral costs, but a break below the strike changes the picture fast."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Selling is risk management, not prediction. Define the maximum loss first, then judge the return."
+        }
+      }
+    },
+    "u26": {
+      "s1": {
+        "title": "Covered calls: rent out your shares",
+        "p1": "Hold 100 shares and sell one call to create a covered call: the stock covers delivery in exchange for premium.",
+        "p2": "A strong rally caps upside because the shares are called away; a decline is only partly cushioned by premium.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Hold 100 shares at $50 and sell a $55 call for $1.50.",
+          "l2": "Below $55 you keep the shares and $150; above $55 the shares are delivered at $55."
+        }
+      },
+      "s2": {
+        "title": "Cash-secured puts: willing to buy",
+        "p1": "Sell a put and reserve strike × 100 in cash: you collect premium in exchange for a possible purchase at the strike.",
+        "p2": "Below the strike you buy at the strike; above the strike the premium is yours.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Sell a $45 put for $1.20 and reserve $4,500 cash.",
+          "l2": "Above $45 you keep $120; below $45 you buy at $45, an effective cost of $43.80."
+        },
+        "list": {
+          "title": "When it fits",
+          "i1": "You are happy to own the stock",
+          "i2": "The strike is below your fair value estimate",
+          "i3": "The cash is genuinely spare"
+        }
+      },
+      "s3": {
+        "title": "The trade-off in income strategies",
+        "p1": "Covered calls and CSPs raise the win rate and lower volatility, but give up upside or cash flexibility.",
+        "p2": "They work well in range-bound markets and can lag simple ownership in strong trends.",
+        "warn": {
+          "title": "Risk note",
+          "text": "Premium is not free income. Assignment, missed upside and opportunity cost are real costs."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Treat income strategies as position management tools, not a promise of steady cash flow."
+        }
+      }
+    },
+    "u27": {
+      "s1": {
+        "title": "Bull call spreads",
+        "p1": "Buy a lower-strike call and sell a higher-strike call: that is a bull call spread.",
+        "p2": "The short leg lowers the debit and caps upside. Maximum loss is the net debit; maximum profit is the strike width minus that debit.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Buy the $50 call for $3 and sell the $55 call for $1: net debit $2.",
+          "l2": "Above $55 the maximum profit is ($55 − $50 − $2) × 100 = $300."
+        }
+      },
+      "s2": {
+        "title": "Bear put spreads",
+        "p1": "Buy a higher-strike put and sell a lower-strike put: that is a bear put spread.",
+        "p2": "The short leg lowers cost and keeps risk defined while expressing a bearish view.",
+        "formula": "Maximum profit = (strike width − net debit) × 100 × contracts",
+        "note": "Both legs share an expiry and opposite sides; a positive net debit means you pay up front.",
+        "list": {
+          "title": "When building a spread",
+          "i1": "Use the same expiry",
+          "i2": "Make sure the net debit is affordable",
+          "i3": "Check whether the capped profit justifies the risk"
+        }
+      },
+      "s3": {
+        "title": "Why use spreads",
+        "p1": "Spreads cut premium cost and define maximum loss, which suits traders with a directional view who do not want to pay for a single leg.",
+        "p2": "The trade-off is capped profit; a huge move can leave the spread far behind a naked option.",
+        "info": {
+          "title": "In this game",
+          "text": "Strategy cards pick two legs with the same expiry and different strikes, then validate cash against the net debit."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "A spread is a risk-budget tool. Size from maximum loss first, then decide whether the capped return is enough."
+        }
+      }
+    },
+    "u28": {
+      "s1": {
+        "title": "Long straddles",
+        "p1": "Buy a call and a put with the same strike and expiry: that is a long straddle, a bet on large movement rather than direction.",
+        "p2": "Maximum loss is the two premiums; either direction can profit, but the move must clear the breakevens.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50 straddle with a $2 call and a $2 put costs $400.",
+          "l2": "Breakevens are $54 and $46, so the stock must move a long way."
+        }
+      },
+      "s2": {
+        "title": "Long strangles",
+        "p1": "Buy an out-of-the-money call and an out-of-the-money put: that is a long strangle, cheaper but needing a larger move.",
+        "p2": "The breakeven range is wider, which suits big events where at-the-money premium is too expensive.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A $55 call for $1 and a $45 put for $1 cost $200.",
+          "l2": "The stock must exceed $56 or fall below $44 to profit."
+        },
+        "list": {
+          "title": "Before buying volatility",
+          "i1": "Is the event big enough",
+          "i2": "Is implied volatility already rich",
+          "i3": "Could the market calm down before expiry"
+        }
+      },
+      "s3": {
+        "title": "The risk in volatility trades",
+        "p1": "Long volatility fights time decay and falling implied volatility; a flat market erodes both legs.",
+        "p2": "Buying when implied volatility is high means even a move can be offset by an IV collapse.",
+        "warn": {
+          "title": "Risk note",
+          "text": "A straddle is not “profit either way”. The buyer only wins if movement exceeds what the market already priced."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Compare implied with historical volatility before an event. Expensive volatility needs an extreme move to pay."
+        }
+      }
+    },
+    "u29": {
+      "s1": {
+        "title": "Futures contracts and margin",
+        "p1": "A future is an agreement to buy or sell the underlying at a set price on a future date. Longs face rising prices; shorts face falling prices.",
+        "p2": "Each contract covers 100 shares. Opening requires roughly 15% margin, but P&L is calculated on the full notional.",
+        "list": {
+          "title": "Contract terms",
+          "i1": "Underlying stock",
+          "i2": "Expiry date",
+          "i3": "Multiplier (100 shares)",
+          "i4": "Margin rate"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50 future has $5,000 notional and about $750 margin.",
+          "l2": "At $55 the long gains $500, roughly 67% of the margin."
+        }
+      },
+      "s2": {
+        "title": "Daily mark-to-market",
+        "p1": "Futures settle to the latest price every day: gains are credited to cash and losses are debited as variation margin.",
+        "p2": "Leverage means small price moves can change equity dramatically, and repeated losses can exhaust margin.",
+        "formula": "Daily variation = (settlement − prior settlement) × direction × contracts × 100",
+        "note": "Direction is +1 for longs and −1 for shorts; this game applies it at each day close.",
+        "warn": {
+          "title": "Risk note",
+          "text": "Futures are not free leverage. Losses can exceed the initial margin."
+        }
+      },
+      "s3": {
+        "title": "Expiry, basis and cash settlement",
+        "p1": "Futures usually trade above spot (contango); the gap is the cost of carry and it converges toward expiry.",
+        "p2": "This game cash-settles at the spot price on expiry instead of delivering shares.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Spot $50 and a 60-day future at $50.33 give a $0.33 basis.",
+          "l2": "At expiry the basis converges to zero and futures equal spot."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Futures suit hedging and directional trades, but margin, basis and roll costs belong in the risk budget."
+        }
+      }
+    },
+    "u30": {
+      "s1": {
+        "title": "How hedging works",
+        "p1": "Hold stock and short an equivalent futures notional to offset a decline; the hedge swaps directional risk for basis and margin risk.",
+        "p2": "The hedge ratio sets how much notional to short: 1.0 is a full hedge, 0.5 hedges half.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Hold 1,000 shares at $50 for $50,000.",
+          "l2": "Short 10 $50 futures with $50,000 notional for a full hedge."
+        }
+      },
+      "s2": {
+        "title": "Basis and correlation risk",
+        "p1": "Hedges are imperfect: basis changes, dividends, liquidity and correlation all leave residual risk.",
+        "p2": "Hedging a single stock with an index future introduces cross-hedge error.",
+        "list": {
+          "title": "Sources of residual risk",
+          "i1": "Basis changes",
+          "i2": "Falling correlation with the index",
+          "i3": "Margin and liquidity pressure"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "A hedge lowers directional risk but never removes all risk. Correlations can jump in a crisis."
+        }
+      },
+      "s3": {
+        "title": "Portfolio hedging in practice",
+        "p1": "Measure portfolio notional, short futures by the hedge ratio, and rebalance so the hedge does not drift.",
+        "p2": "Hedge costs include margin, basis and fees; compare them with the drawdown you want to avoid.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50,000 portfolio with a 60% hedge target.",
+          "l2": "Short $30,000 notional, or six $50 contracts."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Hedging is part of the risk budget. Decide how much directional exposure to keep, then pick the tool."
+        }
+      }
+    },
+    "u31": {
+      "s1": {
+        "title": "Leverage and liquidity spirals",
+        "p1": "High leverage lets losses erode equity quickly, forcing sales; sales push prices lower and trigger more liquidation.",
+        "p2": "Liquidity thins under stress, spreads widen and both slippage and margin requirements rise.",
+        "example": {
+          "title": "Worked example",
+          "l1": "$10,000 equity at 3x leverage with a 20% decline.",
+          "l2": "The loss is about $6,000; equity falls to $4,000 while exposure stays large."
+        }
+      },
+      "s2": {
+        "title": "Contagion and correlation",
+        "p1": "In a crisis correlations converge toward one, so a diversified portfolio falls together.",
+        "p2": "Counterparty, funding and collateral chains turn local losses into systemic risk.",
+        "list": {
+          "title": "Crisis signals",
+          "i1": "Spreads and volatility spike",
+          "i2": "Margin requirements rise",
+          "i3": "Correlations jump"
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "Historical correlation does not guarantee future diversification. Stress-test for synchronized declines."
+        }
+      },
+      "s3": {
+        "title": "Stress testing and survival",
+        "p1": "Ask what happens to the account in a −20%, −35% or −50% scenario, not just the average return.",
+        "p2": "Cash buffers, lower leverage and avoiding concentration are what carry an account through a crisis.",
+        "example": {
+          "title": "Worked example",
+          "l1": "$20,000 equity, 2x leverage, a 30% decline.",
+          "l2": "The loss is about $12,000, leaving $8,000; at 4x the account nearly wipes out."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Survive first, optimise later. Keep worst-case losses inside what you can tolerate."
+        }
+      }
+    },
+    "u32": {
+      "s1": {
+        "title": "Reviewing a multi-asset book",
+        "p1": "Stocks, options and futures carry different risks: direction, time value, volatility and margin.",
+        "p2": "The final challenge puts all three tools inside one risk budget instead of trading each in isolation.",
+        "list": {
+          "title": "Graduation checks",
+          "i1": "A real stock trade",
+          "i2": "A real option trade",
+          "i3": "A real futures trade"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50,000 account with 1% risk and a $4 stop.",
+          "l2": "Position size = $500 ÷ $4 = 125 shares instead of an arbitrary full position."
+        }
+      },
+      "s2": {
+        "title": "Trading plans and risk budgets",
+        "p1": "Write the plan first: thesis, tools, maximum loss, exit conditions and review cadence.",
+        "p2": "Add up each trade’s worst case and keep the total inside the account’s tolerable drawdown.",
+        "formula": "Shares = account × risk% ÷ risk per share",
+        "note": "Risk per share = entry − stop; futures and options need margin or premium equivalents.",
+        "list": {
+          "title": "Plan template",
+          "i1": "Thesis and invalidation",
+          "i2": "Tools and sizing",
+          "i3": "Maximum loss and review points"
+        }
+      },
+      "s3": {
+        "title": "The graduation task",
+        "p1": "Complete at least one real stock, option and futures trade while keeping the account alive.",
+        "p2": "The point is not short-term profit but whether you can explain each trade’s risk, cost and exit.",
+        "list": {
+          "title": "Self-check before submitting",
+          "i1": "Every trade has an exit or stop",
+          "i2": "Leverage and margin are tolerable",
+          "i3": "You can explain the source of P&L in review"
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Graduation is not about making the most money; it is about a repeatable, explainable process that controls risk."
+        }
+      }
     }
   },
   "practice": {
@@ -1856,6 +2204,54 @@
       "requirement": "Adjust spot, strike, volatility or time in the Greeks demo and watch all five Greeks change.",
       "hint": "Changing any input records the demo.",
       "action": "Open the Greeks lesson"
+    },
+    "u25": {
+      "title": "Sell your first option",
+      "requirement": "Use Sell mode on the options page to open any call or put position.",
+      "hint": "Switch to Sell, pick a contract. Puts need cash collateral; calls need shares or extra margin.",
+      "action": "Sell an option"
+    },
+    "u26": {
+      "title": "Build an income strategy",
+      "requirement": "Hold a covered call (100 shares + one short call) or a cash-secured put with enough cash.",
+      "hint": "Use the Covered Call or Cash-Secured Put strategy card; the covered call needs at least 100 shares first.",
+      "action": "Open strategy cards"
+    },
+    "u27": {
+      "title": "Build a vertical spread",
+      "requirement": "Hold a long and a short call or put with the same expiry and different strikes.",
+      "hint": "Use the Bull Call Spread or Bear Put Spread card.",
+      "action": "Build a spread"
+    },
+    "u28": {
+      "title": "Build a straddle or strangle",
+      "requirement": "Hold a long call and a long put with the same expiry.",
+      "hint": "Use the Long Straddle or Long Strangle card.",
+      "action": "Build a volatility strategy"
+    },
+    "u29": {
+      "title": "Open a futures position",
+      "requirement": "Open a long or short futures contract on the futures page.",
+      "hint": "Read section 1 of Unit 29 to unlock futures, then pick an expiry and direction.",
+      "action": "Open futures"
+    },
+    "u30": {
+      "title": "Build a hedge",
+      "requirement": "Hold a long stock position and at least one short futures contract.",
+      "hint": "Hold any stock first, then choose Short on the futures page.",
+      "action": "Build a hedge"
+    },
+    "u31": {
+      "title": "Complete the stress test",
+      "requirement": "Adjust equity, leverage or shock size in the stress-test demo and watch the loss and remaining equity.",
+      "hint": "Changing any input records the demo.",
+      "action": "Open the stress-test lesson"
+    },
+    "u32": {
+      "title": "Complete the graduation challenge",
+      "requirement": "Complete at least one stock, one option and one futures trade.",
+      "hint": "Each tool needs one real trade; profitability is not required.",
+      "action": "Go trading"
     }
   },
   "quiz": {
@@ -2731,6 +3127,254 @@
         "work": "Intrinsic = {spot} − {strike}; time value = {premium} − intrinsic = {answer}.",
         "explain": "Time value = premium − intrinsic value."
       }
+    },
+    "u25": {
+      "q1": {
+        "prompt": "What is the core obligation of an option seller?",
+        "o1": "None; the seller just keeps the premium",
+        "o2": "To perform when the buyer exercises",
+        "o3": "To hold 100 shares",
+        "o4": "To guarantee a profit",
+        "explain": "Sellers collect premium but must perform if the buyer exercises."
+      },
+      "q2": {
+        "prompt": "What is the maximum profit on a short call?",
+        "o1": "The premium received",
+        "o2": "Strike × 100",
+        "o3": "Unlimited",
+        "o4": "The stock’s gain",
+        "explain": "A short option’s maximum profit is the premium received."
+      },
+      "q3": {
+        "prompt": "Which risks or requirements come with selling options?",
+        "o1": "Collateral or margin is required",
+        "o2": "Assignment is possible",
+        "o3": "Losses can exceed the premium",
+        "o4": "Returns always beat owning stock",
+        "explain": "Selling needs collateral, can be assigned and can lose more than the premium."
+      },
+      "q4": {
+        "prompt": "Sell one {strike} call for {premium}. At expiry the stock is {spot}. Ignoring fees, what is the P&L in dollars?",
+        "work": "P&L = premium − max({spot} − {strike}, 0) × 100 = {answer}.",
+        "explain": "Seller P&L = premium received − intrinsic value × 100."
+      }
+    },
+    "u26": {
+      "q1": {
+        "prompt": "What makes up a covered call?",
+        "o1": "Short 100 shares + long call",
+        "o2": "Long 100 shares + short one call",
+        "o3": "Long call + long put",
+        "o4": "Short put + short call",
+        "explain": "A covered call uses 100 shares to cover one short call."
+      },
+      "q2": {
+        "prompt": "What is the maximum profit on a cash-secured put?",
+        "o1": "The premium",
+        "o2": "Strike × 100",
+        "o3": "Unlimited",
+        "o4": "The stock’s gain",
+        "explain": "A CSP’s maximum profit is the premium received."
+      },
+      "q3": {
+        "prompt": "Which statements about covered calls are correct?",
+        "o1": "Premium adds income",
+        "o2": "Upside is capped",
+        "o3": "The stock still carries downside risk",
+        "o4": "It removes all downside risk",
+        "explain": "Covered calls add income and cap upside but do not remove stock downside."
+      },
+      "q4": {
+        "prompt": "Cash-secured put: strike {strike}, premium {premium}. What is the maximum loss in dollars?",
+        "work": "Maximum loss = ({strike} − {premium}) × 100 = {answer}.",
+        "explain": "CSP maximum loss = (strike − premium) × 100."
+      }
+    },
+    "u27": {
+      "q1": {
+        "prompt": "Which legs form a bull call spread?",
+        "o1": "Sell lower-strike call + buy higher-strike call",
+        "o2": "Buy lower-strike call + sell higher-strike call",
+        "o3": "Buy put + sell put",
+        "o4": "Buy call + buy put",
+        "explain": "Bull call spread = buy lower-strike call + sell higher-strike call."
+      },
+      "q2": {
+        "prompt": "What is the usual maximum loss on a vertical spread?",
+        "o1": "The net debit paid",
+        "o2": "The strike width",
+        "o3": "Unlimited",
+        "o4": "The premium received",
+        "explain": "A debit spread’s maximum loss is normally the net debit paid."
+      },
+      "q3": {
+        "prompt": "What are the advantages of spreads?",
+        "o1": "Defined maximum risk",
+        "o2": "Lower premium than a single leg",
+        "o3": "Clear maximum profit and loss",
+        "o4": "Unlimited profit",
+        "explain": "Spreads define risk, reduce cost and clarify payoffs, but cap profit."
+      },
+      "q4": {
+        "prompt": "A bull call spread has a strike width of {width} and a net debit of {debit}. What is the maximum profit in dollars for one contract?",
+        "work": "Maximum profit = ({width} − {debit}) × 100 = {answer}.",
+        "explain": "Spread maximum profit = (strike width − net debit) × 100."
+      }
+    },
+    "u28": {
+      "q1": {
+        "prompt": "Which legs form a long straddle?",
+        "o1": "Sell a same-strike call + sell a same-strike put",
+        "o2": "Buy a same-strike call + put with the same expiry",
+        "o3": "Buy different-strike call + put",
+        "o4": "Buy stock + sell a call",
+        "explain": "A straddle buys a call and a put at the same strike and expiry."
+      },
+      "q2": {
+        "prompt": "How does a long strangle differ from a straddle?",
+        "o1": "It has no expiry",
+        "o2": "It uses different strikes and costs less",
+        "o3": "It only buys calls",
+        "o4": "It guarantees a profit",
+        "explain": "A strangle buys out-of-the-money calls and puts at different strikes for less premium."
+      },
+      "q3": {
+        "prompt": "When do long-volatility strategies have an edge?",
+        "o1": "A large move is expected in either direction",
+        "o2": "Implied volatility is low",
+        "o3": "An event could trigger violent movement",
+        "o4": "The market is expected to stay flat for months",
+        "explain": "Long volatility needs a large move or a low starting volatility; flat markets hurt."
+      },
+      "q4": {
+        "prompt": "A {strike} straddle costs {callPremium} for the call and {putPremium} for the put. What is the upper breakeven?",
+        "work": "Upper breakeven = {strike} + {callPremium} + {putPremium} = {answer}.",
+        "explain": "Straddle upper breakeven = strike + both premiums."
+      }
+    },
+    "u29": {
+      "q1": {
+        "prompt": "What is the core feature of a futures contract?",
+        "o1": "An agreement to trade the underlying at a set price on a future date",
+        "o2": "Immediate stock delivery",
+        "o3": "No expiry",
+        "o4": "Long only",
+        "explain": "Futures lock in a future price and carry directional risk."
+      },
+      "q2": {
+        "prompt": "How does margin affect futures risk?",
+        "o1": "Lower margin means lower risk",
+        "o2": "Margin is only part of notional while P&L uses full notional",
+        "o3": "Margin guarantees no loss",
+        "o4": "Margin is unrelated to P&L",
+        "explain": "Margin is collateral; P&L uses full notional, so leverage amplifies risk."
+      },
+      "q3": {
+        "prompt": "Which mechanisms are part of futures trading?",
+        "o1": "Daily mark-to-market and variation margin",
+        "o2": "Cash settlement or delivery at expiry",
+        "o3": "Margin requirement",
+        "o4": "Guaranteed profit",
+        "explain": "Futures involve daily settlement, expiry and margin; profit is never guaranteed."
+      },
+      "q4": {
+        "prompt": "Open one long future at {entry} and settle at {exit}, multiplier 100. What is the P&L in dollars?",
+        "work": "P&L = ({exit} − {entry}) × 1 × 100 = {answer}.",
+        "explain": "Long futures P&L = (settlement − entry) × contracts × 100."
+      }
+    },
+    "u30": {
+      "q1": {
+        "prompt": "How do you hedge a long stock position with futures?",
+        "o1": "Go long futures",
+        "o2": "Short an equivalent futures notional",
+        "o3": "Buy more stock",
+        "o4": "Sell a call",
+        "explain": "Short futures offset the stock’s downside direction."
+      },
+      "q2": {
+        "prompt": "What does a 0.5 hedge ratio mean?",
+        "o1": "Hedge half the notional exposure",
+        "o2": "Full hedge",
+        "o3": "Double the long",
+        "o4": "No hedge",
+        "explain": "The hedge ratio sets the share of notional to short."
+      },
+      "q3": {
+        "prompt": "Which residual risks can remain after hedging?",
+        "o1": "Basis changes",
+        "o2": "Falling correlation",
+        "o3": "Margin pressure",
+        "o4": "No risk at all",
+        "explain": "Hedging lowers direction risk but leaves basis, correlation and margin risk."
+      },
+      "q4": {
+        "prompt": "Hold {shares} shares at {price}; each futures contract covers 100 shares at {price}. How many contracts fully hedge 1:1?",
+        "work": "Contracts = {shares} ÷ 100 = {answer}.",
+        "explain": "Each contract covers 100 shares, so shares ÷ 100 gives the contract count."
+      }
+    },
+    "u31": {
+      "q1": {
+        "prompt": "What is a liquidity spiral in a crisis?",
+        "o1": "Forced selling pushes prices down and triggers more liquidation",
+        "o2": "Everyone buys at once",
+        "o3": "Commissions fall",
+        "o4": "Volatility disappears",
+        "explain": "Declines force sales, which deepen declines and cause more selling."
+      },
+      "q2": {
+        "prompt": "What usually happens to correlations in a crisis?",
+        "o1": "They fall",
+        "o2": "They rise toward one",
+        "o3": "They stay constant",
+        "o4": "They turn negative",
+        "explain": "Correlations rise under stress, weakening diversification."
+      },
+      "q3": {
+        "prompt": "Which practices help survive a crisis?",
+        "o1": "Keep a cash buffer",
+        "o2": "Reduce leverage",
+        "o3": "Avoid over-concentration",
+        "o4": "Use maximum leverage",
+        "explain": "Cash, lower leverage and diversification are survival basics."
+      },
+      "q4": {
+        "prompt": "Equity {equity}, leverage {leverage}x, a {shock}% decline. What is the approximate loss in dollars?",
+        "work": "Loss = {equity} × {leverage} × {shock}% = {answer}.",
+        "explain": "Leverage amplifies the shock: equity × leverage × decline."
+      }
+    },
+    "u32": {
+      "q1": {
+        "prompt": "What is the core requirement of the final challenge?",
+        "o1": "Make the most money",
+        "o2": "Complete real stock, option and futures trades while keeping the account alive",
+        "o3": "Only trade options",
+        "o4": "Never use stops",
+        "explain": "The challenge is cross-tool execution and risk management, not just returns."
+      },
+      "q2": {
+        "prompt": "How should a per-trade risk budget be set?",
+        "o1": "Set maximum loss first, then size the position",
+        "o2": "Go full size first",
+        "o3": "Ignore the stop distance",
+        "o4": "Only think about upside",
+        "explain": "Define maximum loss and stop distance, then compute size."
+      },
+      "q3": {
+        "prompt": "What belongs in a trading plan?",
+        "o1": "Thesis and invalidation",
+        "o2": "Tools and position size",
+        "o3": "Maximum loss and review points",
+        "o4": "A promise of profit",
+        "explain": "Plans cover thesis, tools, risk and review, never guaranteed profit."
+      },
+      "q4": {
+        "prompt": "Account {account}, risk {risk}%, entry {entry}, stop {stop}. How many shares should you buy?",
+        "work": "Risk amount = {account} × {risk}%; risk per share = {entry} − {stop}; shares = risk amount ÷ risk per share = {answer}.",
+        "explain": "Shares = risk amount ÷ risk per share, rounded down."
+      }
     }
   },
   "demo": {
@@ -3010,6 +3654,58 @@
       "intrinsic": "Intrinsic value",
       "timeValue": "Time value",
       "note": "Estimated with a 4% risk-free rate and Black-Scholes; teaching only."
+    },
+    "strategyPayoff": {
+      "title": "Option strategy payoff lab",
+      "desc": "Choose covered call, CSP, vertical spreads, straddles or strangles and inspect payoff, max loss and max profit.",
+      "ticker": "Stock",
+      "strategy": "Strategy",
+      "expiry": "Expiry",
+      "qty": "Contracts",
+      "netCost": "Net debit / credit",
+      "maxLoss": "Maximum loss",
+      "maxProfit": "Maximum profit",
+      "unlimited": "Theoretically unlimited",
+      "unavailable": "The current chain cannot build that strategy.",
+      "note": "Fees and taxes excluded; straddles and strangles have theoretically unlimited profit but need a large move."
+    },
+    "futuresPnl": {
+      "title": "Futures P&L lab",
+      "desc": "Choose direction, entry and settlement prices to see notional, margin and P&L.",
+      "side": "Direction",
+      "entry": "Entry price",
+      "exit": "Settlement price",
+      "qty": "Contracts",
+      "notional": "Notional value",
+      "margin": "Margin (15%)",
+      "pnl": "P&L",
+      "return": "Return on margin",
+      "note": "Excludes fees and slippage; losses can exceed margin."
+    },
+    "hedge": {
+      "title": "Hedge-ratio lab",
+      "desc": "Adjust shares, stock price, hedge ratio and futures price to see contracts needed and residual exposure.",
+      "shares": "Shares held",
+      "stockPrice": "Stock price",
+      "ratio": "Hedge ratio",
+      "futuresPrice": "Futures price",
+      "stockValue": "Stock value",
+      "contracts": "Contracts needed",
+      "residual": "Residual exposure",
+      "note": "Simplified model assuming futures and spot move together; real hedges carry basis and correlation risk."
+    },
+    "stressTest": {
+      "title": "Stress-test lab",
+      "desc": "Adjust equity, leverage and shock size to see the loss and whether the account survives.",
+      "equity": "Account equity",
+      "leverage": "Leverage",
+      "shock": "Shock (%)",
+      "loss": "Loss",
+      "remaining": "Remaining equity",
+      "status": "Result",
+      "survive": "Survives",
+      "wipeout": "Wiped out",
+      "note": "Simplified stress test assuming all positions fall together; liquidity and slippage excluded."
     }
   },
   "unlock": {
@@ -3042,8 +3738,8 @@
       "desc": "Unlocked after section 1 of Unit 21: buy calls and puts, read premiums, breakevens and Greeks."
     },
     "futures": {
-      "title": "Futures",
-      "desc": "Trade standardised contracts on margin and learn daily mark-to-market and delivery."
+      "title": "Futures trading",
+      "desc": "Unlocked after section 1 of Unit 29: single-stock futures, margin and expiry settlement."
     },
     "category": {
       "market": "Market features",
@@ -3071,6 +3767,10 @@
     "depth": {
       "title": "Order book depth",
       "desc": "Unlocked after reading section 1 of Unit 20."
+    },
+    "optionsSell": {
+      "title": "Option selling & multi-leg",
+      "desc": "Unlocked after section 1 of Unit 25: selling to open and strategy cards."
     }
   },
   "achievement": {
@@ -3407,6 +4107,56 @@
         "name": "Greeks",
         "def": "Sensitivities of option prices to different inputs: Delta, Gamma, Theta, Vega and Rho.",
         "example": "A delta of 0.5 means the premium rises about $0.50 for a $1 move."
+      },
+      "assignment": {
+        "name": "Assignment",
+        "def": "When an in-the-money option expires, the seller is obligated to perform under the contract.",
+        "example": "A short $50 call with the stock at $60 must deliver at $50 or cash-settle."
+      },
+      "coveredCall": {
+        "name": "Covered call",
+        "def": "Holding 100 shares and selling one call; the stock covers delivery in exchange for premium.",
+        "example": "Hold $50 stock and sell a $55 call for $1.50."
+      },
+      "cashSecuredPut": {
+        "name": "Cash-secured put",
+        "def": "Selling a put while reserving strike × 100 in cash, accepting a possible purchase at the strike.",
+        "example": "Sell a $45 put for $1.20 and reserve $4,500."
+      },
+      "verticalSpread": {
+        "name": "Vertical spread",
+        "def": "A long and a short option with the same expiry and different strikes, expressing direction with defined risk.",
+        "example": "Buy the $50 call and sell the $55 call for a $2 net debit."
+      },
+      "straddle": {
+        "name": "Straddle",
+        "def": "Buying a call and a put at the same strike and expiry; a bet on large movement rather than direction.",
+        "example": "A $50 straddle costs $400 with breakevens at $46 and $54."
+      },
+      "strangle": {
+        "name": "Strangle",
+        "def": "Buying out-of-the-money calls and puts at different strikes for less premium but needing a larger move.",
+        "example": "A $55 call and $45 put cost $200 with breakevens at $44 and $56."
+      },
+      "futuresContract": {
+        "name": "Futures contract",
+        "def": "An agreement to trade the underlying at a fixed price on a future date, requiring margin and P&L on full notional.",
+        "example": "One $50 future has $5,000 notional and about $750 margin."
+      },
+      "basis": {
+        "name": "Basis",
+        "def": "The futures price minus spot, usually reflecting carry and converging toward expiry.",
+        "example": "Spot $50 and futures $50.33 give a $0.33 basis."
+      },
+      "hedge": {
+        "name": "Hedge",
+        "def": "An offsetting position that lowers directional risk but leaves basis, correlation and margin risk.",
+        "example": "Hold $50,000 of stock and short an equivalent futures notional."
+      },
+      "systemicRisk": {
+        "name": "Systemic risk",
+        "def": "Risk that spreads through leverage, liquidity and counterparty chains across the market.",
+        "example": "Forced selling pushes prices down and triggers more liquidation and liquidity stress."
       }
     }
   },
@@ -4330,6 +5080,92 @@
     "theta": "Theta",
     "noContract": "Pick a valid contract first.",
     "educationTitle": "Pricing assumptions",
-    "educationText": "Volatility is about {vol} and the selected contract expires on simulated day {expiry}. The model is for teaching, not a quote or advice."
+    "educationText": "Volatility is about {vol} and the selected contract expires on simulated day {expiry}. The model is for teaching, not a quote or advice.",
+    "buyMode": "Buy",
+    "sellMode": "Sell to open",
+    "sellButton": "Sell contract",
+    "netCredit": "Net credit",
+    "collateral": "Collateral",
+    "coveredShares": "Covered shares {value}",
+    "longPosition": "Long",
+    "shortPosition": "Short",
+    "sellLockedHint": "Selling unlocks after section 1 of Unit 25."
+  },
+  "strategies": {
+    "title": "Strategy cards",
+    "subtitle": "Build common option structures in one click from the current chain",
+    "qty": "Strategy contracts",
+    "maxLoss": "Max loss {value}",
+    "note": "Covered calls need 100 shares; CSPs need cash collateral; spreads and straddles are checked against the net debit.",
+    "coveredCall": {
+      "name": "Covered call",
+      "desc": "Hold 100 shares and sell one call for extra income.",
+      "risk": "Upside is capped while stock downside remains"
+    },
+    "cashSecuredPut": {
+      "name": "Cash-secured put",
+      "desc": "Sell a put and reserve the cash to buy at the strike.",
+      "risk": "You must buy if the stock falls below the strike"
+    },
+    "bullCallSpread": {
+      "name": "Bull call spread",
+      "desc": "Buy a lower-strike call and sell a higher-strike call.",
+      "risk": "Maximum loss is the net debit"
+    },
+    "bearPutSpread": {
+      "name": "Bear put spread",
+      "desc": "Buy a higher-strike put and sell a lower-strike put.",
+      "risk": "Maximum loss is the net debit"
+    },
+    "longStraddle": {
+      "name": "Long straddle",
+      "desc": "Buy a call and a put at the same strike and expiry.",
+      "risk": "Needs a large move; maximum loss is the net debit"
+    },
+    "longStrangle": {
+      "name": "Long strangle",
+      "desc": "Buy an out-of-the-money call and put for less premium.",
+      "risk": "Needs an even larger move; maximum loss is the net debit"
+    },
+    "locked": "Strategy cards unlock after section 1 of Unit 25.",
+    "lockedAction": "Open Unit 25"
+  },
+  "futures": {
+    "eyebrow": "Derivatives · Futures",
+    "title": "Futures Desk",
+    "subtitle": "Trade single-stock futures on margin and learn daily settlement and expiry.",
+    "lockedTitle": "Futures are still locked",
+    "lockedText": "Read section 1 of Unit 29 to unlock futures trading.",
+    "lockedAction": "Open Unit 29",
+    "chainTitle": "Futures contracts",
+    "chainSubtitle": "{ticker} · 30 / 60 / 90-day expiries",
+    "spotLabel": "Spot {value}",
+    "expiry": "Expiry",
+    "price": "Futures price",
+    "basis": "Basis",
+    "marginPer": "Margin per contract",
+    "chainNote": "Each contract covers {size} shares with about 15% margin; the price adds cost of carry to spot.",
+    "ticketTitle": "Open a position",
+    "ticketSubtitle": "Margin is reserved and P&L uses full notional",
+    "long": "Long",
+    "short": "Short",
+    "contracts": "Contracts",
+    "cashAvailable": "Futures cash available {value}",
+    "notional": "Notional",
+    "marginRequired": "Margin required",
+    "openButton": "Open contract",
+    "feeNote": "{fee} commission per open; margin is reserved, not deducted.",
+    "positionsTitle": "Futures positions",
+    "positionsSubtitle": "{count} positions",
+    "contract": "Contract",
+    "entry": "Entry",
+    "current": "Current",
+    "pnl": "P&L",
+    "margin": "Margin",
+    "close": "Close",
+    "noPositions": "No futures positions yet.",
+    "educationTitle": "Daily mark-to-market",
+    "educationText": "Margin in use is {margin}. Each close moves floating P&L into cash; expiry cash-settles at spot.",
+    "noContract": "Pick a valid contract."
   }
 }

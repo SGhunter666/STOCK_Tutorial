@@ -120,6 +120,11 @@ export function hydrateState(saved) {
     optionTrades: Array.isArray(state.account.optionTrades) ? state.account.optionTrades : [],
     optionSeq: Number.isFinite(state.account.optionSeq) ? state.account.optionSeq : 1,
     optionRealized: Number.isFinite(state.account.optionRealized) ? state.account.optionRealized : 0,
+    futures: Array.isArray(state.account.futures) ? state.account.futures : [],
+    futuresTrades: Array.isArray(state.account.futuresTrades) ? state.account.futuresTrades : [],
+    futuresSeq: Number.isFinite(state.account.futuresSeq) ? state.account.futuresSeq : 1,
+    futuresRealized: Number.isFinite(state.account.futuresRealized) ? state.account.futuresRealized : 0,
+    futuresPnl: Number.isFinite(state.account.futuresPnl) ? state.account.futuresPnl : 0,
     initialCash: Number.isFinite(state.account.initialCash) ? state.account.initialCash : state.account.cash,
     tradeSeq: Number.isFinite(state.account.tradeSeq) ? state.account.tradeSeq : 1,
   };

@@ -24,6 +24,11 @@ export function createAccount(initialCash = 10000) {
     optionTrades: [],
     optionSeq: 1,
     optionRealized: 0,
+    futures: [],
+    futuresTrades: [],
+    futuresSeq: 1,
+    futuresRealized: 0,
+    futuresPnl: 0,
     trades: [],
     tradeSeq: 1,
     dividends: [],
@@ -279,7 +284,7 @@ export function optionUnrealizedPnl(account) {
 }
 
 export function equity(account, quotes) {
-  return account.cash + marketValue(account, quotes) + optionValue(account);
+  return account.cash + marketValue(account, quotes) + optionValue(account) + (account.futuresPnl || 0);
 }
 
 export function totalPnl(account, quotes) {

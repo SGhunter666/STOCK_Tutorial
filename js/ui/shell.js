@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { id: 'portfolio', path: '/portfolio', labelKey: 'nav.portfolio', icon: 'portfolio' },
   { id: 'news', path: '/news', labelKey: 'nav.news', icon: 'news' },
   { id: 'options', path: '/options', labelKey: 'nav.options', icon: 'options', toolId: 'options.trade' },
+  { id: 'futures', path: '/futures', labelKey: 'nav.futures', icon: 'challenges', toolId: 'trade.futures' },
   { id: 'challenges', path: '/challenges', labelKey: 'nav.challenges', icon: 'challenges', locked: true },
   { id: 'glossary', path: '/glossary', labelKey: 'nav.glossary', icon: 'glossary' },
   { id: 'settings', path: '/settings', labelKey: 'nav.settings', icon: 'settings' },
@@ -44,6 +45,7 @@ export function createShell({ i18n, store, bus, clock, router, actions }) {
     if (path.startsWith('/portfolio')) return 'portfolio';
     if (path.startsWith('/news')) return 'news';
     if (path.startsWith('/options')) return 'options';
+    if (path.startsWith('/futures')) return 'futures';
     if (path.startsWith('/challenges')) return 'challenges';
     if (path.startsWith('/history')) return 'history';
     if (path.startsWith('/glossary')) return 'glossary';

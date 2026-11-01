@@ -101,6 +101,78 @@ export function evaluatePractice(state, unit) {
       ));
       return { done: match, current: match ? 1 : 0, target: 1 };
     }
+    case 'option-sell': {
+      const match = (state.account.optionTrades || []).some((trade) => trade.side === 'sell');
+      return { done: match, current: match ? 1 : 0, target: 1 };
+    }
+    case 'income-strategy': {
+      const options = state.account.options || [];
+      const shortCall = options.find((position) => (
+        position.type === 'call' && position.qty < 0
+      ));
+      const shares = shortCall
+        ? Math.abs((state.account.positions[shortCall.ticker] || { qty: 0 }).qty)
+        : 0;
+      const covered = Boolean(shortCall && shares >= -shortCall.qty * 100);
+      const shortPut = options.find((position) => (
+        position.type === 'put' && position.qty < 0
+        && state.account.cash >= position.strike * 100 * -position.qty
+      ));
+      return { done: covered || Boolean(shortPut), current: covered || shortPut ? 1 : 0, target: 1 };
+    }
+    case 'vertical-spread': {
+      const options = state.account.options || [];
+      const hasSpread = ['call', 'put'].some((type) => {
+        const byExpiry = new Map();
+        for (const position of options) {
+          if (position.type !== type) continue;
+          const entry = byExpiry.get(position.expiryDay) || { long: [], short: [] };
+          if (position.qty > 0) entry.long.push(position.strike);
+          else entry.short.push(position.strike);
+          byExpiry.set(position.expiryDay, entry);
+        }
+        return [...byExpiry.values()].some((entry) => (
+          entry.long.length && entry.short.length
+          && Math.min(...entry.long) !== Math.min(...entry.short)
+        ));
+      });
+      return { done: hasSpread, current: hasSpread ? 1 : 0, target: 1 };
+    }
+    case 'volatility-long': {
+      const options = state.account.options || [];
+      const combos = new Map();
+      for (const position of options) {
+        if (position.qty <= 0) continue;
+        const entry = combos.get(position.expiryDay) || new Set();
+        entry.add(position.type);
+        combos.set(position.expiryDay, entry);
+      }
+      const done = [...combos.values()].some((types) => types.has('call') && types.has('put'));
+      return { done, current: done ? 1 : 0, target: 1 };
+    }
+    case 'futures-trade': {
+      const match = (state.account.futuresTrades || []).some((trade) => trade.action === 'open');
+      return { done: match, current: match ? 1 : 0, target: 1 };
+    }
+    case 'hedge-position': {
+      const hasLongStock = Object.values(state.account.positions || {}).some((position) => position.qty > 0);
+      const hasShortFuture = (state.account.futures || []).some((position) => position.side === 'short');
+      return {
+        done: hasLongStock && hasShortFuture,
+        current: (hasLongStock ? 1 : 0) + (hasShortFuture ? 1 : 0),
+        target: 2,
+      };
+    }
+    case 'graduation': {
+      const stock = (state.account.trades || []).length > 0;
+      const option = (state.account.optionTrades || []).length > 0;
+      const future = (state.account.futuresTrades || []).length > 0;
+      return {
+        done: stock && option && future,
+        current: [stock, option, future].filter(Boolean).length,
+        target: 3,
+      };
+    }
     case 'demo': {
       const runs = education.demoRuns || [];
       return { done: runs.includes(task.demoId), current: runs.includes(task.demoId) ? 1 : 0, target: 1 };

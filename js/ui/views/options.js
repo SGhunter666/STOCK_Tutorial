@@ -10,7 +10,8 @@ import { getCompany } from '../../data/companies.js';
 import { unlockedCompanies, isCompanyUnlocked } from '../../market/marketAccess.js';
 import { buildOptionChain, chainRows, findContract } from '../../options/chains.js';
 import { CONTRACT_SIZE, payoffAtExpiry } from '../../options/pricing.js';
-import { optionPositionRows } from '../../options/optionsEngine.js';
+import { optionPositionRows, availableOptionCash, availableCoveredShares } from '../../options/optionsEngine.js';
+import { STRATEGY_DEFS, buildStrategy } from '../../options/strategies.js';
 import { isToolUnlocked } from '../../education/unlockManager.js';
 import { availableCash } from '../../trading/account.js';
 import { companyName } from '../labels.js';
@@ -26,6 +27,8 @@ export function createOptionsView(ctx) {
   let expiryDays = 30;
   let selected = { type: 'call', strike: null };
   let qty = '1';
+  let mode = 'buy';
+  let strategyQty = '1';
 
   function currentTicker(state) {
     if (ticker && isCompanyUnlocked(state, ticker)) return ticker;
@@ -68,11 +71,29 @@ export function createOptionsView(ctx) {
     const quantity = Math.max(0, Math.floor(Number(qty) || 0));
     const fee = state.settings.commission;
     const cash = availableCash(state.account, state.orders, fee);
-    const cost = contract ? contract.premium * CONTRACT_SIZE * quantity + fee : 0;
+    const optionCash = availableOptionCash(state.account, state.market.quotes, {
+      fee, orders: state.orders,
+    });
+    const coveredShares = contract
+      ? availableCoveredShares(state.account, contract.ticker, state.orders)
+      : 0;
+    const gross = contract ? contract.premium * CONTRACT_SIZE * quantity : 0;
+    const cost = mode === 'buy' ? gross + fee : gross - fee;
     let error = '';
     if (!contract) error = t('options.noContract');
     else if (quantity <= 0) error = t('trade.validation.qty');
-    else if (cost > cash + 1e-9) error = t('trade.validation.cash');
+    else if (mode === 'buy' && cost > cash + 1e-9) error = t('trade.validation.cash');
+    if (!error && mode === 'sell' && contract) {
+      if (contract.type === 'put' && contract.strike * CONTRACT_SIZE * quantity > optionCash + 1e-9) {
+        error = t('error.insufficientOptionCollateral');
+      }
+      if (contract.type === 'call') {
+        const nakedQty = Math.max(0, quantity - Math.floor(coveredShares / CONTRACT_SIZE));
+        if (nakedQty * contract.spot * CONTRACT_SIZE * 0.2 > optionCash + 1e-9) {
+          error = t('error.insufficientOptionCollateral');
+        }
+      }
+    }
     const payoff = contract
       ? payoffAtExpiry({
         type: contract.type,
@@ -87,6 +108,8 @@ export function createOptionsView(ctx) {
       quantity,
       fee,
       cash,
+      optionCash,
+      coveredShares,
       cost,
       error,
       payoff,
@@ -141,12 +164,23 @@ export function createOptionsView(ctx) {
         body: `<p class="muted">${t('options.noContract')}</p>`,
       });
     }
+    const sellUnlocked = isToolUnlocked(state, 'options.sell');
+    if (!sellUnlocked && mode === 'sell') mode = 'buy';
+    const modeOptions = [{ value: 'buy', label: t('options.buyMode') }];
+    if (sellUnlocked) modeOptions.push({ value: 'sell', label: t('options.sellMode') });
     return card({
       className: 'ticket-card',
       title: t('options.ticketTitle'),
       subtitle: t('options.ticketSubtitle'),
       body: `
         <div class="ticket">
+          ${segmented({
+            options: modeOptions,
+            active: mode,
+            attr: 'opt-mode',
+            className: `ticket__side ticket__side--${mode === 'buy' ? 'buy' : 'sell'}`,
+          })}
+          ${!sellUnlocked ? `<p class="field-hint">${t('options.sellLockedHint')}</p>` : ''}
           <div class="option-contract">
             <span class="pill pill--ok">${t(`options.${contract.type}`)}</span>
             <strong>${ticker} · ${money(contract.strike, i18n.locale)}</strong>
@@ -158,10 +192,10 @@ export function createOptionsView(ctx) {
               <input class="input" id="opt-qty" type="number" min="1" step="1" value="${qty}" inputmode="numeric">
               <button class="btn btn--ghost btn--sm" type="button" data-opt-qty="max">${t('trade.max')}</button>
             </div>
-            <span class="field-hint">${t('options.contractSize', { size: CONTRACT_SIZE })} · ${t('options.cashAvailable', { value: money(data.cash, i18n.locale) })}</span>
+            <span class="field-hint">${t('options.contractSize', { size: CONTRACT_SIZE })} · ${t('options.cashAvailable', { value: money(data.optionCash, i18n.locale) })}</span>
           </div>
           ${estimateHtml(state)}
-          <button class="btn btn--primary btn--block" type="button" id="opt-submit" ${data.error ? 'disabled' : ''}>${t('options.buyButton')}</button>
+          <button class="btn btn--primary btn--block" type="button" id="opt-submit" ${data.error ? 'disabled' : ''}>${mode === 'buy' ? t('options.buyButton') : t('options.sellButton')}</button>
           <p class="ticket__risk">${t('options.feeNote', { fee: money(state.settings.commission, i18n.locale) })}</p>
         </div>`,
     });
@@ -172,13 +206,19 @@ export function createOptionsView(ctx) {
     const contract = data.contract;
     if (!contract) return '';
     const expiryText = t('options.ticketBreakeven', { value: money(data.payoff.breakeven, i18n.locale) });
+    const collateral = mode === 'sell' && contract.type === 'put'
+      ? money(contract.strike * CONTRACT_SIZE * data.quantity, i18n.locale)
+      : mode === 'sell' && contract.type === 'call'
+        ? t('options.coveredShares', { value: num(data.coveredShares, i18n.locale, 0) })
+        : null;
     return `
       <div class="estimate-grid">
         <div class="estimate-row"><span>${t('options.premium')}</span><strong id="opt-premium">${money(contract.premium, i18n.locale)} × 100</strong></div>
         <div class="estimate-row"><span>${t('trade.estimateGross')}</span><strong id="opt-gross">${money(contract.premium * CONTRACT_SIZE * data.quantity, i18n.locale)}</strong></div>
         <div class="estimate-row"><span>${t('trade.commission')}</span><strong id="opt-fee">${money(data.fee, i18n.locale)}</strong></div>
-        <div class="estimate-row estimate-row--total"><span>${t('options.totalCost')}</span><strong id="opt-cost">${money(data.cost, i18n.locale)}</strong></div>
+        <div class="estimate-row estimate-row--total"><span>${mode === 'buy' ? t('options.totalCost') : t('options.netCredit')}</span><strong id="opt-cost">${money(data.cost, i18n.locale)}</strong></div>
         <div class="estimate-row"><span>${t('options.breakeven')}</span><strong>${money(data.payoff.breakeven, i18n.locale)}</strong></div>
+        ${collateral ? `<div class="estimate-row"><span>${t('options.collateral')}</span><strong>${collateral}</strong></div>` : ''}
       </div>
       <div class="greeks-grid">
         <div class="demo-result"><span>Δ ${t('options.delta')}</span><strong>${num(contract.delta, i18n.locale, 3)}</strong></div>
@@ -188,6 +228,39 @@ export function createOptionsView(ctx) {
       </div>
       <p class="inline-warning" id="opt-warning" ${data.error ? '' : 'hidden'}>${data.error}</p>
       <p class="estimate-note">${expiryText}</p>`;
+  }
+
+  function strategyCard(state) {
+    const chain = chainFor(state);
+    if (!chain) return '';
+    if (!isToolUnlocked(state, 'options.sell')) {
+      return card({
+        title: t('strategies.title'),
+        subtitle: t('strategies.subtitle'),
+        body: `<p class="muted">${t('strategies.locked')}</p>
+          <button class="btn btn--ghost btn--sm" type="button" data-go="/academy/u25/s1">${t('strategies.lockedAction')}</button>`,
+      });
+    }
+    return card({
+      title: t('strategies.title'),
+      subtitle: t('strategies.subtitle'),
+      body: `
+        <div class="strategy-grid">
+          ${STRATEGY_DEFS.map((def) => {
+            const strategy = buildStrategy(def.id, chain, expiryDays, Math.max(1, Math.floor(Number(strategyQty) || 1)));
+            return `<button class="strategy-card" type="button" data-strategy="${def.id}">
+              <strong>${t(def.nameKey)}</strong>
+              <span>${t(def.descKey)}</span>
+              <em>${t(def.riskKey)}${strategy ? ` · ${t('strategies.maxLoss', { value: money(strategy.maxLoss, i18n.locale) })}` : ''}</em>
+            </button>`;
+          }).join('')}
+        </div>
+        <div class="qty-row strategy-qty">
+          <span class="field-label">${t('strategies.qty')}</span>
+          <input class="input" id="strategy-qty" type="number" min="1" step="1" value="${strategyQty}" inputmode="numeric">
+        </div>
+        <p class="chart-note muted">${t('strategies.note')}</p>`,
+    });
   }
 
   function positionsCard(state) {
@@ -204,8 +277,8 @@ export function createOptionsView(ctx) {
             </tr></thead>
             <tbody>${rows.map((row) => `
               <tr>
-                <td><span class="ticker-cell"><strong>${row.ticker} ${row.type === 'call' ? t('options.call') : t('options.put')}</strong><span>${money(row.strike, i18n.locale)} · ${t('options.expiryShort', { day: row.expiryDay })}</span></span></td>
-                <td class="num">${num(row.qty, i18n.locale, 0)}</td>
+                <td><span class="ticker-cell"><strong>${row.ticker} ${row.type === 'call' ? t('options.call') : t('options.put')} · ${row.side === 'short' ? t('options.shortPosition') : t('options.longPosition')}</strong><span>${money(row.strike, i18n.locale)} · ${t('options.expiryShort', { day: row.expiryDay })}</span></span></td>
+                <td class="num">${num(Math.abs(row.qty), i18n.locale, 0)}</td>
                 <td class="num">${money(row.premium, i18n.locale)}</td>
                 <td class="num" data-opt-value="${row.key}">${money(row.value, i18n.locale)}</td>
                 <td class="num ${row.pnl > 0 ? 'up' : row.pnl < 0 ? 'down' : ''}" data-opt-pnl="${row.key}">${signedMoney(row.pnl, i18n.locale)} · ${pct(row.pnlPct, i18n.locale, 1)}</td>
@@ -258,6 +331,7 @@ export function createOptionsView(ctx) {
             })}`,
         })}
         ${chainCard(state)}
+        ${strategyCard(state)}
         <div class="options-grid">
           ${ticketCard(state)}
           ${positionsCard(state)}
@@ -331,6 +405,22 @@ export function createOptionsView(ctx) {
         render(store.get());
         return;
       }
+      const optionMode = event.target.closest('[data-opt-mode]');
+      if (optionMode) {
+        mode = optionMode.dataset.optMode;
+        render(store.get());
+        return;
+      }
+      const strategy = event.target.closest('[data-strategy]');
+      if (strategy) {
+        const result = actions.openOptionStrategy(strategy.dataset.strategy, {
+          ticker,
+          expiryDays,
+          qty: Math.max(1, Math.floor(Number(strategyQty) || 1)),
+        });
+        if (result?.ok) render(store.get());
+        return;
+      }
       const close = event.target.closest('[data-close-option]');
       if (close) {
         const position = optionPositionRows(store.get().account, store.get().market.day)
@@ -357,6 +447,10 @@ export function createOptionsView(ctx) {
         selected.strike = null;
         render(store.get());
       }
+      if (event.target.id === 'strategy-qty') {
+        strategyQty = event.target.value;
+        render(store.get());
+      }
     });
     root.addEventListener('input', (event) => {
       if (event.target.id === 'opt-qty') {
@@ -372,13 +466,16 @@ export function createOptionsView(ctx) {
           ctx.toast(data.error || t('options.noContract'), 'error');
           return;
         }
-        const result = actions.buyOptionContract({
+        const payload = {
           ticker,
           type: data.contract.type,
           strike: data.contract.strike,
           expiryDay: data.contract.expiryDay,
           qty: data.quantity,
-        });
+        };
+        const result = mode === 'buy'
+          ? actions.buyOptionContract(payload)
+          : actions.sellOptionContract(payload);
         if (result?.ok) render(store.get());
       }
     });

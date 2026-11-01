@@ -17,13 +17,19 @@ import {
   cancelOrder, ORDER_STATUS,
 } from './trading/orderEngine.js';
 import {
-  snapshotEquity, buyingPower, shortCapacity,
+  snapshotEquity, buyingPower, shortCapacity, availableCash,
 } from './trading/account.js';
 import { marginStatus, applyFinancing, forceLiquidation } from './trading/margin.js';
 import { buildOptionChain, findContract } from './options/chains.js';
 import {
-  buyOption, closeOption, markOptions, settleOptions,
+  buyOption, sellOption, closeOption, markOptions, settleOptions, executeOptionLegs,
+  optionCollateral, availableOptionCash, availableCoveredShares,
 } from './options/optionsEngine.js';
+import { buildStrategy } from './options/strategies.js';
+import {
+  buildFuturesChain, openFuture, closeFuture, markFutures, applyFuturesVariation,
+  settleFutures, availableFuturesCash,
+} from './futures/futuresEngine.js';
 import { money } from './core/format.js';
 import {
   markSectionRead, recordQuizResult,
@@ -47,6 +53,7 @@ import { createPracticeView } from './ui/views/practice.js';
 import { createMarketView } from './ui/views/market.js';
 import { createTradeView } from './ui/views/trading.js';
 import { createOptionsView } from './ui/views/options.js';
+import { createFuturesView } from './ui/views/futures.js';
 import { createPortfolioView } from './ui/views/portfolio.js';
 import { createNewsView } from './ui/views/news.js';
 import { createGlossaryView } from './ui/views/glossary.js';
@@ -441,6 +448,132 @@ const actions = {
     announceAchievements();
     return result;
   },
+  sellOptionContract({ ticker, type, strike, expiryDay, qty }) {
+    const state = store.get();
+    if (!isToolUnlocked(state, 'options.trade')) {
+      toast(i18n.t('error.optionsLocked'), 'error');
+      return { ok: false, error: 'error.optionsLocked' };
+    }
+    if (!isToolUnlocked(state, 'options.sell')) {
+      toast(i18n.t('error.optionsSellLocked'), 'error');
+      return { ok: false, error: 'error.optionsSellLocked' };
+    }
+    if (!isCompanyUnlocked(state, ticker)) {
+      toast(i18n.t('error.marketLocked'), 'error');
+      return { ok: false, error: 'error.marketLocked' };
+    }
+    const company = getCompany(ticker);
+    const quote = state.market.quotes[ticker];
+    if (!company || !quote) return { ok: false, error: 'error.unknownTicker' };
+    const contract = findContract(buildOptionChain(company, quote, state.market.day), {
+      type, strike, expiryDay,
+    });
+    if (!contract) {
+      toast(i18n.t('error.contractNotFound'), 'error');
+      return { ok: false, error: 'error.contractNotFound' };
+    }
+    const fee = state.settings.commission;
+    const cashRoom = availableOptionCash(state.account, state.market.quotes, {
+      fee, orders: state.orders,
+    });
+    if (type === 'put' && strike * 100 * qty > cashRoom + 1e-9) {
+      toast(i18n.t('error.insufficientOptionCollateral'), 'error');
+      return { ok: false, error: 'error.insufficientOptionCollateral' };
+    }
+    if (type === 'call') {
+      const coveredShares = availableCoveredShares(state.account, ticker, state.orders);
+      const nakedQty = Math.max(0, qty - Math.floor(coveredShares / 100));
+      if (nakedQty * quote.last * 100 * 0.2 > cashRoom + 1e-9) {
+        toast(i18n.t('error.insufficientOptionCollateral'), 'error');
+        return { ok: false, error: 'error.insufficientOptionCollateral' };
+      }
+    }
+    const result = sellOption(state.account, {
+      contract, qty, fee, day: state.market.day, tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'error');
+      return result;
+    }
+    store.update((s) => {
+      s.account = result.account;
+    }, { type: 'option:sold' });
+    toast(i18n.t('toast.optionSold', {
+      type: i18n.t(`options.${type}`),
+      strike: money(strike, i18n.locale),
+      qty,
+    }), 'success', 3600);
+    scheduleSave();
+    syncPractice(store, bus);
+    announceAchievements();
+    return result;
+  },
+  openOptionStrategy(strategyId, { ticker, expiryDays, qty }) {
+    const state = store.get();
+    if (!isToolUnlocked(state, 'options.trade') || !isToolUnlocked(state, 'options.sell')) {
+      return { ok: false, error: 'error.optionsSellLocked' };
+    }
+    if (!isCompanyUnlocked(state, ticker)) {
+      toast(i18n.t('error.marketLocked'), 'error');
+      return { ok: false, error: 'error.marketLocked' };
+    }
+    const company = getCompany(ticker);
+    const quote = state.market.quotes[ticker];
+    if (!company || !quote) return { ok: false, error: 'error.unknownTicker' };
+    const quantity = Math.max(1, Math.floor(Number(qty) || 1));
+    const strategy = buildStrategy(
+      strategyId,
+      buildOptionChain(company, quote, state.market.day),
+      expiryDays,
+      quantity,
+    );
+    if (!strategy) {
+      toast(i18n.t('error.contractNotFound'), 'error');
+      return { ok: false, error: 'error.contractNotFound' };
+    }
+    const fee = state.settings.commission;
+    const cashRoom = availableOptionCash(state.account, state.market.quotes, {
+      fee, orders: state.orders,
+    });
+    if (strategyId === 'coveredCall') {
+      const coveredShares = availableCoveredShares(state.account, ticker, state.orders);
+      if (coveredShares < 100 * quantity) {
+        toast(i18n.t('error.needCoveredShares'), 'error');
+        return { ok: false, error: 'error.needCoveredShares' };
+      }
+    } else if (strategyId === 'cashSecuredPut') {
+      const put = strategy.legs[0].contract;
+      if (put.strike * 100 * quantity > cashRoom + 1e-9) {
+        toast(i18n.t('error.insufficientOptionCollateral'), 'error');
+        return { ok: false, error: 'error.insufficientOptionCollateral' };
+      }
+    } else {
+      const cashNeeded = Math.max(0, strategy.netCost) + fee * strategy.legs.length;
+      if (cashNeeded > availableCash(state.account, state.orders, fee) + 1e-9) {
+        toast(i18n.t('error.insufficientCash'), 'error');
+        return { ok: false, error: 'error.insufficientCash' };
+      }
+    }
+    const ordered = [...strategy.legs].sort((a, b) => (a.side === 'sell' ? -1 : 1) - (b.side === 'sell' ? -1 : 1));
+    const result = executeOptionLegs(state.account, ordered, {
+      fee, day: state.market.day, tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'error');
+      return result;
+    }
+    store.update((s) => {
+      s.account = result.account;
+    }, { type: 'option:strategy' });
+    toast(i18n.t('toast.strategyOpened', {
+      strategy: i18n.t(strategy.def.nameKey),
+      qty: quantity,
+    }), 'success', 4200);
+    scheduleSave();
+    syncPractice(store, bus);
+    announceAchievements();
+    return result;
+  },
   closeOptionContract(key, qty) {
     const state = store.get();
     const result = closeOption(state.account, {
@@ -458,6 +591,72 @@ const actions = {
       s.account = result.account;
     }, { type: 'option:closed' });
     toast(i18n.t('toast.optionClosed', {
+      pnl: money(result.trade.realized, i18n.locale),
+    }), 'info', 3600);
+    scheduleSave();
+    syncPractice(store, bus);
+    return result;
+  },
+  openFutureContract({ ticker, expiryDays, side, qty }) {
+    const state = store.get();
+    if (!isToolUnlocked(state, 'trade.futures')) {
+      toast(i18n.t('error.futuresLocked'), 'error');
+      return { ok: false, error: 'error.futuresLocked' };
+    }
+    if (!isCompanyUnlocked(state, ticker)) {
+      toast(i18n.t('error.marketLocked'), 'error');
+      return { ok: false, error: 'error.marketLocked' };
+    }
+    const quote = state.market.quotes[ticker];
+    if (!quote) return { ok: false, error: 'error.unknownTicker' };
+    const chain = buildFuturesChain(quote, state.market.day);
+    const contract = chain.expiries.find((entry) => entry.days === expiryDays);
+    if (!contract) return { ok: false, error: 'error.contractNotFound' };
+    const quantity = Math.max(0, Math.floor(Number(qty) || 0));
+    const fee = state.settings.commission;
+    const margin = contract.margin * quantity;
+    if (margin > availableFuturesCash(state.account, { fee, orders: state.orders }) + 1e-9) {
+      toast(i18n.t('error.insufficientFuturesMargin'), 'error');
+      return { ok: false, error: 'error.insufficientFuturesMargin' };
+    }
+    const result = openFuture(state.account, {
+      contract, side, qty: quantity, fee, day: state.market.day, tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'error');
+      return result;
+    }
+    store.update((s) => {
+      s.account = result.account;
+    }, { type: 'future:open' });
+    toast(i18n.t('toast.futureOpened', {
+      side: i18n.t(`futures.${side}`),
+      qty: quantity,
+      ticker,
+      margin: money(margin, i18n.locale),
+    }), 'success', 3800);
+    scheduleSave();
+    syncPractice(store, bus);
+    announceAchievements();
+    return result;
+  },
+  closeFutureContract(key, qty) {
+    const state = store.get();
+    const result = closeFuture(state.account, {
+      key,
+      qty,
+      fee: state.settings.commission,
+      day: state.market.day,
+      tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'error');
+      return result;
+    }
+    store.update((s) => {
+      s.account = result.account;
+    }, { type: 'future:close' });
+    toast(i18n.t('toast.futureClosed', {
       pnl: money(result.trade.realized, i18n.locale),
     }), 'info', 3600);
     scheduleSave();
@@ -570,6 +769,8 @@ function runSimulation(ticks) {
   let fills = [];
   let dividends = [];
   let optionSettlements = [];
+  let futuresVariation = 0;
+  let futuresSettlements = [];
   let financing = 0;
   let marginCall = null;
   let dayClosed = false;
@@ -593,6 +794,7 @@ function runSimulation(ticks) {
     orders = processed.orders;
     fills = [...fills, ...processed.fills];
     account = markOptions(account, state.market.quotes, state.market.day);
+    account = markFutures(account, state.market.quotes, state.market.day);
     if (tickResult.dayClosed) {
       dayClosed = true;
       const financed = applyFinancing(account, prevDay);
@@ -604,6 +806,12 @@ function runSimulation(ticks) {
       const settled = settleOptions(account, state.market.quotes, Math.max(0, prevDay));
       account = settled.account;
       optionSettlements = [...optionSettlements, ...settled.settlements];
+      const varied = applyFuturesVariation(account);
+      account = varied.account;
+      futuresVariation += varied.variation;
+      const futuresSettled = settleFutures(account, state.market.quotes, Math.max(0, prevDay));
+      account = futuresSettled.account;
+      futuresSettlements = [...futuresSettlements, ...futuresSettled.settlements];
       if (allowDebit || (account.positions && Object.keys(account.positions).length)) {
         const status = marginStatus(account, state.market.quotes);
         if (status.breached) {
@@ -669,6 +877,19 @@ function runSimulation(ticks) {
     const pnl = optionSettlements.reduce((sum, row) => sum + row.realized, 0);
     toast(i18n.t('toast.optionSettled', {
       count: optionSettlements.length,
+      amount: money(pnl, i18n.locale),
+    }), pnl >= 0 ? 'success' : 'warning', 4200);
+    announceAchievements();
+  }
+  if (futuresVariation !== 0) {
+    toast(i18n.t('toast.futuresVariation', {
+      amount: money(futuresVariation, i18n.locale),
+    }), futuresVariation > 0 ? 'success' : 'warning', 3600);
+  }
+  if (futuresSettlements.length) {
+    const pnl = futuresSettlements.reduce((sum, row) => sum + row.realized, 0);
+    toast(i18n.t('toast.futuresSettled', {
+      count: futuresSettlements.length,
       amount: money(pnl, i18n.locale),
     }), pnl >= 0 ? 'success' : 'warning', 4200);
     announceAchievements();
@@ -820,6 +1041,9 @@ function renderRoute(route) {
       break;
     case 'options':
       view = createOptionsView(ctx);
+      break;
+    case 'futures':
+      view = createFuturesView(ctx);
       break;
     case 'challenges':
       view = createLockedFeatureView(ctx, 'challenges');

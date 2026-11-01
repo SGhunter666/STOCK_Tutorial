@@ -1346,6 +1346,321 @@ export const QUIZ_BANKS = {
       };
     }),
   ],
+  u25: [
+    single(
+      'u25-q1',
+      'quiz.u25.q1.prompt',
+      [
+        { key: 'quiz.u25.q1.o1' },
+        { key: 'quiz.u25.q1.o2', correct: true },
+        { key: 'quiz.u25.q1.o3' },
+        { key: 'quiz.u25.q1.o4' },
+      ],
+      'quiz.u25.q1.explain',
+    ),
+    single(
+      'u25-q2',
+      'quiz.u25.q2.prompt',
+      [
+        { key: 'quiz.u25.q2.o1', correct: true },
+        { key: 'quiz.u25.q2.o2' },
+        { key: 'quiz.u25.q2.o3' },
+        { key: 'quiz.u25.q2.o4' },
+      ],
+      'quiz.u25.q2.explain',
+    ),
+    multi(
+      'u25-q3',
+      'quiz.u25.q3.prompt',
+      [
+        { key: 'quiz.u25.q3.o1', correct: true },
+        { key: 'quiz.u25.q3.o2', correct: true },
+        { key: 'quiz.u25.q3.o3', correct: true },
+        { key: 'quiz.u25.q3.o4' },
+      ],
+      'quiz.u25.q3.explain',
+    ),
+    numeric('u25-q4', 'quiz.u25.q4.prompt', 'quiz.u25.q4.explain', (rng) => {
+      const strike = Math.round(rng.range(20, 80) * 100) / 100;
+      const spot = Math.round((strike + rng.range(0, 12)) * 100) / 100;
+      const premium = Math.round(rng.range(1, 5) * 100) / 100;
+      return {
+        params: { strike, spot, premium },
+        paramKinds: { strike: 'money', spot: 'money', premium: 'money' },
+        answer: Math.round((premium - Math.max(0, spot - strike)) * 100) / 100,
+        tolerance: 0.02,
+        answerFormat: 'money',
+      };
+    }),
+  ],
+  u26: [
+    single(
+      'u26-q1',
+      'quiz.u26.q1.prompt',
+      [
+        { key: 'quiz.u26.q1.o1' },
+        { key: 'quiz.u26.q1.o2', correct: true },
+        { key: 'quiz.u26.q1.o3' },
+        { key: 'quiz.u26.q1.o4' },
+      ],
+      'quiz.u26.q1.explain',
+    ),
+    single(
+      'u26-q2',
+      'quiz.u26.q2.prompt',
+      [
+        { key: 'quiz.u26.q2.o1' },
+        { key: 'quiz.u26.q2.o2', correct: true },
+        { key: 'quiz.u26.q2.o3' },
+        { key: 'quiz.u26.q2.o4' },
+      ],
+      'quiz.u26.q2.explain',
+    ),
+    multi(
+      'u26-q3',
+      'quiz.u26.q3.prompt',
+      [
+        { key: 'quiz.u26.q3.o1', correct: true },
+        { key: 'quiz.u26.q3.o2', correct: true },
+        { key: 'quiz.u26.q3.o3', correct: true },
+        { key: 'quiz.u26.q3.o4' },
+      ],
+      'quiz.u26.q3.explain',
+    ),
+    numeric('u26-q4', 'quiz.u26.q4.prompt', 'quiz.u26.q4.explain', (rng) => {
+      const strike = Math.round(rng.range(30, 90) * 100) / 100;
+      const premium = Math.round(rng.range(1, 5) * 100) / 100;
+      return {
+        params: { strike, premium },
+        paramKinds: { strike: 'money', premium: 'money' },
+        answer: Math.round((strike - premium) * 100) / 100,
+        tolerance: 0.02,
+        answerFormat: 'money',
+      };
+    }),
+  ],
+  u27: [
+    single(
+      'u27-q1',
+      'quiz.u27.q1.prompt',
+      [
+        { key: 'quiz.u27.q1.o1' },
+        { key: 'quiz.u27.q1.o2', correct: true },
+        { key: 'quiz.u27.q1.o3' },
+        { key: 'quiz.u27.q1.o4' },
+      ],
+      'quiz.u27.q1.explain',
+    ),
+    single(
+      'u27-q2',
+      'quiz.u27.q2.prompt',
+      [
+        { key: 'quiz.u27.q2.o1', correct: true },
+        { key: 'quiz.u27.q2.o2' },
+        { key: 'quiz.u27.q2.o3' },
+        { key: 'quiz.u27.q2.o4' },
+      ],
+      'quiz.u27.q2.explain',
+    ),
+    multi(
+      'u27-q3',
+      'quiz.u27.q3.prompt',
+      [
+        { key: 'quiz.u27.q3.o1', correct: true },
+        { key: 'quiz.u27.q3.o2', correct: true },
+        { key: 'quiz.u27.q3.o3', correct: true },
+        { key: 'quiz.u27.q3.o4' },
+      ],
+      'quiz.u27.q3.explain',
+    ),
+    numeric('u27-q4', 'quiz.u27.q4.prompt', 'quiz.u27.q4.explain', (rng) => {
+      const width = Math.round(rng.range(2, 8)) * 5;
+      const debit = Math.round(rng.range(1, 3) * 100) / 100;
+      return {
+        params: { width, debit },
+        paramKinds: { width: 'number', debit: 'money' },
+        answer: Math.round((width - debit) * 100) / 100,
+        tolerance: 0.05,
+        answerFormat: 'money',
+      };
+    }),
+  ],
+  u28: [
+    single(
+      'u28-q1',
+      'quiz.u28.q1.prompt',
+      [
+        { key: 'quiz.u28.q1.o1' },
+        { key: 'quiz.u28.q1.o2', correct: true },
+        { key: 'quiz.u28.q1.o3' },
+        { key: 'quiz.u28.q1.o4' },
+      ],
+      'quiz.u28.q1.explain',
+    ),
+    single(
+      'u28-q2',
+      'quiz.u28.q2.prompt',
+      [
+        { key: 'quiz.u28.q2.o1' },
+        { key: 'quiz.u28.q2.o2' },
+        { key: 'quiz.u28.q2.o3', correct: true },
+        { key: 'quiz.u28.q2.o4' },
+      ],
+      'quiz.u28.q2.explain',
+    ),
+    multi(
+      'u28-q3',
+      'quiz.u28.q3.prompt',
+      [
+        { key: 'quiz.u28.q3.o1', correct: true },
+        { key: 'quiz.u28.q3.o2', correct: true },
+        { key: 'quiz.u28.q3.o3', correct: true },
+        { key: 'quiz.u28.q3.o4' },
+      ],
+      'quiz.u28.q3.explain',
+    ),
+    numeric('u28-q4', 'quiz.u28.q4.prompt', 'quiz.u28.q4.explain', (rng) => {
+      const strike = Math.round(rng.range(20, 70) * 100) / 100;
+      const callPremium = Math.round(rng.range(1, 4) * 100) / 100;
+      const putPremium = Math.round(rng.range(1, 4) * 100) / 100;
+      return {
+        params: { strike, callPremium, putPremium },
+        paramKinds: { strike: 'money', callPremium: 'money', putPremium: 'money' },
+        answer: Math.round((strike + callPremium + putPremium) * 100) / 100,
+        tolerance: 0.02,
+        answerFormat: 'money',
+      };
+    }),
+  ],
+  u29: [
+    single('u29-q1', 'quiz.u29.q1.prompt', [
+      { key: 'quiz.u29.q1.o1', correct: true },
+      { key: 'quiz.u29.q1.o2' },
+      { key: 'quiz.u29.q1.o3' },
+      { key: 'quiz.u29.q1.o4' },
+    ], 'quiz.u29.q1.explain'),
+    single('u29-q2', 'quiz.u29.q2.prompt', [
+      { key: 'quiz.u29.q2.o1' },
+      { key: 'quiz.u29.q2.o2', correct: true },
+      { key: 'quiz.u29.q2.o3' },
+      { key: 'quiz.u29.q2.o4' },
+    ], 'quiz.u29.q2.explain'),
+    multi('u29-q3', 'quiz.u29.q3.prompt', [
+      { key: 'quiz.u29.q3.o1', correct: true },
+      { key: 'quiz.u29.q3.o2', correct: true },
+      { key: 'quiz.u29.q3.o3', correct: true },
+      { key: 'quiz.u29.q3.o4' },
+    ], 'quiz.u29.q3.explain'),
+    numeric('u29-q4', 'quiz.u29.q4.prompt', 'quiz.u29.q4.explain', (rng) => {
+      const entry = Math.round(rng.range(30, 80) * 100) / 100;
+      const exit = Math.round((entry + rng.range(-8, 8)) * 100) / 100;
+      const qty = Math.round(rng.range(1, 4));
+      return {
+        params: { entry, exit, qty },
+        paramKinds: { entry: 'money', exit: 'money', qty: 'integer' },
+        answer: Math.round((exit - entry) * qty * 100 * 100) / 100,
+        tolerance: 0.05,
+        answerFormat: 'money',
+      };
+    }),
+  ],
+  u30: [
+    single('u30-q1', 'quiz.u30.q1.prompt', [
+      { key: 'quiz.u30.q1.o1' },
+      { key: 'quiz.u30.q1.o2', correct: true },
+      { key: 'quiz.u30.q1.o3' },
+      { key: 'quiz.u30.q1.o4' },
+    ], 'quiz.u30.q1.explain'),
+    single('u30-q2', 'quiz.u30.q2.prompt', [
+      { key: 'quiz.u30.q2.o1', correct: true },
+      { key: 'quiz.u30.q2.o2' },
+      { key: 'quiz.u30.q2.o3' },
+      { key: 'quiz.u30.q2.o4' },
+    ], 'quiz.u30.q2.explain'),
+    multi('u30-q3', 'quiz.u30.q3.prompt', [
+      { key: 'quiz.u30.q3.o1', correct: true },
+      { key: 'quiz.u30.q3.o2', correct: true },
+      { key: 'quiz.u30.q3.o3', correct: true },
+      { key: 'quiz.u30.q3.o4' },
+    ], 'quiz.u30.q3.explain'),
+    numeric('u30-q4', 'quiz.u30.q4.prompt', 'quiz.u30.q4.explain', (rng) => {
+      const price = Math.round(rng.range(20, 80) * 100) / 100;
+      const shares = Math.round(rng.range(2, 8)) * 100;
+      return {
+        params: { price, shares },
+        paramKinds: { price: 'money', shares: 'integer' },
+        answer: Math.round(shares / (price * 100)),
+        tolerance: 0,
+        answerFormat: 'integer',
+      };
+    }),
+  ],
+  u31: [
+    single('u31-q1', 'quiz.u31.q1.prompt', [
+      { key: 'quiz.u31.q1.o1', correct: true },
+      { key: 'quiz.u31.q1.o2' },
+      { key: 'quiz.u31.q1.o3' },
+      { key: 'quiz.u31.q1.o4' },
+    ], 'quiz.u31.q1.explain'),
+    single('u31-q2', 'quiz.u31.q2.prompt', [
+      { key: 'quiz.u31.q2.o1' },
+      { key: 'quiz.u31.q2.o2', correct: true },
+      { key: 'quiz.u31.q2.o3' },
+      { key: 'quiz.u31.q2.o4' },
+    ], 'quiz.u31.q2.explain'),
+    multi('u31-q3', 'quiz.u31.q3.prompt', [
+      { key: 'quiz.u31.q3.o1', correct: true },
+      { key: 'quiz.u31.q3.o2', correct: true },
+      { key: 'quiz.u31.q3.o3', correct: true },
+      { key: 'quiz.u31.q3.o4' },
+    ], 'quiz.u31.q3.explain'),
+    numeric('u31-q4', 'quiz.u31.q4.prompt', 'quiz.u31.q4.explain', (rng) => {
+      const equity = Math.round(rng.range(5000, 20000) / 100) * 100;
+      const leverage = Math.round(rng.range(2, 5) * 10) / 10;
+      const shock = Math.round(rng.range(10, 30));
+      return {
+        params: { equity, leverage, shock },
+        paramKinds: { equity: 'money', leverage: 'number', shock: 'percent' },
+        answer: Math.round(equity * leverage * shock / 100),
+        tolerance: 0,
+        answerFormat: 'money',
+      };
+    }),
+  ],
+  u32: [
+    single('u32-q1', 'quiz.u32.q1.prompt', [
+      { key: 'quiz.u32.q1.o1' },
+      { key: 'quiz.u32.q1.o2', correct: true },
+      { key: 'quiz.u32.q1.o3' },
+      { key: 'quiz.u32.q1.o4' },
+    ], 'quiz.u32.q1.explain'),
+    single('u32-q2', 'quiz.u32.q2.prompt', [
+      { key: 'quiz.u32.q2.o1', correct: true },
+      { key: 'quiz.u32.q2.o2' },
+      { key: 'quiz.u32.q2.o3' },
+      { key: 'quiz.u32.q2.o4' },
+    ], 'quiz.u32.q2.explain'),
+    multi('u32-q3', 'quiz.u32.q3.prompt', [
+      { key: 'quiz.u32.q3.o1', correct: true },
+      { key: 'quiz.u32.q3.o2', correct: true },
+      { key: 'quiz.u32.q3.o3', correct: true },
+      { key: 'quiz.u32.q3.o4' },
+    ], 'quiz.u32.q3.explain'),
+    numeric('u32-q4', 'quiz.u32.q4.prompt', 'quiz.u32.q4.explain', (rng) => {
+      const account = Math.round(rng.range(10000, 50000) / 100) * 100;
+      const risk = Math.round(rng.range(1, 3) * 10) / 10;
+      const entry = Math.round(rng.range(20, 80) * 100) / 100;
+      const stop = Math.round((entry - rng.range(2, 8)) * 100) / 100;
+      const perShare = Math.max(0.01, entry - stop);
+      return {
+        params: { account, risk, entry, stop },
+        paramKinds: { account: 'money', risk: 'percent', entry: 'money', stop: 'money' },
+        answer: Math.floor((account * risk / 100) / perShare),
+        tolerance: 0,
+        answerFormat: 'integer',
+      };
+    }),
+  ],
 };
 
 export function buildQuizSession(unitId, attempt = 1) {

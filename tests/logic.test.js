@@ -23,8 +23,15 @@ import {
 } from '../js/options/pricing.js';
 import { buildOptionChain, strikeGrid, findContract } from '../js/options/chains.js';
 import {
-  buyOption, markOptions, closeOption, settleOptions, optionPositionRows,
+  buyOption, sellOption, markOptions, closeOption, settleOptions, optionPositionRows,
+  optionCollateral, availableOptionCash, availableCoveredShares, executeOptionLegs,
 } from '../js/options/optionsEngine.js';
+import { buildStrategy, strategyPayoff, STRATEGY_DEFS } from '../js/options/strategies.js';
+import {
+  buildFuturesChain, futuresPrice, openFuture, closeFuture, markFutures,
+  applyFuturesVariation, settleFutures, futuresMargin, availableFuturesCash,
+  futuresPositionRows, FUTURES_MULTIPLIER,
+} from '../js/futures/futuresEngine.js';
 import { portfolioSummary } from '../js/trading/portfolio.js';
 import { buildQuizSession, gradeQuiz, TEST_OUT_SCORE, questionXp } from '../js/education/quizEngine.js';
 import {
@@ -32,7 +39,7 @@ import {
 } from '../js/education/lessonEngine.js';
 import { recordInspection, evaluatePractice } from '../js/education/practiceEngine.js';
 import { isToolUnlocked, lockReason } from '../js/education/unlockManager.js';
-import { STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, STAGE_5_UNITS, STAGE_6_UNITS, getUnit } from '../js/education/curriculum.js';
+import { STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, STAGE_5_UNITS, STAGE_6_UNITS, STAGE_7_UNITS, STAGE_8_UNITS, getUnit } from '../js/education/curriculum.js';
 import { COMPANIES } from '../js/data/companies.js';
 import { styleOf, STOCK_STYLES } from '../js/data/stockTypes.js';
 import {
@@ -776,12 +783,11 @@ test('limit orders unlock only after Unit 4 Section 3 is read', () => {
   assert(isToolUnlocked(state, 'order.limit'), 'unlocked after section read');
 });
 
-test('planned tools stay locked with a phase reason', () => {
+test('trading tools are rule-gated now that all stages are implemented', () => {
   const state = createGameState({ seed: 'unlock2' });
   assert(!isToolUnlocked(state, 'trade.futures'));
   const reason = lockReason(state, 'trade.futures');
-  assertEqual(reason.type, 'phase');
-  assertEqual(reason.phase, 5);
+  assertEqual(reason.type, 'section');
 });
 
 suite('Practice verification');
@@ -1228,6 +1234,244 @@ test('options trading unlocks after the first section of Unit 21', () => {
   assertEqual(isToolUnlocked(state, 'options.trade'), false, 'options start locked');
   state.education.units.u21.sectionsRead.s1 = true;
   assertEqual(isToolUnlocked(state, 'options.trade'), true, 'options unlock after u21 s1');
+  assertEqual(isToolUnlocked(state, 'options.sell'), false, 'selling still locked');
+  state.education.units.u25.sectionsRead.s1 = true;
+  assertEqual(isToolUnlocked(state, 'options.sell'), true, 'selling unlocks after u25 s1');
+});
+
+suite('Stage 7 option selling and strategies');
+
+test('selling an option collects premium and creates a short position', () => {
+  const account = createGameState({ seed: 'sell-option' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = {
+    ticker: 'AURA', type: 'put', strike: 50, expiryDay: 60, premium: 2,
+    vol: 0.3, delta: -0.4, theta: -0.01,
+  };
+  const sold = sellOption(account, { contract, qty: 2, fee: 1, day: 0 });
+  assert(sold.ok, 'sell succeeds');
+  assertClose(sold.account.cash, 10399, 0.001, 'net premium credited');
+  const position = sold.account.options[0];
+  assertEqual(position.qty, -2, 'position is short');
+  assertClose(optionValue(sold.account), -400, 0.001, 'short liability at entry');
+  const quotes = { AURA: { last: 50 } };
+  assertClose(optionCollateral(sold.account, quotes), 10000, 0.001, 'put collateral is strike × 100');
+  assertClose(availableOptionCash(sold.account, quotes), 399, 0.001, 'collateral reduces free cash');
+});
+
+test('a covered call needs shares and releases them from cover', () => {
+  let account = createGameState({ seed: 'covered' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  account.positions = { AURA: { qty: 100, costBasis: 5000 } };
+  const contract = {
+    ticker: 'AURA', type: 'call', strike: 55, expiryDay: 60, premium: 1,
+    vol: 0.3, delta: 0.3, theta: -0.01,
+  };
+  assertEqual(availableCoveredShares(account, 'AURA'), 100, '100 shares cover one call');
+  const sold = sellOption(account, { contract, qty: 1, fee: 1, day: 0 });
+  assert(sold.ok, 'covered call opens');
+  const quotes = { AURA: { last: 50 } };
+  assertClose(optionCollateral(sold.account, quotes), 0, 0.001, 'covered call needs no cash collateral');
+  assertEqual(availableCoveredShares(sold.account, 'AURA'), 0, 'shares fully committed');
+});
+
+test('closing a short option buys it back and realises the premium difference', () => {
+  const account = createGameState({ seed: 'short-close' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = {
+    ticker: 'AURA', type: 'call', strike: 50, expiryDay: 60, premium: 3,
+    vol: 0.3, delta: 0.5, theta: -0.01,
+  };
+  const sold = sellOption(account, { contract, qty: 1, fee: 1, day: 0 });
+  const marked = markOptions(sold.account, { AURA: { last: 45 } }, 1);
+  const position = marked.options[0];
+  const closed = closeOption(marked, { key: position.key, qty: 1, fee: 1, day: 2 });
+  assert(closed.ok, 'buy-to-close succeeds');
+  assertEqual(closed.account.options.length, 0, 'short position removed');
+  assert(closed.account.optionRealized > 0, 'premium captured as realised profit');
+  assertEqual(closed.account.optionTrades[0].side, 'buyToClose', 'ledger records buy-to-close');
+});
+
+test('an assigned short option pays intrinsic at expiry', () => {
+  const account = createGameState({ seed: 'assigned' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = {
+    ticker: 'AURA', type: 'put', strike: 50, expiryDay: 5, premium: 2,
+    vol: 0.3, delta: -0.4, theta: -0.01,
+  };
+  const sold = sellOption(account, { contract, qty: 1, fee: 1, day: 0 });
+  const settled = settleOptions(sold.account, { AURA: { last: 40 } }, 5);
+  assertEqual(settled.settlements.length, 1, 'one assignment');
+  assertClose(settled.account.cash, 9199, 0.001, 'intrinsic paid out after the premium fee');
+  assertClose(settled.account.optionRealized, -801, 0.001, 'premium minus intrinsic and fee');
+  assertEqual(settled.account.optionTrades[0].side, 'assigned', 'ledger records assignment');
+});
+
+test('vertical spreads have defined economics and payoff', () => {
+  const state = createGameState({ seed: 'spread' });
+  const company = COMPANIES[0];
+  const quote = state.market.quotes[company.ticker];
+  const chain = buildOptionChain(company, quote, state.market.day);
+  const strategy = buildStrategy('bullCallSpread', chain, 30, 1);
+  assert(strategy, 'spread builds');
+  assert(strategy.netCost > 0, 'bull call spread is a debit');
+  const lower = strategy.legs[0].contract;
+  const upper = strategy.legs[1].contract;
+  const width = upper.strike - lower.strike;
+  assertClose(strategy.maxProfit, width * 100 - strategy.netCost, 0.05, 'max profit = width minus debit');
+  const atMax = strategyPayoff(strategy, upper.strike + 10);
+  assertClose(atMax, strategy.maxProfit, 0.02, 'payoff caps at max profit');
+  const atLow = strategyPayoff(strategy, lower.strike - 10);
+  assertClose(atLow, -strategy.netCost, 0.02, 'payoff floors at the debit');
+  assert(strategy.maxProfit >= 0, 'capped profit positive');
+});
+
+test('multi-leg execution is atomic and rolls positions together', () => {
+  const state = createGameState({ seed: 'legs' });
+  const company = COMPANIES[0];
+  const chain = buildOptionChain(company, state.market.quotes[company.ticker], state.market.day);
+  const strategy = buildStrategy('longStraddle', chain, 30, 1);
+  assert(strategy, 'straddle builds');
+  const account = createGameState({ seed: 'legs-account' }).account;
+  account.cash = 50000;
+  account.initialCash = 50000;
+  const result = executeOptionLegs(account, strategy.legs, { fee: 1, day: 0 });
+  assert(result.ok, 'both legs execute');
+  assertEqual(result.account.options.length, 2, 'two option positions');
+  assertEqual(result.account.optionTrades.length, 2, 'two ledger entries');
+});
+
+suite('Stage 7 curriculum');
+
+test('Stage 7 units complete with real option structures', () => {
+  assertEqual(STAGE_7_UNITS.map((unit) => unit.id).join(','), 'u25,u26,u27,u28', 'four Stage 7 units');
+  assert(STAGE_7_UNITS.every((unit) => unit.implemented), 'all Stage 7 units playable');
+
+  const state = createGameState({ seed: 'stage7-practice' });
+  state.account.optionTrades = [{ side: 'sell', optionType: 'call' }];
+  assertEqual(evaluatePractice(state, getUnit('u25')).done, true, 'selling any option completes Unit 25');
+
+  state.account.positions = { AURA: { qty: 100, costBasis: 5000 } };
+  state.account.options = [{
+    key: 'AURA:call:55:30', ticker: 'AURA', type: 'call', strike: 55, expiryDay: 30, qty: -1,
+  }];
+  assertEqual(evaluatePractice(state, getUnit('u26')).done, true, 'covered call completes Unit 26');
+
+  state.account.options = [
+    {
+      key: 'AURA:call:50:30', ticker: 'AURA', type: 'call', strike: 50, expiryDay: 30, qty: 1,
+    },
+    {
+      key: 'AURA:call:55:30', ticker: 'AURA', type: 'call', strike: 55, expiryDay: 30, qty: -1,
+    },
+  ];
+  assertEqual(evaluatePractice(state, getUnit('u27')).done, true, 'vertical spread completes Unit 27');
+
+  state.account.options = [
+    {
+      key: 'AURA:call:50:30', ticker: 'AURA', type: 'call', strike: 50, expiryDay: 30, qty: 1,
+    },
+    {
+      key: 'AURA:put:50:30', ticker: 'AURA', type: 'put', strike: 50, expiryDay: 30, qty: 1,
+    },
+  ];
+  assertEqual(evaluatePractice(state, getUnit('u28')).done, true, 'straddle completes Unit 28');
+});
+
+suite('Futures and Stage 8');
+
+test('futures chains price carry and 15% margin', () => {
+  const state = createGameState({ seed: 'futures-chain' });
+  const quote = state.market.quotes.AURA;
+  assertClose(futuresPrice(quote.last, 0), quote.last, 0.01, 'zero-day future equals spot');
+  const chain = buildFuturesChain(quote, 5);
+  assertEqual(chain.expiries.length, 3, 'three expiries');
+  chain.expiries.forEach((entry) => {
+    assert(entry.price > quote.last, 'contango above spot');
+    assertClose(entry.margin, entry.price * FUTURES_MULTIPLIER * 0.15, 0.02, 'margin is 15% of notional');
+  });
+});
+
+test('a long future marks to market and settles variation into cash', () => {
+  const account = createGameState({ seed: 'futures-long' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = { ticker: 'AURA', expiryDay: 60, price: 50, margin: 750 };
+  const opened = openFuture(account, { contract, side: 'long', qty: 1, fee: 1, day: 0 });
+  assert(opened.ok, 'open succeeds');
+  assertClose(opened.account.cash, 9999, 0.001, 'only the fee leaves cash');
+  assertClose(futuresMargin(opened.account), 750, 0.001, 'margin is reserved');
+  assertClose(availableFuturesCash(opened.account), 9249, 0.001, 'free futures cash');
+
+  const marked = markFutures(opened.account, { AURA: { last: 60 } }, 1);
+  assert(marked.futuresPnl > 0, 'long gains when spot rises');
+  const varied = applyFuturesVariation(marked);
+  assertClose(varied.account.futuresPnl, 0, 0.001, 'variation resets');
+  assert(varied.account.cash > 9999, 'variation credited to cash');
+  assertClose(varied.account.futures[0].settlementPrice, marked.futures[0].currentPrice, 0.001);
+
+  const before = varied.account.futures[0];
+  const closed = closeFuture(varied.account, { key: before.key, qty: 1, fee: 1, day: 2 });
+  assert(closed.ok, 'close succeeds');
+  assertEqual(closed.account.futures.length, 0, 'position removed');
+  assert(closed.account.futuresRealized > 0, 'realised profit recorded');
+});
+
+test('a short future profits when the spot falls and settles at expiry', () => {
+  const account = createGameState({ seed: 'futures-short' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = { ticker: 'AURA', expiryDay: 5, price: 50, margin: 750 };
+  const opened = openFuture(account, { contract, side: 'short', qty: 1, fee: 1, day: 0 });
+  const marked = markFutures(opened.account, { AURA: { last: 40 } }, 5);
+  const varied = applyFuturesVariation(marked);
+  const settled = settleFutures(varied.account, { AURA: { last: 40 } }, 5);
+  assertEqual(settled.settlements.length, 1, 'one settlement');
+  assertEqual(settled.account.futures.length, 0, 'contract removed');
+  assertClose(settled.account.cash, 10999, 0.001, 'profit and fee');
+  assertClose(settled.account.futuresRealized, 999, 0.001, 'short gain less fee');
+});
+
+test('futures margin limits new positions', () => {
+  const account = createGameState({ seed: 'futures-margin' }).account;
+  account.cash = 1000;
+  const contract = { ticker: 'AURA', expiryDay: 60, price: 50, margin: 750 };
+  const one = openFuture(account, { contract, side: 'long', qty: 1, fee: 1 });
+  assert(one.ok, 'one contract fits');
+  const two = openFuture(one.account, { contract, side: 'long', qty: 2, fee: 1 });
+  assertEqual(two.ok, false, 'two more contracts exceed free margin');
+  assertEqual(two.error, 'error.insufficientFuturesMargin');
+});
+
+test('Stage 8 units complete with futures, hedging and graduation activity', () => {
+  assertEqual(STAGE_8_UNITS.map((unit) => unit.id).join(','), 'u29,u30,u31,u32', 'four Stage 8 units');
+  assert(STAGE_8_UNITS.every((unit) => unit.implemented), 'all Stage 8 units playable');
+
+  const state = createGameState({ seed: 'stage8-practice' });
+  state.account.futuresTrades = [{ action: 'open', side: 'long' }];
+  assertEqual(evaluatePractice(state, getUnit('u29')).done, true, 'opening a future completes Unit 29');
+
+  state.account.positions = { AURA: { qty: 100, costBasis: 5000 } };
+  state.account.futures = [{ key: 'AURA:30:short', side: 'short', qty: 1, ticker: 'AURA' }];
+  assertEqual(evaluatePractice(state, getUnit('u30')).done, true, 'stock plus short future completes Unit 30');
+
+  state.education.demoRuns = ['stressTest'];
+  assertEqual(evaluatePractice(state, getUnit('u31')).done, true, 'stress test completes Unit 31');
+
+  state.account.trades = [{ side: 'buy', ticker: 'AURA' }];
+  state.account.optionTrades = [{ side: 'buy', optionType: 'call' }];
+  assertEqual(evaluatePractice(state, getUnit('u32')).done, true, 'stock + option + future completes Unit 32');
+});
+
+test('futures unlock after the first section of Unit 29', () => {
+  const state = createGameState({ seed: 'stage8-unlock' });
+  assertEqual(isToolUnlocked(state, 'trade.futures'), false, 'futures start locked');
+  state.education.units.u29.sectionsRead.s1 = true;
+  assertEqual(isToolUnlocked(state, 'trade.futures'), true, 'futures unlock after u29 s1');
 });
 
 suite('Formatting');
