@@ -14,7 +14,15 @@ export function ensureRunInStore(store, scenarioId, dataset) {
   const state = store.get();
   if (!state.historyRuns) state.historyRuns = {};
   const existing = state.historyRuns[scenarioId];
-  if (existing && existing.account) return existing;
+  if (existing && existing.account) {
+    const normalized = ensureHistoryRun(existing, scenarioId, dataset);
+    if (normalized.dayIndex !== existing.dayIndex || normalized.startIndex !== existing.startIndex) {
+      store.update((draft) => {
+        draft.historyRuns[scenarioId] = normalized;
+      }, { type: 'history:run-normalized', scenarioId });
+    }
+    return normalized;
+  }
   const run = createHistoryRun(scenarioId);
   store.update((draft) => {
     if (!draft.historyRuns) draft.historyRuns = {};

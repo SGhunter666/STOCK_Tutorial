@@ -241,6 +241,7 @@ test('historical replay content is localised', () => {
     'history.sinceStartPct', 'history.statCash', 'history.statCashSub', 'history.statPnl',
     'history.statPnlSub', 'history.statBenchmark', 'history.statBenchmarkSub',
     'history.chartTitle', 'history.chartSubtitle', 'history.chartNote', 'history.avgCostLine',
+    'history.timelineLabel', 'history.timelineRange', 'history.warmupNote',
     'history.avgCostMarker', 'history.ticketTitle', 'history.ticketSubtitle',
     'history.selected', 'history.cashLine', 'history.sharesLine', 'history.closePrice',
     'history.fillNote', 'history.feeNote', 'history.universeTitle', 'history.universeSubtitle',

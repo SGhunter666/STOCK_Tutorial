@@ -112,22 +112,24 @@ P(t+1) = P(t) × exp(r(t))
 `js/ui/chart.js`：
 
 - `LineChart`：网格、坐标轴、面积、成本 / 限价参考线、终点标记；颜色从 CSS 主题变量解析。
-- `CandlestickChart`：日线开 / 高 / 低 / 收蜡烛 + 成交量柱 + 参考线，用于交易页 45 / 90 日区间。
+- `CandlestickChart`：日线开 / 高 / 低 / 收蜡烛 + 成交量柱 + 参考线，用于交易页 45 / 90 日区间与历史实验室的复权日线图。
 - `drawSparkline`：市场列表迷你走势线。
 - 全部 Canvas 按 `devicePixelRatio` 缩放，使用 `ResizeObserver` 重绘。
 
 ## 11. 历史实战实验室
 
 - `replayEngine.js`：逐日推进、`quoteAt`、`summary`、`tradeAtClose`、基准收益；严格只暴露当前 `dayIndex` 及以前的数据。
+- 初始 `dayIndex = HISTORY_WARMUP = 20`，进入场景即有 21 根复权日线作为观察窗；无交易记录的旧存档也会自动迁移到该观察窗。
+- 历史页图表使用 `CandlestickChart` 显示开 / 高 / 低 / 收与成交量，并保留“只显示当前日期及之前”的规则。
 - `dataLoader.js`：优先使用 `window.__SMA_HISTORY_DATA__`（离线内联），否则按场景文件名 fetch。
-- `replayActions.js`：把每个场景写入 `state.historyRuns`，与学院账户完全隔离。
+- `replayActions.js`：把每个场景写入 `state.historyRuns`，与学院账户完全隔离；`ensureRunInStore` 会规范化并迁移旧回放进度。
 - 数据：11 个板块、115 个真实代码（2020 / 2022）、75 个代码（2015–2026）、12 个代码（2008）；复权日线，NASDAQ / NYSE 混合并在 UI 标注。
 
 ## 12. 测试体系
 
 - `tests/index.html` 浏览器内运行，`tests/harness.js` 提供 suite / test / assert。
 - 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、回放成交与无未来数据、事件时间线、双语结构与页面键覆盖。
-- 当前 128 项全部通过。新增能力必须同时补逻辑测试与双语键。
+- 当前 139 项全部通过。新增能力必须同时补逻辑测试与双语键。
 
 ## 13. Phase 2 实现状态
 

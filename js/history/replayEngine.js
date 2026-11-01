@@ -8,11 +8,14 @@ import {
 
 export const HISTORY_START_CASH = 10000;
 export const HISTORY_FEE = 1;
+/** Days loaded before the player starts so the chart has real context. */
+export const HISTORY_WARMUP = 20;
 
 export function createHistoryRun(scenarioId, startCash = HISTORY_START_CASH) {
   return {
     scenarioId,
-    dayIndex: 1,
+    dayIndex: HISTORY_WARMUP,
+    startIndex: HISTORY_WARMUP,
     account: createAccount(startCash),
     selectedTicker: null,
     createdAt: Date.now(),
@@ -24,8 +27,16 @@ export function ensureHistoryRun(existing, scenarioId, dataset) {
     return createHistoryRun(scenarioId);
   }
   const maxIndex = barCount(dataset) - 1;
-  const dayIndex = Math.max(1, Math.min(Number(existing.dayIndex) || 1, maxIndex));
-  return { ...existing, dayIndex };
+  const trades = Array.isArray(existing.account.trades) ? existing.account.trades : [];
+  // Old runs that never traded get the same warm-up window as new runs.
+  const minimum = trades.length ? 1 : Math.min(HISTORY_WARMUP, maxIndex);
+  const raw = Number(existing.dayIndex);
+  const dayIndex = Math.max(minimum, Math.min(Number.isFinite(raw) ? raw : minimum, maxIndex));
+  const startIndex = Math.max(1, Math.min(
+    Number(existing.startIndex) || (trades.length ? 1 : minimum),
+    dayIndex,
+  ));
+  return { ...existing, dayIndex, startIndex };
 }
 
 export function barCount(dataset) {
@@ -127,7 +138,8 @@ export function summary(run, dataset) {
     name: tickerData(dataset, row.ticker)?.name || row.ticker,
   }));
   const benchmark = dataset.tickers.find((ticker) => ticker.benchmark);
-  const startBar = benchmark?.bars?.[1] || benchmark?.bars?.[0];
+  const startIndex = Math.max(1, Number(run.startIndex) || 1);
+  const startBar = benchmark?.bars?.[startIndex] || benchmark?.bars?.[0];
   const currentBar = benchmark?.bars?.[run.dayIndex];
   const benchmarkReturn = startBar && currentBar ? ((currentBar[4] - startBar[4]) / startBar[4]) * 100 : 0;
   return {
@@ -142,6 +154,7 @@ export function summary(run, dataset) {
     returnPct: returnPct(run.account, quotes),
     benchmarkReturn,
     dayIndex: run.dayIndex,
+    startIndex,
     date: currentDate(dataset, run.dayIndex),
     totalDays: barCount(dataset),
     reachedEnd: run.dayIndex >= barCount(dataset) - 1,

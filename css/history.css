@@ -199,6 +199,28 @@
   margin-left: auto;
 }
 
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 16px 12px;
+  margin: -6px 0 14px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.history-timeline__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-timeline__head .muted { font-size: 10px; }
+
 .history-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;

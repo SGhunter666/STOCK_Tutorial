@@ -5735,8 +5735,8 @@
     "statBenchmark": "QQQ benchmark",
     "statBenchmarkSub": "Buy and hold from start",
     "chartTitle": "Historical chart",
-    "chartSubtitle": "Real adjusted daily closes",
-    "chartNote": "Only data up to the current date is shown, so you cannot see the future.",
+    "chartSubtitle": "Real adjusted daily candles · OHLC + volume",
+    "chartNote": "Showing the latest {count} trading days; only data up to the current date is used, never the future.",
     "avgCostLine": "The dashed line is your average cost {cost}",
     "avgCostMarker": "Average cost",
     "ticketTitle": "Trade at the close",
@@ -6025,7 +6025,10 @@
       "energy": "Energy",
       "utilities": "Utilities",
       "communication": "Communication services"
-    }
+    },
+    "timelineLabel": "Historical timeline",
+    "timelineRange": "{start} → {end}",
+    "warmupNote": "The first {days} trading days are preloaded as a chart warm-up; advancing time extends the candle and volume history."
   },
   "macro": {
     "regime": {

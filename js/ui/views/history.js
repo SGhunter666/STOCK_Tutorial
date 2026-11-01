@@ -4,7 +4,8 @@
  */
 import { pageHead, card, statCard, segmented } from '../kit.js';
 import { icon } from '../icons.js';
-import { LineChart } from '../chart.js';
+import { CandlestickChart } from '../chart.js';
+import { progressBar } from '../dom.js';
 import { money, pct, num, signedMoney } from '../../core/format.js';
 import {
   HISTORY_SCENARIOS, HISTORY_SECTOR_PACKS, getHistoryScenario, eventsUpTo,
@@ -190,6 +191,17 @@ export function createHistoryScenarioView(ctx, scenarioId) {
           <button class="btn btn--ghost btn--sm" type="button" data-advance="event" ${sum.reachedEnd ? 'disabled' : ''}>${t('history.nextEvent')}</button>
           ${sum.reachedEnd ? `<span class="pill pill--warn">${t('history.atEnd')}</span>` : ''}
         </div>
+      </div>
+      <div class="history-timeline">
+        <div class="history-timeline__head">
+          <span class="field-label">${t('history.timelineLabel')}</span>
+          <span class="muted">${t('history.timelineRange', {
+            start: localeDateText(dataset.tickers[0].bars[sum.startIndex]?.[0], i18n.locale),
+            end: localeDateText(dataset.tickers[0].bars[sum.totalDays - 1]?.[0], i18n.locale),
+          })}</span>
+        </div>
+        ${progressBar(sum.totalDays > 1 ? (sum.dayIndex / (sum.totalDays - 1)) * 100 : 0, 'accent')}
+        <p class="chart-note muted">${t('history.warmupNote', { days: sum.startIndex })}</p>
       </div>`;
   }
 
@@ -201,8 +213,8 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       subtitle: t('history.chartSubtitle'),
       actions: `<span class="pill">${t(scenario.periodKey)}</span>`,
       body: `
-        <div class="chart-wrap"><canvas id="history-chart" style="height:270px"></canvas></div>
-        <p class="chart-note muted">${t('history.chartNote')}${position ? ` · ${t('history.avgCostLine', { cost: money(position.costBasis / position.qty, i18n.locale) })}` : ''}</p>`,
+        <div class="chart-wrap"><canvas id="history-chart" style="height:320px"></canvas></div>
+        <p class="chart-note muted">${t('history.chartNote', { count: Math.min(90, sum.dayIndex + 1) })}${position ? ` · ${t('history.avgCostLine', { cost: money(position.costBasis / position.qty, i18n.locale) })}` : ''}</p>`,
     });
   }
 
@@ -458,17 +470,24 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     const currentRun = run(state);
     const ticker = dataset.tickers.find((entry) => entry.symbol === selectedTicker);
     if (!ticker) return;
-    const bars = ticker.bars.slice(0, currentRun.dayIndex + 1);
-    const values = bars.map((bar) => bar[4]);
+    const bars = ticker.bars.slice(0, currentRun.dayIndex + 1).slice(-90);
+    const candles = bars.map(([date, open, high, low, close, volume]) => ({
+      d: date,
+      o: open,
+      h: high,
+      l: low,
+      c: close,
+      v: volume,
+    }));
     const position = currentRun.account.positions[selectedTicker];
-    chart = new LineChart(canvas, {
-      height: 270,
-      color: selectedTicker === 'QQQ' ? '#7c9cff' : '#5eead4',
+    chart = new CandlestickChart(canvas, {
+      height: 320,
+      showVolume: true,
       yFormat: (value) => money(value, i18n.locale),
       markers: position ? [{ value: position.costBasis / position.qty, label: t('history.avgCostMarker'), color: 'rgba(245,183,80,0.85)' }] : [],
     });
     chart.setData({
-      values,
+      candles,
       labels: [localeDateText(bars[0]?.[0], i18n.locale), localeDateText(bars[bars.length - 1]?.[0], i18n.locale)],
     });
   }

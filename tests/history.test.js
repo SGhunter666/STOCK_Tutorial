@@ -8,7 +8,7 @@ import {
 import { HISTORY_SCENARIOS, HISTORY_SECTOR_PACKS, getHistoryScenario, eventsUpTo } from '../js/data/historyScenarios.js';
 import {
   createHistoryRun, ensureHistoryRun, quoteAt, advanceRun, tradeAtClose, summary,
-  barCount, currentDate,
+  barCount, currentDate, HISTORY_WARMUP,
 } from '../js/history/replayEngine.js';
 import { createGameState, hydrateState, serializeState } from '../js/game/gameState.js';
 import { equity } from '../js/trading/account.js';
@@ -114,12 +114,16 @@ suite('Historical replay engine');
 test('new replay run starts with an independent $10,000 account', async () => {
   const data = await loadDatasets();
   const run = createHistoryRun('2008-crisis');
-  assertEqual(run.dayIndex, 1, 'start at first full bar');
+  assertEqual(run.dayIndex, HISTORY_WARMUP, 'start with a chart warm-up window');
   assertEqual(run.account.initialCash, 10000);
   assertEqual(run.account.cash, 10000);
   assertEqual(Object.keys(run.account.positions).length, 0);
   assertEqual(barCount(data['2008-crisis']), 504, 'bar count');
-  assertEqual(currentDate(data['2008-crisis'], 1), '2007-07-03', 'current date');
+  assertEqual(
+    currentDate(data['2008-crisis'], run.dayIndex),
+    data['2008-crisis'].tickers[0].bars[HISTORY_WARMUP][0],
+    'current date matches the warm-up index',
+  );
 });
 
 test('quoteAt only uses current and previous bars', async () => {
@@ -135,7 +139,7 @@ test('advancing days is clamped to the end of the dataset', async () => {
   const data = await loadDatasets();
   const run = createHistoryRun('2008-crisis');
   const advanced = advanceRun(run, data['2008-crisis'], 5);
-  assertEqual(advanced.dayIndex, 6, 'advance five days');
+  assertEqual(advanced.dayIndex, HISTORY_WARMUP + 5, 'advance five days');
   const end = advanceRun(run, data['2008-crisis'], 10000);
   assertEqual(end.dayIndex, 503, 'clamped to last bar');
   assert(end.reachedEnd, 'end flag');

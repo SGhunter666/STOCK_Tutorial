@@ -5735,8 +5735,8 @@
     "statBenchmark": "QQQ 基准",
     "statBenchmarkSub": "同期买入并持有",
     "chartTitle": "历史走势",
-    "chartSubtitle": "真实复权日线收盘价",
-    "chartNote": "只显示当前日期及之前的数据，避免看到未来。",
+    "chartSubtitle": "真实复权日线 · 开 / 高 / 低 / 收 + 成交量",
+    "chartNote": "显示最近 {count} 个交易日；只使用当前日期及之前的数据，避免看到未来。",
     "avgCostLine": "虚线为你的平均成本 {cost}",
     "avgCostMarker": "平均成本",
     "ticketTitle": "按收盘价交易",
@@ -6025,7 +6025,10 @@
       "energy": "能源",
       "utilities": "公用事业",
       "communication": "通信服务"
-    }
+    },
+    "timelineLabel": "历史时间轴",
+    "timelineRange": "{start} → {end}",
+    "warmupNote": "已载入前 {days} 个交易日作为观察窗；继续推进时间会形成更长的 K 线与成交量历史。"
   },
   "macro": {
     "regime": {
