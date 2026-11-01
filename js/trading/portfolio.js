@@ -2,13 +2,16 @@
  * Portfolio helpers shared by Dashboard and Portfolio views.
  * Keeps allocation math away from the UI layer.
  */
-import { positionRows, equity, marketValue, unrealizedPnl, totalPnl, returnPct } from './account.js';
+import {
+  positionRows, equity, marketValue, unrealizedPnl, totalPnl, returnPct, optionValue,
+  optionUnrealizedPnl,
+} from './account.js';
 
 export function portfolioSummary(account, quotes) {
   const rows = positionRows(account, quotes);
-  const holdingsValue = marketValue(account, quotes);
+  const holdingsValue = marketValue(account, quotes) + optionValue(account);
   const total = equity(account, quotes);
-  const unrealized = unrealizedPnl(account, quotes);
+  const unrealized = unrealizedPnl(account, quotes) + optionUnrealizedPnl(account);
 
   const withWeights = rows.map((row) => ({
     ...row,

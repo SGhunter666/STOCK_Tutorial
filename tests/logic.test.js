@@ -10,7 +10,7 @@ import { MarketEngine } from '../js/market/marketEngine.js';
 import { TICKS_PER_DAY } from '../js/market/calendar.js';
 import {
   buy, sell, short, cover, equity, unrealizedPnl, positionOf, availableCash, availableShares,
-  reservedCash, buyingPower, shortCapacity, availableShortShares,
+  reservedCash, buyingPower, shortCapacity, availableShortShares, optionValue,
 } from '../js/trading/account.js';
 import {
   placeMarketOrder, placeLimitOrder, placeConditionalOrder, processOpenOrders, cancelOrder,
@@ -18,6 +18,13 @@ import {
 } from '../js/trading/orderEngine.js';
 import { financingCharge, applyFinancing, marginStatus, forceLiquidation } from '../js/trading/margin.js';
 import { buildOrderBook, estimateMarketFill } from '../js/market/orderBook.js';
+import {
+  blackScholes, normCdf, payoffAtExpiry, CONTRACT_SIZE,
+} from '../js/options/pricing.js';
+import { buildOptionChain, strikeGrid, findContract } from '../js/options/chains.js';
+import {
+  buyOption, markOptions, closeOption, settleOptions, optionPositionRows,
+} from '../js/options/optionsEngine.js';
 import { portfolioSummary } from '../js/trading/portfolio.js';
 import { buildQuizSession, gradeQuiz, TEST_OUT_SCORE, questionXp } from '../js/education/quizEngine.js';
 import {
@@ -25,7 +32,7 @@ import {
 } from '../js/education/lessonEngine.js';
 import { recordInspection, evaluatePractice } from '../js/education/practiceEngine.js';
 import { isToolUnlocked, lockReason } from '../js/education/unlockManager.js';
-import { STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, STAGE_5_UNITS, getUnit } from '../js/education/curriculum.js';
+import { STAGE_1_UNITS, STAGE_2_UNITS, STAGE_3_UNITS, STAGE_4_UNITS, STAGE_5_UNITS, STAGE_6_UNITS, getUnit } from '../js/education/curriculum.js';
 import { COMPANIES } from '../js/data/companies.js';
 import { styleOf, STOCK_STYLES } from '../js/data/stockTypes.js';
 import {
@@ -771,10 +778,10 @@ test('limit orders unlock only after Unit 4 Section 3 is read', () => {
 
 test('planned tools stay locked with a phase reason', () => {
   const state = createGameState({ seed: 'unlock2' });
-  assert(!isToolUnlocked(state, 'options.trade'));
-  const reason = lockReason(state, 'options.trade');
+  assert(!isToolUnlocked(state, 'trade.futures'));
+  const reason = lockReason(state, 'trade.futures');
   assertEqual(reason.type, 'phase');
-  assertEqual(reason.phase, 4);
+  assertEqual(reason.phase, 5);
 });
 
 suite('Practice verification');
@@ -1065,6 +1072,162 @@ test('advanced trading tools unlock from the first section of their unit', () =>
   assertEqual(isToolUnlocked(state, 'order.stop'), false, 'stop orders still locked');
   mark('u19', 's1');
   assertEqual(isToolUnlocked(state, 'order.stop'), true, 'stop orders unlock after u19 s1');
+});
+
+suite('Options pricing and positions');
+
+test('normal CDF and Black-Scholes satisfy put-call parity', () => {
+  assertClose(normCdf(0), 0.5, 1e-9, 'N(0) = 0.5');
+  assertClose(normCdf(1.96), 0.975, 0.001, 'N(1.96) ≈ 97.5%');
+  const base = { spot: 100, strike: 100, years: 1, vol: 0.2, rate: 0.04 };
+  const call = blackScholes({ ...base, type: 'call' });
+  const put = blackScholes({ ...base, type: 'put' });
+  assertClose(call.price - put.price, 100 - 100 * Math.exp(-0.04), 0.03, 'put-call parity');
+  assert(call.price > 0 && put.price > 0, 'premiums positive');
+  assert(call.delta > 0 && call.delta < 1, 'call delta in (0,1)');
+  assert(put.delta < 0 && put.delta > -1, 'put delta in (-1,0)');
+  assert(call.gamma > 0 && call.vega > 0, 'gamma and vega positive');
+  assert(call.theta < 0, 'long call theta negative');
+});
+
+test('expired options are worth intrinsic value only', () => {
+  const call = blackScholes({ type: 'call', spot: 60, strike: 50, years: 0, vol: 0.3 });
+  assertClose(call.price, 10, 0.01, 'call intrinsic');
+  assertEqual(call.timeValue, 0, 'no time value at expiry');
+  const put = blackScholes({ type: 'put', spot: 40, strike: 50, years: 0, vol: 0.3 });
+  assertClose(put.price, 10, 0.01, 'put intrinsic');
+  const worthless = blackScholes({ type: 'call', spot: 45, strike: 50, years: 0, vol: 0.3 });
+  assertClose(worthless.price, 0, 0.01, 'OTM call worthless');
+  const payoff = payoffAtExpiry({ type: 'call', spot: 60, strike: 50, premium: 2, qty: 2 });
+  assertClose(payoff.pnl, 1600, 0.01, 'payoff includes two contracts');
+  assertClose(payoff.breakeven, 52, 0.01, 'call breakeven');
+});
+
+test('option chains have ordered strikes and both rights at every expiry', () => {
+  const state = createGameState({ seed: 'chain' });
+  const company = COMPANIES[0];
+  const quote = state.market.quotes[company.ticker];
+  const chain = buildOptionChain(company, quote, 5);
+  assertEqual(chain.strikes.length, 7, 'seven strikes around spot');
+  assert(chain.strikes.every((strike, index) => index === 0 || strike > chain.strikes[index - 1]), 'strikes ascend');
+  assertEqual(chain.expiries.length, 3, 'three expiries');
+  assertEqual(chain.contracts.length, 3 * 7 * 2, 'calls and puts for every strike');
+  assert(chain.contracts.every((contract) => contract.premium > 0), 'every premium positive');
+  const atmStrike = chain.strikes.reduce((best, strike) => (
+    Math.abs(strike - chain.spot) < Math.abs(best - chain.spot) ? strike : best
+  ), chain.strikes[0]);
+  const atmCall = findContract(chain, { type: 'call', strike: atmStrike, expiryDay: chain.expiries[0].expiryDay });
+  const deepCall = findContract(chain, {
+    type: 'call',
+    strike: chain.strikes[chain.strikes.length - 1],
+    expiryDay: chain.expiries[0].expiryDay,
+  });
+  assert(atmCall.premium > deepCall.premium, 'ATM call worth more than far OTM call');
+  assert(strikeGrid(50).length >= 5, 'strike grid usable');
+});
+
+test('buying an option moves cash into a marked position', () => {
+  let account = createGameState({ seed: 'option-buy' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = {
+    ticker: 'AURA', type: 'call', strike: 50, expiryDay: 60, premium: 2.5,
+    vol: 0.3, delta: 0.5, theta: -0.01,
+  };
+  const bought = buyOption(account, { contract, qty: 2, fee: 1, day: 0 });
+  assert(bought.ok, 'buy succeeds');
+  assertClose(bought.account.cash, 9499, 0.001, 'premium × 100 × 2 plus fee');
+  assertClose(optionValue(bought.account), 500, 0.001, 'position value at entry');
+  const quote = { AURA: { last: 50 } };
+  assertClose(equity(bought.account, quote), 9999, 0.001, 'equity only loses the fee');
+  assertEqual(bought.account.optionTrades[0].side, 'buy', 'option ledger records the buy');
+  assertEqual(bought.account.optionTrades[0].optionType, 'call', 'ledger records the right');
+
+  const marked = markOptions(bought.account, { AURA: { last: 60 } }, 1);
+  assert(optionValue(marked) > 500, 'ITM call gains value');
+  const rows = optionPositionRows(marked, 1);
+  assertEqual(rows.length, 1, 'one position row');
+  assert(rows[0].value > 500, 'row value marked up');
+});
+
+test('closing a long option realises P&L and releases the position', () => {
+  let account = createGameState({ seed: 'option-close' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = {
+    ticker: 'AURA', type: 'call', strike: 50, expiryDay: 60, premium: 2.5,
+    vol: 0.3, delta: 0.5, theta: -0.01,
+  };
+  const bought = buyOption(account, { contract, qty: 1, fee: 1, day: 0 });
+  const marked = markOptions(bought.account, { AURA: { last: 58 } }, 1);
+  const position = marked.options[0];
+  const closed = closeOption(marked, { key: position.key, qty: 1, fee: 1, day: 2 });
+  assert(closed.ok, 'close succeeds');
+  assertEqual(closed.account.options.length, 0, 'position removed');
+  assert(closed.account.cash > 9499, 'sale proceeds return to cash');
+  assert(closed.account.optionRealized > 0, 'realised profit recorded');
+  assertEqual(closed.account.optionTrades[0].side, 'close', 'ledger records the close');
+});
+
+test('expiry settles in cash and records realised P&L', () => {
+  let account = createGameState({ seed: 'option-expiry' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = {
+    ticker: 'AURA', type: 'call', strike: 50, expiryDay: 5, premium: 2,
+    vol: 0.3, delta: 0.5, theta: -0.01,
+  };
+  const bought = buyOption(account, { contract, qty: 1, fee: 1, day: 0 });
+  const settled = settleOptions(bought.account, { AURA: { last: 60 } }, 5);
+  assertEqual(settled.settlements.length, 1, 'one settlement');
+  assertClose(settled.settlements[0].intrinsic, 10, 0.001, 'call intrinsic at expiry');
+  assertEqual(settled.account.options.length, 0, 'contract removed');
+  assertClose(settled.account.cash, 10799, 0.001, 'proceeds of $1,000 added');
+  assertClose(settled.account.optionRealized, 799, 0.001, 'realised P&L after the $201 cost');
+});
+
+test('an out-of-the-money option expires worthless', () => {
+  let account = createGameState({ seed: 'option-worthless' }).account;
+  account.cash = 10000;
+  account.initialCash = 10000;
+  const contract = {
+    ticker: 'AURA', type: 'put', strike: 50, expiryDay: 5, premium: 1.5,
+    vol: 0.3, delta: -0.4, theta: -0.01,
+  };
+  const bought = buyOption(account, { contract, qty: 1, fee: 1, day: 0 });
+  const settled = settleOptions(bought.account, { AURA: { last: 55 } }, 5);
+  assertClose(settled.settlements[0].proceeds, 0, 0.001, 'no cash settlement');
+  assertClose(settled.account.optionRealized, -151, 0.001, 'full cost lost');
+  assertClose(settled.account.cash, 9849, 0.001, 'cash keeps the premium paid');
+});
+
+suite('Stage 6 options curriculum');
+
+test('Stage 6 units are implemented and practice checks accept option activity', () => {
+  assertEqual(STAGE_6_UNITS.map((unit) => unit.id).join(','), 'u21,u22,u23,u24', 'four Stage 6 units');
+  assert(STAGE_6_UNITS.every((unit) => unit.implemented), 'all Stage 6 units are playable');
+
+  const state = createGameState({ seed: 'stage6-practice' });
+  state.education.demoRuns = ['greeks'];
+  state.account.optionTrades = [
+    { side: 'buy', optionType: 'call' },
+    { side: 'buy', optionType: 'put' },
+  ];
+  assertEqual(evaluatePractice(state, getUnit('u21')).done, true, 'any option buy completes Unit 21');
+  assertEqual(evaluatePractice(state, getUnit('u22')).done, true, 'a call completes Unit 22');
+  assertEqual(evaluatePractice(state, getUnit('u23')).done, true, 'a put completes Unit 23');
+  assertEqual(evaluatePractice(state, getUnit('u24')).done, true, 'Greeks demo completes Unit 24');
+
+  const onlyCall = createGameState({ seed: 'stage6-call' });
+  onlyCall.account.optionTrades = [{ side: 'buy', optionType: 'call' }];
+  assertEqual(evaluatePractice(onlyCall, getUnit('u23')).done, false, 'a call does not complete the put task');
+});
+
+test('options trading unlocks after the first section of Unit 21', () => {
+  const state = createGameState({ seed: 'stage6-unlock' });
+  assertEqual(isToolUnlocked(state, 'options.trade'), false, 'options start locked');
+  state.education.units.u21.sectionsRead.s1 = true;
+  assertEqual(isToolUnlocked(state, 'options.trade'), true, 'options unlock after u21 s1');
 });
 
 suite('Formatting');

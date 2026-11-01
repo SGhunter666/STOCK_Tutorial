@@ -91,6 +91,16 @@ export function evaluatePractice(state, unit) {
       ));
       return { done: Boolean(match), current: match ? 1 : 0, target: 1 };
     }
+    case 'option-buy': {
+      const match = (state.account.optionTrades || []).some((trade) => trade.side === 'buy');
+      return { done: match, current: match ? 1 : 0, target: 1 };
+    }
+    case 'option-buy-type': {
+      const match = (state.account.optionTrades || []).some((trade) => (
+        trade.side === 'buy' && trade.optionType === task.optionType
+      ));
+      return { done: match, current: match ? 1 : 0, target: 1 };
+    }
     case 'demo': {
       const runs = education.demoRuns || [];
       return { done: runs.includes(task.demoId), current: runs.includes(task.demoId) ? 1 : 0, target: 1 };

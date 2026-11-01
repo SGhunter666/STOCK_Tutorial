@@ -13,6 +13,7 @@ import { financialsFor } from '../data/financials.js';
 import { dcf } from '../education/valuation.js';
 import { macroSnapshot, regimeKey } from '../market/macro.js';
 import { buildOrderBook, estimateMarketFill } from '../market/orderBook.js';
+import { blackScholes, payoffAtExpiry, CONTRACT_SIZE } from '../options/pricing.js';
 
 function demoShell(title, desc, body) {
   return `
@@ -1298,6 +1299,140 @@ function mountOrderBook(node, ctx) {
   return () => {};
 }
 
+function mountOptionPayoff(node, ctx) {
+  const { i18n } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  let type = 'call';
+  let strike = 50;
+  let premium = 2.5;
+  let qty = 1;
+  let spot = 50;
+  let chart = null;
+
+  function render() {
+    const payoff = payoffAtExpiry({ type, spot, strike, premium, qty });
+    const low = Math.max(1, strike * 0.6);
+    const high = strike * 1.4;
+    const values = [];
+    for (let index = 0; index <= 40; index += 1) {
+      const price = low + (high - low) * (index / 40);
+      const row = payoffAtExpiry({ type, spot: price, strike, premium, qty });
+      values.push(row.pnl);
+    }
+    if (chart) chart.destroy();
+    node.innerHTML = demoShell(
+      t('demo.optionPayoff.title'),
+      t('demo.optionPayoff.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.optionPayoff.type')}</span>
+            <select class="input" id="op-type">
+              <option value="call" ${type === 'call' ? 'selected' : ''}>${t('options.call')}</option>
+              <option value="put" ${type === 'put' ? 'selected' : ''}>${t('options.put')}</option>
+            </select>
+          </label>
+          <label class="demo-field"><span class="field-label">${t('demo.optionPayoff.strike')}</span><input class="input" id="op-strike" type="number" min="1" step="0.5" value="${strike}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.optionPayoff.premium')}</span><input class="input" id="op-premium" type="number" min="0.1" step="0.1" value="${premium}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.optionPayoff.qty')}</span><input class="input" id="op-qty" type="number" min="1" step="1" value="${qty}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.optionPayoff.spot')}</span><input class="input" id="op-spot" type="number" min="1" step="0.5" value="${spot}"></label>
+        </div>
+        <div class="demo-result-grid">
+          <div class="demo-result"><span>${t('demo.optionPayoff.atExpiry')}</span><strong class="${payoff.pnl > 0 ? 'up' : payoff.pnl < 0 ? 'down' : ''}">${signedMoney(payoff.pnl, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.optionPayoff.breakeven')}</span><strong>${money(payoff.breakeven, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.optionPayoff.maxLoss')}</span><strong class="down">${money(payoff.maxLoss, i18n.locale)}</strong></div>
+        </div>
+        <div class="chart-wrap"><canvas id="payoff-chart" style="height:190px"></canvas></div>
+        ${demoNote(t('demo.optionPayoff.note'))}`,
+    );
+    const canvas = node.querySelector('#payoff-chart');
+    if (canvas) {
+      chart = new LineChart(canvas, {
+        height: 190,
+        color: '#5eead4',
+        yFormat: (value) => money(value, i18n.locale, 2),
+        padding: { top: 12, right: 12, bottom: 22, left: 74 },
+      });
+      chart.setData({
+        values,
+        labels: [money(low, i18n.locale), money(high, i18n.locale)],
+      });
+    }
+    ['#op-type', '#op-strike', '#op-premium', '#op-qty', '#op-spot'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        type = node.querySelector('#op-type').value;
+        strike = Math.max(1, Number(node.querySelector('#op-strike').value) || strike);
+        premium = Math.max(0.1, Number(node.querySelector('#op-premium').value) || premium);
+        qty = Math.max(1, Math.floor(Number(node.querySelector('#op-qty').value) || qty));
+        spot = Math.max(1, Number(node.querySelector('#op-spot').value) || spot);
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {
+    if (chart) chart.destroy();
+  };
+}
+
+function mountGreeks(node, ctx) {
+  const { i18n, actions } = ctx;
+  const t = (key, params) => i18n.t(key, params);
+  let type = 'call';
+  let spot = 50;
+  let strike = 50;
+  let vol = 30;
+  let days = 60;
+
+  function render() {
+    const greeks = blackScholes({
+      type, spot, strike, vol: vol / 100, years: days / 252,
+    });
+    node.innerHTML = demoShell(
+      t('demo.greeks.title'),
+      t('demo.greeks.desc'),
+      `
+        <div class="demo-inputs">
+          <label class="demo-field"><span class="field-label">${t('demo.greeks.type')}</span>
+            <select class="input" id="gk-type">
+              <option value="call" ${type === 'call' ? 'selected' : ''}>${t('options.call')}</option>
+              <option value="put" ${type === 'put' ? 'selected' : ''}>${t('options.put')}</option>
+            </select>
+          </label>
+          <label class="demo-field"><span class="field-label">${t('demo.greeks.spot')}</span><input class="input" id="gk-spot" type="number" min="1" step="0.5" value="${spot}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.greeks.strike')}</span><input class="input" id="gk-strike" type="number" min="1" step="0.5" value="${strike}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.greeks.vol')}</span><input class="input" id="gk-vol" type="number" min="1" step="1" value="${vol}"></label>
+          <label class="demo-field"><span class="field-label">${t('demo.greeks.days')}</span><input class="input" id="gk-days" type="number" min="1" step="1" value="${days}"></label>
+        </div>
+        <div class="demo-result-grid demo-result-grid--four">
+          <div class="demo-result"><span>${t('demo.greeks.price')}</span><strong>${money(greeks.price, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>Δ Delta</span><strong>${num(greeks.delta, i18n.locale, 3)}</strong></div>
+          <div class="demo-result"><span>Γ Gamma</span><strong>${num(greeks.gamma, i18n.locale, 4)}</strong></div>
+          <div class="demo-result"><span>Θ Theta</span><strong>${money(greeks.theta, i18n.locale, 2)}</strong></div>
+          <div class="demo-result"><span>Vega</span><strong>${num(greeks.vega, i18n.locale, 2)}</strong></div>
+          <div class="demo-result"><span>Rho</span><strong>${num(greeks.rho, i18n.locale, 3)}</strong></div>
+          <div class="demo-result"><span>${t('demo.greeks.intrinsic')}</span><strong>${money(greeks.intrinsic, i18n.locale)}</strong></div>
+          <div class="demo-result"><span>${t('demo.greeks.timeValue')}</span><strong>${money(greeks.timeValue, i18n.locale)}</strong></div>
+        </div>
+        ${demoNote(t('demo.greeks.note'))}`,
+    );
+    ['#gk-type', '#gk-spot', '#gk-strike', '#gk-vol', '#gk-days'].forEach((id) => {
+      node.querySelector(id)?.addEventListener('change', () => {
+        type = node.querySelector('#gk-type').value;
+        spot = Math.max(1, Number(node.querySelector('#gk-spot').value) || spot);
+        strike = Math.max(1, Number(node.querySelector('#gk-strike').value) || strike);
+        vol = Math.max(1, Number(node.querySelector('#gk-vol').value) || vol);
+        days = Math.max(1, Math.floor(Number(node.querySelector('#gk-days').value) || days));
+        if (actions && actions.completeDemo) actions.completeDemo('greeks');
+        render();
+      });
+    });
+  }
+
+  render();
+  return () => {};
+}
+
 const DEMOS = {
   marketCap: mountMarketCap,
   spread: mountSpread,
@@ -1319,6 +1454,8 @@ const DEMOS = {
   margin: mountMargin,
   stopOrder: mountStopOrder,
   orderBook: mountOrderBook,
+  optionPayoff: mountOptionPayoff,
+  greeks: mountGreeks,
 };
 
 export function mountDemo(demoId, node, ctx) {

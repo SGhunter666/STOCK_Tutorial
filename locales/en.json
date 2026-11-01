@@ -80,7 +80,11 @@
     "insufficientMargin": "Insufficient collateral to open a short that large.",
     "stopDirection": "The trigger must sit on the correct side of the market.",
     "shortLocked": "Short selling is locked. Read section 1 of Unit 17 first.",
-    "stopLocked": "Stop orders are locked. Read section 1 of Unit 19 first."
+    "stopLocked": "Stop orders are locked. Read section 1 of Unit 19 first.",
+    "optionsLocked": "Options are locked. Read section 1 of Unit 21 first.",
+    "contractNotFound": "That option contract could not be found.",
+    "noOptionPosition": "There is no option position to close.",
+    "insufficientContracts": "Not enough contracts available to close."
   },
   "toast": {
     "welcome": "Welcome to Stock Market Academy. Start with the first lesson and practise real market logic with virtual money.",
@@ -107,7 +111,10 @@
     "importInvalid": "This save could not be imported ({reason}).",
     "dividendOwed": "Short dividend owed {amount} across {count} positions",
     "financingCharged": "Financing interest charged {amount}",
-    "marginCall": "Margin call: {count} positions were liquidated"
+    "marginCall": "Margin call: {count} positions were liquidated",
+    "optionBought": "Bought {qty} {type} contract(s) at strike {strike}",
+    "optionClosed": "Option closed with realised P&L {pnl}",
+    "optionSettled": "{count} contract(s) settled at expiry, P&L {amount}"
   },
   "stage": {
     "stage1": {
@@ -225,20 +232,20 @@
       "summary": "Bids, asks, spread, depth and slippage."
     },
     "u21": {
-      "title": "Introduction to Options",
-      "summary": "Contracts, underlying assets, calls, puts, strikes, premiums and expiration."
+      "title": "Options Basics",
+      "summary": "Contract terms, calls and puts, strikes and premiums."
     },
     "u22": {
-      "title": "Call Options",
-      "summary": "Buying calls, expiry payoffs, breakeven, time value, ITM, ATM and OTM."
+      "title": "Buying Calls",
+      "summary": "Call payoff, breakeven and time decay."
     },
     "u23": {
-      "title": "Put Options",
-      "summary": "Buying puts, profiting from declines, expiry payoffs and protective puts."
+      "title": "Buying Puts",
+      "summary": "Put payoff, hedging and protective puts."
     },
     "u24": {
-      "title": "Option Pricing",
-      "summary": "Intrinsic value, time value, implied volatility, Theta, Delta, Gamma and Vega."
+      "title": "Pricing & Greeks",
+      "summary": "Intrinsic value, time value, Black-Scholes and the five Greeks."
     },
     "u25": {
       "title": "Selling Options",
@@ -1511,6 +1518,179 @@
           "text": "Evaluate both price and probability of completion. Large capital cares more about market impact than a single commission."
         }
       }
+    },
+    "u21": {
+      "s1": {
+        "title": "The four contract terms",
+        "p1": "An option gives the buyer the right, not the obligation, to buy or sell the underlying at the strike on expiry. The buyer pays a premium for that right.",
+        "p2": "A contract usually covers 100 shares; the expiry sets how long the right lasts. This game uses European options that can only be exercised at expiry.",
+        "list": {
+          "title": "Every option contract specifies",
+          "i1": "Underlying asset",
+          "i2": "Strike price",
+          "i3": "Expiry date",
+          "i4": "Premium"
+        },
+        "example": {
+          "title": "Worked example",
+          "l1": "AURA trades at $50; a 30-day $55 call costs $1.20.",
+          "l2": "One contract costs $1.20 × 100 = $120 before commission."
+        }
+      },
+      "s2": {
+        "title": "Calls and puts",
+        "p1": "A call gives the buyer the right to buy the underlying at the strike; a put gives the right to sell it at the strike.",
+        "p2": "Buyers pay the premium and have limited loss; sellers collect the premium but carry the obligation. This stage is long-only.",
+        "info": {
+          "title": "Scope of this game",
+          "text": "Only buying is supported for now: hold to expiry or close early at the model value. Selling options and multi-leg strategies come later."
+        }
+      },
+      "s3": {
+        "title": "Strike and premium",
+        "p1": "The strike determines intrinsic value: a call is worth max(spot − strike, 0); a put is the reverse.",
+        "p2": "Premium = intrinsic value + time value. Time value shrinks toward expiry and grows with volatility.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Spot $52 and a $50 call have $2 of intrinsic value.",
+          "l2": "If the premium is $3.10, time value is $3.10 − $2 = $1.10."
+        },
+        "warn": {
+          "title": "Risk note",
+          "text": "The premium can go to zero. The buyer’s maximum loss is the premium paid, but that does not raise the odds of winning."
+        }
+      }
+    },
+    "u22": {
+      "s1": {
+        "title": "The logic of buying calls",
+        "p1": "A long call expresses a bullish view. A small premium controls 100 shares, so both gains and losses are amplified.",
+        "p2": "A rally magnifies the payoff; without a rally the premium can expire worthless. Time hurts buyers, volatility helps them.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50 strike call costs $2, so one contract costs $200.",
+          "l2": "At expiry the stock is $60: intrinsic $10 × 100 = $1,000, a $800 profit."
+        }
+      },
+      "s2": {
+        "title": "Payoff and breakeven",
+        "p1": "Expiry P&L = max(spot − strike, 0) × 100 × contracts − premium paid.",
+        "p2": "Breakeven = strike + premium per share. The stock must finish above that level for the buyer to profit.",
+        "formula": "Expiry P&L = max(S − K, 0) × 100 × contracts − premium",
+        "note": "S is the expiry price and K the strike; commissions and taxes are excluded.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50 strike call with a $2 premium breaks even at $52.",
+          "l2": "At $55 the profit is ($55 − $50 − $2) × 100 = $300."
+        },
+        "list": {
+          "title": "Check before buying a call",
+          "i1": "How far the strike sits from spot",
+          "i2": "Premium as a share of the account",
+          "i3": "Whether a catalyst remains before expiry"
+        }
+      },
+      "s3": {
+        "title": "Time and volatility",
+        "p1": "Theta erodes the premium every day and accelerates near expiry. Even a correct direction can lose money if it takes too long.",
+        "p2": "A drop in implied volatility also lowers the premium, which can offset a rally in the underlying.",
+        "warn": {
+          "title": "Risk note",
+          "text": "Buying a call is not a guaranteed bullish trade. The stock must rise enough, fast enough, to beat time decay."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Size positions to cap premium spend and treat options as limited-risk expressions, not a sure path to leverage."
+        }
+      }
+    },
+    "u23": {
+      "s1": {
+        "title": "The logic of buying puts",
+        "p1": "A long put gives the right to sell at the strike, so its value rises when the underlying falls.",
+        "p2": "Puts can speculate on a decline or insure an existing holding; the premium is the insurance cost.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50 strike put costs $2, so one contract costs $200.",
+          "l2": "At expiry the stock is $40: intrinsic $10 × 100 = $1,000, an $800 profit."
+        }
+      },
+      "s2": {
+        "title": "Put payoff",
+        "p1": "Expiry P&L = max(strike − spot, 0) × 100 × contracts − premium paid.",
+        "p2": "Breakeven = strike − premium per share. The stock must finish below that level for the buyer to profit.",
+        "formula": "Expiry P&L = max(K − S, 0) × 100 × contracts − premium",
+        "note": "S is the expiry price and K the strike; commissions and taxes are excluded.",
+        "example": {
+          "title": "Worked example",
+          "l1": "A $50 strike put with a $2 premium breaks even at $48.",
+          "l2": "At $45 the profit is ($50 − $45 − $2) × 100 = $300."
+        },
+        "list": {
+          "title": "Check before buying a put",
+          "i1": "How far the stock must fall to profit",
+          "i2": "Whether the premium is fair insurance",
+          "i3": "Whether the expiry gives enough time"
+        }
+      },
+      "s3": {
+        "title": "Protective puts",
+        "p1": "Stock plus a long put is a protective put: downside is capped, at the cost of the premium.",
+        "p2": "Insurance is not free. Continuous protection drags on long-term returns, but it helps around uncertain events.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Hold $10,000 of stock and buy a $45 strike put for $200.",
+          "l2": "If the stock crashes, the maximum loss is capped by the strike and the premium."
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Compare insurance cost with the drawdown you can tolerate. Do not over-insure noise, but do not stay naked into major events either."
+        }
+      }
+    },
+    "u24": {
+      "s1": {
+        "title": "Intrinsic and time value",
+        "p1": "Premium = intrinsic value + time value. Time value reflects the possibility of future moves.",
+        "p2": "Implied volatility is the market’s price for future movement. Higher volatility makes options more expensive.",
+        "example": {
+          "title": "Worked example",
+          "l1": "Spot $52 and a $50 call have $2 of intrinsic value.",
+          "l2": "At a $3.10 premium, time value is $1.10 and shrinks toward expiry."
+        }
+      },
+      "s2": {
+        "title": "The five Black-Scholes inputs",
+        "p1": "The model prices European options from spot, strike, time to expiry, volatility and the risk-free rate.",
+        "p2": "Volatility and time matter most to buyers; rates have a smaller effect.",
+        "formula": "Call = S · N(d1) − K · e^(−rT) · N(d2)",
+        "note": "This game uses a 4% risk-free rate and simulated company volatility; results are teaching estimates only.",
+        "list": {
+          "title": "Five inputs",
+          "i1": "Spot S",
+          "i2": "Strike K",
+          "i3": "Time to expiry T",
+          "i4": "Volatility σ",
+          "i5": "Risk-free rate r"
+        }
+      },
+      "s3": {
+        "title": "The Greeks",
+        "p1": "Delta measures how much the premium moves for a $1 move in the underlying; gamma measures how fast delta changes.",
+        "p2": "Theta is time decay, vega is volatility sensitivity and rho is rate sensitivity.",
+        "list": {
+          "title": "The five Greeks",
+          "i1": "Delta: directional sensitivity",
+          "i2": "Gamma: speed of change in delta",
+          "i3": "Theta: daily time decay",
+          "i4": "Vega: effect of a 1 point volatility move",
+          "i5": "Rho: effect of a 1 point rate move"
+        },
+        "pro": {
+          "title": "Professional view",
+          "text": "Use Greeks to manage portfolio risk, not to predict direction. Watch delta and theta first, then volatility exposure."
+        }
+      }
     }
   },
   "practice": {
@@ -1652,6 +1832,30 @@
       "requirement": "Switch stocks or change the order size in the order book demo to see spread, depth and slippage.",
       "hint": "Switching the stock or entering a larger quantity records the demo.",
       "action": "Open the order book lesson"
+    },
+    "u21": {
+      "title": "Buy your first option",
+      "requirement": "Buy any call or put contract on the options page.",
+      "hint": "Read section 1 of Unit 21 to unlock options, then choose a contract from the chain and buy it.",
+      "action": "Open options"
+    },
+    "u22": {
+      "title": "Buy a call",
+      "requirement": "Buy at least one call contract on the options page.",
+      "hint": "Pick a strike from the call column, check the premium and cost, then submit.",
+      "action": "Buy a call"
+    },
+    "u23": {
+      "title": "Buy a put",
+      "requirement": "Buy at least one put contract on the options page.",
+      "hint": "Pick a strike from the put column, check the premium and cost, then submit.",
+      "action": "Buy a put"
+    },
+    "u24": {
+      "title": "Complete the Greeks lab",
+      "requirement": "Adjust spot, strike, volatility or time in the Greeks demo and watch all five Greeks change.",
+      "hint": "Changing any input records the demo.",
+      "action": "Open the Greeks lesson"
     }
   },
   "quiz": {
@@ -2403,6 +2607,130 @@
         "work": "Value = {size1} × {best} + ({qty} − {size1}) × {second}; average = value ÷ {qty} ≈ {answer}.",
         "explain": "A large order fills level by level; the average is the size-weighted price."
       }
+    },
+    "u21": {
+      "q1": {
+        "prompt": "What is the core right of an option buyer?",
+        "o1": "The right, but not the obligation, to buy or sell at the strike",
+        "o2": "The obligation to buy at the strike",
+        "o3": "A guaranteed cash dividend",
+        "o4": "A guaranteed profit at expiry",
+        "explain": "The buyer pays a premium for a right and can choose whether to exercise."
+      },
+      "q2": {
+        "prompt": "A standard US equity option usually covers how many shares?",
+        "o1": "1 share",
+        "o2": "10 shares",
+        "o3": "100 shares",
+        "o4": "1,000 shares",
+        "explain": "The standard multiplier is 100 shares: premiums are quoted per share but settle on 100."
+      },
+      "q3": {
+        "prompt": "Which terms define an option contract?",
+        "o1": "Underlying asset",
+        "o2": "Strike price",
+        "o3": "Expiry date",
+        "o4": "Premium",
+        "explain": "Underlying, strike, expiry and premium together define the contract."
+      },
+      "q4": {
+        "prompt": "At expiry the underlying is {spot} and the strike is {strike}. What is the call’s intrinsic value per share?",
+        "work": "Intrinsic = max({spot} − {strike}, 0) = {answer}.",
+        "explain": "A call’s intrinsic value is max(spot − strike, 0)."
+      }
+    },
+    "u22": {
+      "q1": {
+        "prompt": "When does a long call profit at expiry?",
+        "o1": "When the stock is above the strike",
+        "o2": "When the stock is above the strike plus the premium per share",
+        "o3": "When the stock is below the strike",
+        "o4": "Whenever the stock rises at all",
+        "explain": "The stock must clear the breakeven of strike plus premium."
+      },
+      "q2": {
+        "prompt": "What is the maximum loss on a long call?",
+        "o1": "The premium paid plus commission",
+        "o2": "Strike × 100",
+        "o3": "Unlimited",
+        "o4": "The stock decline × 100",
+        "explain": "A long call can lose at most the premium and commission paid."
+      },
+      "q3": {
+        "prompt": "Which factors usually raise a call premium?",
+        "o1": "A higher underlying price",
+        "o2": "Higher implied volatility",
+        "o3": "More time to expiry",
+        "o4": "A much higher strike",
+        "explain": "Higher spot, higher volatility and more time all raise call value."
+      },
+      "q4": {
+        "prompt": "Strike {strike} with a premium of {premium} per share. What is the call breakeven?",
+        "work": "Breakeven = {strike} + {premium} = {answer}.",
+        "explain": "Call breakeven = strike + premium per share."
+      }
+    },
+    "u23": {
+      "q1": {
+        "prompt": "What right does a put buyer hold?",
+        "o1": "To sell the underlying at the strike",
+        "o2": "To buy the underlying at the strike",
+        "o3": "To receive company dividends",
+        "o4": "To force a company buyback",
+        "explain": "A put gives the buyer the right to sell at the strike."
+      },
+      "q2": {
+        "prompt": "When does a long put profit at expiry?",
+        "o1": "When the stock is above the strike",
+        "o2": "When the stock is below the strike minus the premium per share",
+        "o3": "When the stock equals the strike",
+        "o4": "Whenever the stock falls at all",
+        "explain": "The stock must fall below the breakeven of strike minus premium."
+      },
+      "q3": {
+        "prompt": "What can a long put be used for?",
+        "o1": "Hedging downside risk",
+        "o2": "Expressing a bearish view",
+        "o3": "Buying insurance for a portfolio",
+        "o4": "Increasing dividend income",
+        "explain": "Puts hedge, speculate on declines and insure; they do not raise dividends."
+      },
+      "q4": {
+        "prompt": "Strike {strike} with a premium of {premium} per share. What is the put breakeven?",
+        "work": "Breakeven = {strike} − {premium} = {answer}.",
+        "explain": "Put breakeven = strike − premium per share."
+      }
+    },
+    "u24": {
+      "q1": {
+        "prompt": "As expiry approaches, what usually happens to an option’s time value?",
+        "o1": "It decays toward zero",
+        "o2": "It rises steadily",
+        "o3": "It stays constant",
+        "o4": "It first falls then rises",
+        "explain": "Time value decays toward expiry; theta is negative for long options."
+      },
+      "q2": {
+        "prompt": "Higher implied volatility usually does what to call and put premiums?",
+        "o1": "Raises both",
+        "o2": "Lowers both",
+        "o3": "Raises calls only",
+        "o4": "Raises puts only",
+        "explain": "Higher volatility raises uncertainty and the time value of both calls and puts."
+      },
+      "q3": {
+        "prompt": "Which statements about the Greeks are correct?",
+        "o1": "Delta measures the premium change for a $1 move in the underlying",
+        "o2": "Gamma measures how fast delta changes",
+        "o3": "Theta is usually negative for buyers and represents time decay",
+        "o4": "Vega measures the impact of a change in the strike",
+        "explain": "Delta, gamma and theta are described correctly; vega measures volatility sensitivity, not strike changes."
+      },
+      "q4": {
+        "prompt": "A call with spot {spot}, strike {strike} trades at {premium}. What is its time value?",
+        "work": "Intrinsic = {spot} − {strike}; time value = {premium} − intrinsic = {answer}.",
+        "explain": "Time value = premium − intrinsic value."
+      }
     }
   },
   "demo": {
@@ -2656,6 +2984,32 @@
       "slippage": "Slippage",
       "filled": "Fillable quantity",
       "note": "The teaching book is derived from the quote, not real orders; real depth changes quickly."
+    },
+    "optionPayoff": {
+      "title": "Option payoff lab",
+      "desc": "Switch between calls and puts, adjust strike, premium and expiry price, and watch the payoff and breakeven.",
+      "type": "Option type",
+      "strike": "Strike",
+      "premium": "Premium per share",
+      "qty": "Contracts",
+      "spot": "Expiry price",
+      "atExpiry": "P&L at expiry",
+      "breakeven": "Breakeven",
+      "maxLoss": "Maximum loss",
+      "note": "Excludes commissions and taxes; European options settle only at expiry."
+    },
+    "greeks": {
+      "title": "Greeks lab",
+      "desc": "Adjust spot, strike, volatility and time to expiry to see the premium and all five Greeks.",
+      "type": "Option type",
+      "spot": "Spot price",
+      "strike": "Strike",
+      "vol": "Volatility (%)",
+      "days": "Days left",
+      "price": "Theoretical premium",
+      "intrinsic": "Intrinsic value",
+      "timeValue": "Time value",
+      "note": "Estimated with a 4% risk-free rate and Black-Scholes; teaching only."
     }
   },
   "unlock": {
@@ -2685,7 +3039,7 @@
     },
     "options": {
       "title": "Options trading",
-      "desc": "Trade calls and puts; learn premiums, time value, Greeks and expiry settlement."
+      "desc": "Unlocked after section 1 of Unit 21: buy calls and puts, read premiums, breakevens and Greeks."
     },
     "futures": {
       "title": "Futures",
@@ -3018,6 +3372,41 @@
         "name": "Order book",
         "def": "The list of resting bids and asks by price, showing size at each level.",
         "example": "Bid $49.99 and ask $50.01 give a $0.02 spread."
+      },
+      "optionContract": {
+        "name": "Option contract",
+        "def": "Gives the buyer the right to buy or sell the underlying at the strike on expiry, in exchange for a premium.",
+        "example": "An AURA $55 call with 30 days left costs $1.20."
+      },
+      "callOption": {
+        "name": "Call option",
+        "def": "The right to buy the underlying at the strike on expiry; a bullish expression.",
+        "example": "A $50 call has $10 of intrinsic value when the stock reaches $60."
+      },
+      "putOption": {
+        "name": "Put option",
+        "def": "The right to sell the underlying at the strike on expiry; used for bearish views or hedging.",
+        "example": "A $50 put has $10 of intrinsic value when the stock falls to $40."
+      },
+      "strikePrice": {
+        "name": "Strike price",
+        "def": "The contracted price at which the underlying can be bought or sold; it sets intrinsic value.",
+        "example": "A $50 call with spot at $55 has $5 of intrinsic value."
+      },
+      "optionPremium": {
+        "name": "Option premium",
+        "def": "The price paid for the option, equal to intrinsic value plus time value.",
+        "example": "$2 intrinsic plus $1.10 time value gives a $3.10 premium."
+      },
+      "impliedVolatility": {
+        "name": "Implied volatility",
+        "def": "The market’s price for future movement; higher implied volatility makes options more expensive.",
+        "example": "When implied volatility rises from 30% to 40%, call and put premiums usually rise."
+      },
+      "greeks": {
+        "name": "Greeks",
+        "def": "Sensitivities of option prices to different inputs: Delta, Gamma, Theta, Vega and Rho.",
+        "example": "A delta of 0.5 means the premium rises about $0.50 for a $1 move."
       }
     }
   },
@@ -3895,5 +4284,52 @@
       "inflation": "High inflation",
       "neutral": "Neutral"
     }
+  },
+  "options": {
+    "eyebrow": "Derivatives · Options",
+    "title": "Options Desk",
+    "subtitle": "Express direction, volatility and hedging views with limited premium at risk.",
+    "lockedTitle": "Options are still locked",
+    "lockedText": "Read section 1 of Unit 21 to unlock call and put buying.",
+    "lockedAction": "Open Unit 21",
+    "chainTitle": "Option chain",
+    "chainSubtitle": "{ticker} · {days}-day expiry",
+    "spotLabel": "Spot {value}",
+    "strike": "Strike",
+    "call": "Call",
+    "put": "Put",
+    "delta": "Delta",
+    "selectCall": "Pick call",
+    "selectPut": "Pick put",
+    "chainNote": "Premiums come from Black-Scholes and simulated company volatility, not real quotes.",
+    "ticketTitle": "Buy an option",
+    "ticketSubtitle": "The buyer pays a premium and has limited loss",
+    "contract": "Contract",
+    "contracts": "Contracts",
+    "contractSize": "{size} shares per contract",
+    "cashAvailable": "Cash available {value}",
+    "feeNote": "{fee} commission per fill; the premium is deducted from cash.",
+    "premium": "Premium per share",
+    "totalCost": "Total cost",
+    "breakeven": "Breakeven",
+    "ticketBreakeven": "Expiry breakeven {value}; commission excluded.",
+    "buyButton": "Buy contract",
+    "expiryIn": "Expires in {days} days",
+    "expiryOption": "{days} days",
+    "avgPremium": "Average premium",
+    "currentValue": "Current value",
+    "pnl": "P&L",
+    "daysLeft": "Left",
+    "daysLeftValue": "{days} days",
+    "close": "Close",
+    "noPositions": "No option positions yet.",
+    "positionsTitle": "Option positions",
+    "positionsSubtitle": "{count} contracts",
+    "expiryShort": "Expiry day {day}",
+    "gamma": "Gamma",
+    "theta": "Theta",
+    "noContract": "Pick a valid contract first.",
+    "educationTitle": "Pricing assumptions",
+    "educationText": "Volatility is about {vol} and the selected contract expires on simulated day {expiry}. The model is for teaching, not a quote or advice."
   }
 }

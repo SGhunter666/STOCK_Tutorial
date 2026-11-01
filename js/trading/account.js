@@ -20,6 +20,10 @@ export function createAccount(initialCash = 10000) {
     feesPaid: 0,
     financingPaid: 0,
     marginCalls: [],
+    options: [],
+    optionTrades: [],
+    optionSeq: 1,
+    optionRealized: 0,
     trades: [],
     tradeSeq: 1,
     dividends: [],
@@ -262,8 +266,20 @@ export function unrealizedPnl(account, quotes) {
   return pnl;
 }
 
+export function optionValue(account) {
+  return (account.options || []).reduce((sum, position) => (
+    sum + (position.currentValue || 0) * position.qty * 100
+  ), 0);
+}
+
+export function optionUnrealizedPnl(account) {
+  return (account.options || []).reduce((sum, position) => (
+    sum + ((position.currentValue || 0) * position.qty * 100 - position.costBasis)
+  ), 0);
+}
+
 export function equity(account, quotes) {
-  return account.cash + marketValue(account, quotes);
+  return account.cash + marketValue(account, quotes) + optionValue(account);
 }
 
 export function totalPnl(account, quotes) {

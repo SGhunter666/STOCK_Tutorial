@@ -20,6 +20,10 @@ import {
   snapshotEquity, buyingPower, shortCapacity,
 } from './trading/account.js';
 import { marginStatus, applyFinancing, forceLiquidation } from './trading/margin.js';
+import { buildOptionChain, findContract } from './options/chains.js';
+import {
+  buyOption, closeOption, markOptions, settleOptions,
+} from './options/optionsEngine.js';
 import { money } from './core/format.js';
 import {
   markSectionRead, recordQuizResult,
@@ -30,6 +34,7 @@ import { allTools, isToolUnlocked, TOOL_DEFS } from './education/unlockManager.j
 import { isCompanyUnlocked, newlyUnlockedSegments, segmentById } from './market/marketAccess.js';
 import { evaluateAchievements, achievementById } from './education/progress.js';
 import { getUnit } from './education/curriculum.js';
+import { getCompany } from './data/companies.js';
 import { createShell } from './ui/shell.js';
 import { Router } from './ui/router.js';
 import { initComponents, toast, openLockedToolModal } from './ui/components.js';
@@ -41,6 +46,7 @@ import { createQuizView } from './ui/views/quiz.js';
 import { createPracticeView } from './ui/views/practice.js';
 import { createMarketView } from './ui/views/market.js';
 import { createTradeView } from './ui/views/trading.js';
+import { createOptionsView } from './ui/views/options.js';
 import { createPortfolioView } from './ui/views/portfolio.js';
 import { createNewsView } from './ui/views/news.js';
 import { createGlossaryView } from './ui/views/glossary.js';
@@ -391,6 +397,73 @@ const actions = {
     toast(i18n.t('toast.orderCancelled'), 'info');
     scheduleSave();
   },
+  buyOptionContract({ ticker, type, strike, expiryDay, qty }) {
+    const state = store.get();
+    if (!isToolUnlocked(state, 'options.trade')) {
+      toast(i18n.t('error.optionsLocked'), 'error');
+      return { ok: false, error: 'error.optionsLocked' };
+    }
+    if (!isCompanyUnlocked(state, ticker)) {
+      toast(i18n.t('error.marketLocked'), 'error');
+      return { ok: false, error: 'error.marketLocked' };
+    }
+    const company = getCompany(ticker);
+    const quote = state.market.quotes[ticker];
+    if (!company || !quote) return { ok: false, error: 'error.unknownTicker' };
+    const contract = findContract(buildOptionChain(company, quote, state.market.day), {
+      type, strike, expiryDay,
+    });
+    if (!contract) {
+      toast(i18n.t('error.contractNotFound'), 'error');
+      return { ok: false, error: 'error.contractNotFound' };
+    }
+    const result = buyOption(state.account, {
+      contract,
+      qty,
+      fee: state.settings.commission,
+      day: state.market.day,
+      tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'error');
+      return result;
+    }
+    store.update((s) => {
+      s.account = result.account;
+    }, { type: 'option:bought' });
+    toast(i18n.t('toast.optionBought', {
+      type: i18n.t(`options.${type}`),
+      strike: money(strike, i18n.locale),
+      qty,
+    }), 'success', 3600);
+    scheduleSave();
+    syncPractice(store, bus);
+    announceAchievements();
+    return result;
+  },
+  closeOptionContract(key, qty) {
+    const state = store.get();
+    const result = closeOption(state.account, {
+      key,
+      qty,
+      fee: state.settings.commission,
+      day: state.market.day,
+      tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'error');
+      return result;
+    }
+    store.update((s) => {
+      s.account = result.account;
+    }, { type: 'option:closed' });
+    toast(i18n.t('toast.optionClosed', {
+      pnl: money(result.trade.realized, i18n.locale),
+    }), 'info', 3600);
+    scheduleSave();
+    syncPractice(store, bus);
+    return result;
+  },
   markSectionRead(unitId, sectionId) {
     const result = markSectionRead(store, bus, unitId, sectionId);
     if (result?.ok && result.xpGained) {
@@ -496,6 +569,7 @@ function runSimulation(ticks) {
   let orders = state.orders;
   let fills = [];
   let dividends = [];
+  let optionSettlements = [];
   let financing = 0;
   let marginCall = null;
   let dayClosed = false;
@@ -518,6 +592,7 @@ function runSimulation(ticks) {
     account = processed.account;
     orders = processed.orders;
     fills = [...fills, ...processed.fills];
+    account = markOptions(account, state.market.quotes, state.market.day);
     if (tickResult.dayClosed) {
       dayClosed = true;
       const financed = applyFinancing(account, prevDay);
@@ -526,6 +601,9 @@ function runSimulation(ticks) {
       const applied = applyDividends(account, payableDividends(account, prevDay));
       account = applied.account;
       dividends = [...dividends, ...applied.dividends];
+      const settled = settleOptions(account, state.market.quotes, Math.max(0, prevDay));
+      account = settled.account;
+      optionSettlements = [...optionSettlements, ...settled.settlements];
       if (allowDebit || (account.positions && Object.keys(account.positions).length)) {
         const status = marginStatus(account, state.market.quotes);
         if (status.breached) {
@@ -586,6 +664,14 @@ function runSimulation(ticks) {
   }
   if (financing > 0) {
     toast(i18n.t('toast.financingCharged', { amount: money(financing, i18n.locale) }), 'warning', 3600);
+  }
+  if (optionSettlements.length) {
+    const pnl = optionSettlements.reduce((sum, row) => sum + row.realized, 0);
+    toast(i18n.t('toast.optionSettled', {
+      count: optionSettlements.length,
+      amount: money(pnl, i18n.locale),
+    }), pnl >= 0 ? 'success' : 'warning', 4200);
+    announceAchievements();
   }
   if (marginCall) {
     toast(i18n.t('toast.marginCall', { count: marginCall.closed.length }), 'error', 5200);
@@ -733,7 +819,7 @@ function renderRoute(route) {
         : createHistoryListView(ctx);
       break;
     case 'options':
-      view = createLockedFeatureView(ctx, 'options');
+      view = createOptionsView(ctx);
       break;
     case 'challenges':
       view = createLockedFeatureView(ctx, 'challenges');

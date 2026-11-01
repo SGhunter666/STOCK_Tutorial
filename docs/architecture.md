@@ -1,6 +1,6 @@
-# Stock Market Academy — 架构设计说明（Phase 2–3 Stage 5 基线）
+# Stock Market Academy — 架构设计说明（Phase 2–3 Stage 6 基线）
 
-本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 2（Stage 2–4）与 Phase 3 的 Stage 5 已完成，未改变分层。
+本文档描述当前代码如何组织、状态如何流动、金融计算在哪里发生，以及后续阶段在哪里扩展。Phase 2（Stage 2–4）与 Phase 3 的 Stage 5–6 已完成，未改变分层。
 
 ## 1. 技术栈与约束
 
@@ -88,13 +88,13 @@ P(t+1) = P(t) × exp(r(t))
 
 ## 8. 教学引擎
 
-- `curriculum.js`：Stage 1–5 共二十个单元，章节由 block 组成（`paragraph / list / callout / formula / example / term / demo / table`），并附带练习定义与测验题库。
+- `curriculum.js`：Stage 1–6 共二十四个单元，章节由 block 组成（`paragraph / list / callout / formula / example / term / demo / table`），并附带练习定义与测验题库。
 - `lessonEngine.js`：记录已读章节；只有读完必要章节 + 通过实战 + 测验 ≥ 80% 才完成单元。
 - `practiceEngine.js`：订阅交易 / 查看 / 课程事件，自动验证真实操作（例如完成一次买入、查看订单状态）。
 - `quizEngine.js`：评分、补考、跳级测试；答案与解析均来自双语词典。
 - `unlockManager.js` + `marketAccess.js`：工具与市场板块按单元完成度解锁；视图与下单接口都校验。
 - `progress.js`：XP、等级、成就评估。
-- `glossary.js`：49 个术语，含中英名称、定义、示例、所属单元、相关术语。
+- `glossary.js`：56 个术语，含中英名称、定义、示例、所属单元、相关术语。
 
 教学闭环：Learn（章节）→ Demonstrate（Canvas 互动演示）→ Practice（真实操作校验）→ Test（测验）→ Unlock（工具 / 板块 / 下一单元）。
 
@@ -125,7 +125,7 @@ P(t+1) = P(t) × exp(r(t))
 
 - `tests/index.html` 浏览器内运行，`tests/harness.js` 提供 suite / test / assert。
 - 覆盖：账户数学、订单撮合与预留、市场确定性与无 NaN、板块解锁与迁移、组合、测验评分、学习进度、实战校验、存档校验、历史数据完整性、回放成交与无未来数据、事件时间线、双语结构与页面键覆盖。
-- 当前 106 项全部通过。新增能力必须同时补逻辑测试与双语键。
+- 当前 115 项全部通过。新增能力必须同时补逻辑测试与双语键。
 
 ## 13. Phase 2 实现状态
 
@@ -159,3 +159,17 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 订单簿与滑点 | `market/orderBook.js`：`buildOrderBook` / `estimateMarketFill` | 五档深度由当前报价与 ticker 哈希确定性生成；大单逐档成交、计算加权均价与滑点；仅用于教学与进阶布局展示 |
 
 边界：借券费未单独收取；融资利率与维持保证金比例为固定教学假设；强制平仓在日结执行，不模拟盘中逐笔强平；订单簿不代表真实挂单。
+
+## 15. Phase 3 Stage 6 实现状态
+
+期权为只做多（买入）的欧式合约，权利金与结算都走同一个现金账户。
+
+| 能力 | 扩展位置 | 关键约束 |
+| --- | --- | --- |
+| 期权定价 | `options/pricing.js`：`blackScholes`、`normCdf`、`payoffAtExpiry` | 固定 4% 无风险利率；Theta 按交易日、Vega / Rho 按 1 个点；到期时只保留内在价值 |
+| 期权链 | `options/chains.js`：`buildOptionChain`、`strikeGrid`、`findContract` | 30 / 60 / 90 天、7 档行权价、Call / Put；波动率微笑由公司模拟波动率推导；结果确定性 |
+| 持仓与结算 | `options/optionsEngine.js`：`buyOption`、`markOptions`、`closeOption`、`settleOptions` | 每张合约 100 股；买入扣现金，盯市更新当前价值；平仓按模型价值；到期按内在价值现金结算并记入 `optionTrades` |
+| 账户权益 | `trading/account.js`：`optionValue` / `optionUnrealizedPnl` 计入 `equity` 与组合汇总 | 期权市值影响保证金检查、组合市值与未实现盈亏；期权不参与股票持仓行 |
+| 界面 | `ui/views/options.js` + `#/options` | 期权链、买入票、Greeks、持仓与平仓；未解锁时显示第 21 单元解锁说明 |
+
+边界：不支持卖出开仓、指派或多腿策略；欧式期权只在到期日结算；模型价格不是真实报价。

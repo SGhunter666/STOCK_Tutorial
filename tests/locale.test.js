@@ -376,6 +376,30 @@ test('demo and practice content is localised', () => {
   ['buy', 'sell', 'short', 'cover'].forEach((side) => {
     ['market', 'limit', 'stop', 'trailing'].forEach((type) => check(`trade.explain.${side}.${type}`));
   });
+  const stage6DemoKeys = {
+    optionPayoff: ['title', 'desc', 'type', 'strike', 'premium', 'qty', 'spot', 'atExpiry', 'breakeven', 'maxLoss', 'note'],
+    greeks: ['title', 'desc', 'type', 'spot', 'strike', 'vol', 'days', 'price', 'intrinsic', 'timeValue', 'note'],
+  };
+  for (const [demoId, fields] of Object.entries(stage6DemoKeys)) {
+    fields.forEach((field) => check(`demo.${demoId}.${field}`));
+  }
+  [
+    'options.eyebrow', 'options.title', 'options.subtitle', 'options.lockedTitle',
+    'options.lockedText', 'options.lockedAction', 'options.chainTitle', 'options.chainSubtitle',
+    'options.spotLabel', 'options.strike', 'options.call', 'options.put', 'options.delta',
+    'options.selectCall', 'options.selectPut', 'options.chainNote', 'options.ticketTitle',
+    'options.ticketSubtitle', 'options.contract', 'options.contracts', 'options.contractSize',
+    'options.cashAvailable', 'options.feeNote', 'options.premium', 'options.totalCost',
+    'options.breakeven', 'options.ticketBreakeven', 'options.buyButton', 'options.expiryIn',
+    'options.expiryOption', 'options.avgPremium', 'options.currentValue', 'options.pnl',
+    'options.daysLeft', 'options.daysLeftValue', 'options.close', 'options.noPositions',
+    'options.positionsTitle', 'options.positionsSubtitle', 'options.expiryShort',
+    'options.gamma', 'options.theta', 'options.noContract', 'options.educationTitle',
+    'options.educationText',
+    'toast.optionBought', 'toast.optionClosed', 'toast.optionSettled',
+    'error.optionsLocked', 'error.contractNotFound', 'error.noOptionPosition',
+    'error.insufficientContracts',
+  ].forEach((key) => check(key));
   for (const unit of ALL_UNITS.filter((entry) => entry.implemented)) {
     check(`practice.${unit.id}.title`);
     check(`practice.${unit.id}.requirement`);

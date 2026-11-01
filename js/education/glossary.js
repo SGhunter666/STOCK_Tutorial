@@ -52,6 +52,13 @@ export const GLOSSARY_TERMS = [
   { id: 'stopOrder', unitId: 'u19', related: ['trailingStop', 'limitOrder'] },
   { id: 'trailingStop', unitId: 'u19', related: ['stopOrder', 'drawdown'] },
   { id: 'orderBook', unitId: 'u20', related: ['liquidity', 'spread'] },
+  { id: 'optionContract', unitId: 'u21', related: ['callOption', 'putOption', 'strikePrice'] },
+  { id: 'callOption', unitId: 'u21', related: ['putOption', 'strikePrice', 'optionPremium'] },
+  { id: 'putOption', unitId: 'u21', related: ['callOption', 'strikePrice', 'optionPremium'] },
+  { id: 'strikePrice', unitId: 'u21', related: ['optionContract', 'optionPremium', 'callOption'] },
+  { id: 'optionPremium', unitId: 'u21', related: ['strikePrice', 'impliedVolatility', 'greeks'] },
+  { id: 'impliedVolatility', unitId: 'u24', related: ['optionPremium', 'greeks'] },
+  { id: 'greeks', unitId: 'u24', related: ['optionPremium', 'impliedVolatility', 'callOption'] },
 ];
 
 export function getGlossaryTerm(termId) {
