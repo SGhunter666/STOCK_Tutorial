@@ -14,8 +14,9 @@ import { unlockedCompanies } from '../../market/marketAccess.js';
 import { positionRows } from '../../trading/account.js';
 import {
   FUND_STRATEGIES, FUND_RISK_PROFILES, FUND_ROLES, FUND_RANK_REQUIREMENT,
-  FUND_AUM_OPTIONS, FUND_FEE_INTERVAL, FUND_MAX_DRAWDOWN, FUND_MAX_UNPAID_DAYS,
-  FUND_MAX_RISK_DAYS, fundMetrics, fundLeaderboard, fundUnlocked,
+  FUND_AUM_OPTIONS, FUND_BENCHMARKS, FUND_HURDLE_OPTIONS, FUND_FEE_INTERVAL,
+  FUND_MAX_DRAWDOWN, FUND_MAX_UNPAID_DAYS, FUND_MAX_RISK_DAYS,
+  FUND_MAX_LEVERAGE_DAYS, fundMetrics, fundLeaderboard, fundUnlocked,
 } from '../../fund/fundEngine.js';
 
 export function createFundView(ctx) {
@@ -34,10 +35,12 @@ export function createFundView(ctx) {
   function setupCard(state) {
     const strategies = Object.values(FUND_STRATEGIES);
     const risks = Object.values(FUND_RISK_PROFILES);
+    const benchmarks = Object.values(FUND_BENCHMARKS);
+    const reopening = state.fund?.status === 'closed';
     return card({
       className: 'fund-setup',
-      title: t('fund.setupTitle'),
-      subtitle: t('fund.setupSubtitle'),
+      title: t(reopening ? 'fund.reopenTitle' : 'fund.setupTitle'),
+      subtitle: t(reopening ? 'fund.reopenSubtitle' : 'fund.setupSubtitle'),
       body: `
         <form data-fund-form>
           <div class="fund-form">
@@ -77,6 +80,25 @@ export function createFundView(ctx) {
                 <option value="0.2" selected>${t('fund.performanceFeeOption', { value: 20 })}</option>
               </select>
             </label>
+            <label class="field">
+              <span class="field-label">${t('fund.benchmarkLabel')}</span>
+              <select class="input input--select" name="benchmarkId">
+                ${benchmarks.map((benchmark) => `<option value="${benchmark.id}" title="${t(benchmark.descKey)}">${t(benchmark.nameKey)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">${t('fund.hurdleLabel')}</span>
+              <select class="input input--select" name="hurdleRate">
+                ${FUND_HURDLE_OPTIONS.map((value) => `<option value="${value}">${t('fund.hurdleOption', { value: num(value * 100, i18n.locale, 0) })}</option>`).join('')}
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">${t('fund.leverageLabel')}</span>
+              <select class="input input--select" name="leverageEnabled">
+                <option value="false" selected>${t('fund.leverageOff')}</option>
+                <option value="true">${t('fund.leverageOn')}</option>
+              </select>
+            </label>
           </div>
           <div class="fund-strategy-list">
             ${strategies.map((strategy) => `
@@ -86,7 +108,7 @@ export function createFundView(ctx) {
               </div>`).join('')}
           </div>
           <div class="button-row">
-            <button class="btn btn--primary" type="submit">${icon('plus', { size: 15 })} ${t('fund.create')}</button>
+            <button class="btn btn--primary" type="submit">${icon(reopening ? 'refresh' : 'plus', { size: 15 })} ${t(reopening ? 'fund.reopen' : 'fund.create')}</button>
           </div>
         </form>
         <p class="chart-note muted">${t('fund.setupNote', {
@@ -164,7 +186,7 @@ export function createFundView(ctx) {
         ${statCard({
           label: t('fund.stats.cashRatio'),
           value: fmtPercent(metrics.cashRatio),
-          sub: t('fund.stats.cashSub', { min: fmtPercent(metrics.minCashPct) }),
+          sub: t('fund.stats.cashSub', { min: fmtPercent(metrics.cashFloorPct) }),
           iconName: 'portfolio',
           id: 'fund-cash-ratio',
         })}
@@ -218,8 +240,16 @@ export function createFundView(ctx) {
         ${row(
           t('fund.risk.cash'),
           `<span id="fund-risk-cash">${fmtPercent(metrics.cashRatio)}</span>`,
-          t('fund.risk.minCash', { value: fmtPercent(metrics.minCashPct) }),
+          metrics.leverageLimit > 1
+            ? t('fund.risk.cashFloor', { value: fmtPercent(metrics.cashFloorPct) })
+            : t('fund.risk.minCash', { value: fmtPercent(metrics.minCashPct) }),
           metrics.cashBreach,
+        )}
+        ${row(
+          t('fund.risk.leverage'),
+          `<strong id="fund-risk-leverage">${num(metrics.leverage, i18n.locale, 2)}x</strong>`,
+          t('fund.risk.maxLeverage', { value: `${num(metrics.leverageLimit, i18n.locale, 2)}x` }),
+          metrics.leverageBreach,
         )}
         ${row(
           t('fund.risk.topPosition'),
@@ -239,10 +269,11 @@ export function createFundView(ctx) {
           <span class="muted">${t('fund.risk.alpha')}</span>
           <span class="${metrics.alpha >= 0 ? 'up' : 'down'}">${pct(metrics.alpha, i18n.locale, 2)}</span>
         </div>
-        ${metrics.cashBreach || metrics.positionBreach || metrics.drawdown >= FUND_MAX_DRAWDOWN
+        ${metrics.cashBreach || metrics.leverageBreach || metrics.positionBreach || metrics.drawdown >= FUND_MAX_DRAWDOWN
           ? `<p class="fund-warning">${icon('warning', { size: 14 })} ${t('fund.risk.warning')}</p>`
           : `<p class="muted fund-hint">${t('fund.risk.healthy')}</p>`}
-        <p class="chart-note muted">${t('fund.risk.days', { days: metrics.riskDays, max: FUND_MAX_RISK_DAYS })}</p>`,
+        <p class="chart-note muted">${t('fund.risk.days', { days: metrics.riskDays, max: FUND_MAX_RISK_DAYS })}</p>
+        <p class="chart-note muted">${t('fund.risk.leverageDays', { days: metrics.leverageDays, max: FUND_MAX_LEVERAGE_DAYS })}</p>`,
     });
   }
 
@@ -314,8 +345,14 @@ export function createFundView(ctx) {
     const pos = state.fund.account.positions[selectedTicker];
     const existing = pos && pos.qty > 0 ? pos.qty : 0;
     const capCash = Math.max(0, metrics.nav * (state.fund.maxPosition || 0) - existing * quote.ask);
-    const floorCash = Math.max(0, state.fund.account.cash - metrics.nav * (state.fund.minCash || 0));
-    return Math.max(0, Math.floor(Math.min(capCash, floorCash) / quote.ask));
+    const holdings = positionRows(state.fund.account, state.market.quotes)
+      .reduce((sum, row) => sum + Math.abs(row.value), 0);
+    const grossCap = Math.max(0, metrics.nav * (state.fund.leverageLimit || 1) - holdings);
+    const cashFloor = state.fund.leverageLimit > 1
+      ? -metrics.nav * ((state.fund.leverageLimit || 1) - 1)
+      : metrics.nav * (state.fund.minCash || 0);
+    const floorCash = Math.max(0, state.fund.account.cash - cashFloor);
+    return Math.max(0, Math.floor(Math.min(capCash, grossCap, floorCash) / quote.ask));
   }
 
   function clientsCard(metrics, state) {
@@ -330,6 +367,7 @@ export function createFundView(ctx) {
         <td><strong>${client.name}</strong><span class="fund-sub">${t(client.typeKey)}</span></td>
         <td class="num">${money(value, i18n.locale)}</td>
         <td class="num">${t(`fund.clientRisk.${client.risk}`)}</td>
+        <td class="num">${fmtPercent(client.expectedReturn || 0, 1)}</td>
         <td class="num">${num(client.trust, i18n.locale, 0)}</td>
         <td>${request
           ? `<span class="pill pill--warn">${t('fund.clients.requestPending', { days: dueIn })}</span>`
@@ -352,6 +390,7 @@ export function createFundView(ctx) {
                 <th>${t('fund.clients.name')}</th>
                 <th class="num">${t('fund.clients.value')}</th>
                 <th class="num">${t('fund.clients.risk')}</th>
+                <th class="num">${t('fund.clients.expected')}</th>
                 <th class="num">${t('fund.clients.trust')}</th>
                 <th>${t('fund.clients.status')}</th>
                 <th class="num">${t('fund.clients.action')}</th>
@@ -426,9 +465,14 @@ export function createFundView(ctx) {
         ${keyValueList([
           [t('fund.ops.managementRate'), `${fmtPercent((fund.managementRate || 0) * 100, 1)} ${t('fund.ops.perYear')}`],
           [t('fund.ops.performanceRate'), fmtPercent((fund.performanceRate || 0) * 100, 1)],
+          [t('fund.ops.hurdle'), fmtPercent((fund.hurdleRate || 0) * 100, 1)],
           [t('fund.ops.hwm'), money(fund.highWaterMark, i18n.locale, 4)],
+          [t('fund.ops.benchmark'), t(FUND_BENCHMARKS[fund.benchmarkId]?.nameKey || 'fund.benchmark.index')],
           [t('fund.ops.nextFee'), t('fund.ops.inDays', { days: nextFee })],
           [t('fund.ops.payrollDue'), money(fund.payrollDue || 0, i18n.locale)],
+          [t('fund.ops.operatingCosts'), money(fund.operatingCosts || 0, i18n.locale)],
+          [t('fund.ops.operatingDue'), money(fund.operatingDue || 0, i18n.locale)],
+          [t('fund.ops.leverage'), fund.leverageEnabled ? `${num(fund.leverageLimit || 1, i18n.locale, 2)}x` : t('fund.ops.noLeverage')],
           [t('fund.ops.feePayable'), money(fund.feePayable || 0, i18n.locale)],
           [t('fund.ops.companyCash'), money(fund.companyCash, i18n.locale)],
           [t('fund.ops.withdrawn'), money(fund.withdrawnToPersonal || 0, i18n.locale)],
@@ -571,6 +615,10 @@ export function createFundView(ctx) {
         return t('fund.event.payroll', { amount: money(event.amount, i18n.locale) });
       case 'payrollShort':
         return t('fund.event.payrollShort', { amount: money(event.amount, i18n.locale) });
+      case 'operatingCost':
+        return t('fund.event.operatingCost', { amount: money(event.amount, i18n.locale) });
+      case 'keyPerson':
+        return t('fund.event.keyPerson', { name: event.name, role: t(`fund.role.${event.role}.name`) });
       case 'candidate':
         return t('fund.event.candidate', { name: event.name, amount: money(event.amount, i18n.locale) });
       case 'closed':
@@ -657,6 +705,7 @@ export function createFundView(ctx) {
     setText('fund-return-sub', t('fund.stats.vsBenchmark', { value: pct(metrics.alpha, i18n.locale, 2) }));
     setText('fund-drawdown', fmtPercent(metrics.drawdown));
     setText('fund-cash-ratio', fmtPercent(metrics.cashRatio));
+    setText('fund-risk-leverage', `${num(metrics.leverage, i18n.locale, 2)}x`);
     setText('fund-company-cash', money(state.fund.companyCash, i18n.locale));
     setText('fund-mgmt-fees', money(state.fund.managementFees, i18n.locale));
     setText('fund-perf-fees', money(state.fund.performanceFees, i18n.locale));
@@ -741,6 +790,9 @@ export function createFundView(ctx) {
         initialAum: Number(data.get('initialAum')),
         managementRate: Number(data.get('managementRate')),
         performanceRate: Number(data.get('performanceRate')),
+        benchmarkId: data.get('benchmarkId'),
+        hurdleRate: Number(data.get('hurdleRate')),
+        leverageEnabled: data.get('leverageEnabled') === 'true',
       });
     });
     root.addEventListener('change', (event) => {

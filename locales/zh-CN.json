@@ -84,6 +84,9 @@
     "insufficientShortShares": "可回补的空头数量不足。",
     "insufficientMargin": "保证金不足，无法建立这么大的空头。",
     "stopDirection": "触发价必须在市价的正确一侧。",
+    "stopLimitRange": "止损限价单的限价必须优于或等于触发价。",
+    "ocoSide": "OCO 只适用于卖出或平空。",
+    "limitLocked": "限价单尚未解锁，无法使用 OCO。",
     "shortLocked": "做空尚未解锁，请先完成第 17 单元第一节。",
     "stopLocked": "止损单尚未解锁，请先完成第 19 单元第一节。",
     "optionsLocked": "期权交易尚未解锁，请先完成第 21 单元第一节。",
@@ -140,6 +143,9 @@
     "optionAssignedEarly": "{ticker} 的空头期权被提前指派（共 {count} 笔），已按行权价交割股票。",
     "careerPromoted": "晋升成功：{rank} · +{xp} XP",
     "careerSalary": "职业薪资到账：{amount}（{rank}）",
+    "careerEvaluation": "绩效评价：{grade} 级（{score} 分）",
+    "certificateEarned": "获得证书：{names}",
+    "reportGraded": "报告评分 {score}（{grade} 级），获得 {xp} XP",
     "fundCreated": "基金成立：{name}。客户资金已进入基金账户。",
     "fundHired": "已聘请 {role}。",
     "fundFired": "团队成员已离职。",
@@ -5167,6 +5173,10 @@
     "stageCompleteTitle": "你已经掌握基础交易语言",
     "stageCompleteText": "你完成了股票、交易、盈亏与订单基础的四个单元。下一阶段将在后续版本开放。",
     "certificateBadge": "第一阶段徽章",
+    "credentialsTitle": "职业证书",
+    "credentialsSubtitle": "已获得 {earned} / {total}",
+    "credentialsEmpty": "完成课程、报告与绩效评价后，这里会展示你的证书。",
+    "credentialsReady": "{count} 张证书已达成条件，等待结算。",
     "stageUnits": "完成 {done} / {total} 单元",
     "reviewAcademy": "复习课程",
     "seeRoadmap": "查看路线图",
@@ -5335,26 +5345,34 @@
         "market": "市价买入会立即以当前卖价成交，你将成为股东。",
         "limit": "限价买入会等待价格跌到你的限价或更低时成交。",
         "stop": "买入止损在价格升到触发价时转为市价买入。",
-        "trailing": "追踪买入止损会随价格下跌而下移触发价，用于保护空头。"
+        "trailing": "追踪买入止损会随价格下跌而下移触发价，用于保护空头。",
+        "stop-limit": "止损限价买入触发后只以不高于限价的价格买入，可能不成交。",
+        "oco": "OCO 用于卖出或平空：止盈与止损同时挂出，一腿成交另一腿取消。"
       },
       "sell": {
         "market": "市价卖出会立即以当前买价成交，并锁定已实现盈亏。",
         "limit": "限价卖出会等待价格升到你的限价或更高时成交。",
         "stop": "卖出止损在价格跌破触发价时转为市价卖出。",
-        "trailing": "追踪卖出止损会随股价上涨而上移，锁定部分利润。"
+        "trailing": "追踪卖出止损会随股价上涨而上移，锁定部分利润。",
+        "stop-limit": "止损限价卖出触发后只以不低于限价的价格卖出，可能不成交。",
+        "oco": "OCO 同时挂出止盈限价卖单与止损卖单，先触发的一腿成交后另一腿取消。"
       },
       "always": "下单前请确认数量、价格与总支出。",
       "short": {
         "market": "市价做空会借券卖出，所得计入保证金。",
         "limit": "限价做空等待价格升到你的限价再卖出。",
         "stop": "做空止损在价格升到触发价时市价回补。",
-        "trailing": "做空追踪止损会随价格下跌而下移触发价。"
+        "trailing": "做空追踪止损会随价格下跌而下移触发价。",
+        "stop-limit": "止损限价做空触发后只在限价或更好的价格卖出。",
+        "oco": "OCO 不适用于做空开仓；它用于保护已有持仓。"
       },
       "cover": {
         "market": "市价平空会立即买入归还借券，锁定已实现盈亏。",
         "limit": "限价平空等待价格跌到你的限价再买入。",
         "stop": "平空止损在价格升到触发价时市价回补。",
-        "trailing": "平空追踪止损会随价格下跌而下移触发价。"
+        "trailing": "平空追踪止损会随价格下跌而下移触发价。",
+        "stop-limit": "止损限价平空触发后只以不高于限价的价格买回。",
+        "oco": "OCO 可同时挂出平空止盈限价单与止损单，先成交的一腿会取消另一腿。"
       }
     },
     "reservedCash": "已预留现金 {value}",
@@ -5425,7 +5443,10 @@
       "trail": "请输入有效的追踪回撤金额。",
       "stopDirection": "触发价必须在市价的正确一侧。",
       "margin": "保证金不足，无法做空这么多股。",
-      "shortShares": "可回补的空头数量不足。"
+      "shortShares": "可回补的空头数量不足。",
+      "stopLimitRange": "止损限价单的限价必须优于或等于触发价。",
+      "ocoSide": "OCO 只适用于卖出或平空。",
+      "ocoTarget": "OCO 止盈价必须在现价的正确一侧。"
     },
     "indicatorsTitle": "技术指标",
     "indicatorsSubtitle": "基于当前及历史收盘价，不含未来数据",
@@ -5454,6 +5475,12 @@
     "cover": "平空",
     "stopOrder": "止损单",
     "trailingOrder": "追踪止损",
+    "stopLimitOrder": "止损限价单",
+    "ocoOrder": "OCO 括号单",
+    "takeProfit": "止盈价",
+    "stopLossPrice": "止损价",
+    "stopLimitHint": "触发后只在限价或更好的价格成交；未成交会继续挂单。",
+    "ocoHint": "止盈与止损同时挂出，其中一腿成交后另一腿自动取消。",
     "stopPrice": "触发价",
     "trailAmount": "追踪回撤",
     "trailHint": "价格向有利方向移动时，止损会按该金额收紧。",
@@ -6416,6 +6443,9 @@
     "goCareer": "前往职业模式",
     "setupTitle": "成立你的基金",
     "setupSubtitle": "选择策略、风险偏好、初始规模与费率。客户会按初始规模分配资金。",
+    "reopenTitle": "重新成立基金",
+    "reopenSubtitle": "上一只基金已清盘。你可以在新基金中沿用或更换策略、基准与费率。",
+    "reopen": "重新成立",
     "nameLabel": "基金名称",
     "namePlaceholder": "例如 Atlas Capital",
     "strategyLabel": "投资策略",
@@ -6425,8 +6455,22 @@
     "managementFeeOption": "{value}% / 年",
     "performanceFeeLabel": "业绩报酬",
     "performanceFeeOption": "{value}%",
+    "benchmarkLabel": "业绩基准",
+    "hurdleLabel": "业绩门槛",
+    "hurdleOption": "年化 {value}%",
+    "leverageLabel": "杠杆",
+    "leverageOff": "不使用杠杆",
+    "leverageOn": "启用（按风险偏好上限）",
     "create": "成立基金",
-    "setupNote": "管理费按年费率 {fee} 折算，每 {interval} 个交易日计提一次；业绩报酬基于高水位计算。",
+    "setupNote": "管理费按年费率 {fee} 折算，每 {interval} 个交易日计提一次；业绩报酬需先超过高水位与业绩门槛。运营成本与合规人员会影响客户信任与清盘风险。",
+    "benchmark": {
+      "index": "市场指数",
+      "indexDesc": "以市场综合指数为基准，衡量整体市场的机会成本。",
+      "mkt": "MKT 宽基 ETF",
+      "mktDesc": "以可交易的宽基 ETF 为基准，更贴近实际可实现的被动收益。",
+      "cash": "现金",
+      "cashDesc": "以现金为基准，只衡量绝对收益。"
+    },
     "strategy": {
       "longOnly": { "name": "纯多头", "desc": "只做多股票，仓位上限 25%，现金下限 10%，适合稳健增值。" },
       "macro": { "name": "宏观策略", "desc": "围绕宏观周期配置，仓位上限 30%，现金下限 15%。" },
@@ -6441,6 +6485,7 @@
     "errorNotActive": "当前没有运营中的基金。",
     "errorPositionCap": "该笔买入会超出单票仓位上限。",
     "errorCashFloor": "该笔买入会跌破最低现金比例。",
+    "errorLeverage": "该笔买入会超出基金的杠杆上限。",
     "errorNoNav": "基金净值已归零，无法交易。",
     "errorUnknownRole": "未知的岗位。",
     "errorRoleFilled": "该岗位已有人选。",
@@ -6474,6 +6519,10 @@
       "subtitle": "持续监控仓位与回撤，触线会累计风险日。",
       "cash": "现金比例",
       "minCash": "下限 {value}",
+      "cashFloor": "杠杆下限 {value}",
+      "leverage": "总敞口",
+      "maxLeverage": "上限 {value}",
+      "leverageDays": "杠杆连续触线 {days} / {max} 个交易日后将强制清盘。",
       "topPosition": "最大单一持仓",
       "maxPosition": "上限 {value}",
       "noPosition": "暂无持仓",
@@ -6511,6 +6560,7 @@
       "name": "客户",
       "value": "持有市值",
       "risk": "风险偏好",
+      "expected": "预期年化",
       "trust": "信任度",
       "status": "状态",
       "action": "操作",
@@ -6553,7 +6603,8 @@
       "risk": { "name": "风控经理", "desc": "每天评估现金比例、集中度与回撤。" },
       "trader": { "name": "交易员", "desc": "降低基金交易费用。" },
       "macro": { "name": "宏观分析师", "desc": "跟踪利率、通胀与增长环境。" },
-      "operations": { "name": "运营专员", "desc": "提升客户信任度增速。" }
+      "operations": { "name": "运营专员", "desc": "提升客户信任度增速。" },
+      "compliance": { "name": "合规官", "desc": "监控风险触线，降低合规清盘风险并提升客户信任。" }
     },
     "ops": {
       "title": "基金运营",
@@ -6561,10 +6612,16 @@
       "managementRate": "管理费率",
       "perYear": "/ 年",
       "performanceRate": "业绩报酬",
+      "hurdle": "业绩门槛",
       "hwm": "高水位（每单位）",
+      "benchmark": "业绩基准",
       "nextFee": "下次计提",
       "inDays": "{days} 个交易日后",
       "payrollDue": "应付薪资",
+      "operatingCosts": "累计运营成本",
+      "operatingDue": "未付运营成本",
+      "leverage": "杠杆上限",
+      "noLeverage": "未启用",
       "feePayable": "未付费用",
       "companyCash": "管理公司现金",
       "withdrawn": "已提取到个人账户",
@@ -6606,6 +6663,8 @@
       "performanceFee": "计提业绩报酬 {amount}。",
       "payroll": "计提薪资 {amount}。",
       "payrollShort": "薪资未付清，缺口 {amount}。",
+      "operatingCost": "计提运营成本 {amount}。",
+      "keyPerson": "关键人员 {name}（{role}）离职，基金被迫清盘。",
       "candidate": "新潜在客户 {name}，拟申购 {amount}。",
       "closed": "基金清盘：{reason}。",
       "other": "运营记录。"
@@ -6622,7 +6681,10 @@
       "liquidity": "赎回请求到期未能支付",
       "payroll": "薪资长期拖欠",
       "risk": "风险指标连续触线",
-      "redeemed": "客户全部赎回"
+      "redeemed": "客户全部赎回",
+      "compliance": "未聘请合规官，风险连续触线",
+      "keyPerson": "关键人员离职",
+      "leverage": "杠杆敞口连续超过上限"
     }
   },
   "career": {
@@ -6672,7 +6734,105 @@
       "challenges": "完成 {target} 个挑战",
       "branch": "完成分支「{branch}」",
       "branches": "完成 {target} 个专业分支",
-      "xp": "累计 {target} XP"
+      "xp": "累计 {target} XP",
+      "reports": "完成 {target} 份合格投资报告",
+      "reportScore": "单份报告评分达到 {target}",
+      "evaluations": "获得 {target} 次合格绩效评价",
+      "certificates": "获得 {target} 张职业证书"
+    },
+    "tasksTitle": "研究任务",
+    "tasksSubtitle": "进行中 {active} · 可接取 {available}",
+    "tasksEmpty": "晋升到独立交易员后会出现研究任务。",
+    "reportsTitle": "投资报告",
+    "reportsSubtitle": "合格 {passed} / 共 {total} 份",
+    "reportsEmpty": "提交第一份报告后，这里会显示评分与等级。",
+    "reportsNote": "报告评分达到 {min} 分才算合格；评分综合考虑覆盖深度、目标价合理性与趋势一致性。",
+    "evalsTitle": "绩效评价",
+    "evalsSubtitle": "下一次评价还有 {days} 个交易日",
+    "evalsEmpty": "每 21 个交易日会根据收益、回撤与报告完成度给出评价。",
+    "evalsInterval": "每 {days} 个交易日",
+    "certsTitle": "职业证书",
+    "certsSubtitle": "完成真实里程碑后自动颁发",
+    "task": {
+      "equity": {
+        "title": "个股研究报告",
+        "desc": "为 {ticker} 写一份覆盖基本面、估值与风险的投资报告。"
+      },
+      "sector": {
+        "title": "行业观察笔记",
+        "desc": "围绕 {ticker} 所在行业梳理驱动因素、竞争格局与风险。"
+      },
+      "risk": {
+        "title": "风险备忘录",
+        "desc": "评估 {ticker} 的下行风险、仓位上限与对冲方案。"
+      },
+      "status": {
+        "available": "可接取",
+        "active": "进行中",
+        "completed": "已完成",
+        "expired": "已过期"
+      },
+      "deadline": "截止 {day}",
+      "ticker": "标的 {ticker}",
+      "rewardXp": "{xp} XP",
+      "rewardCash": "奖金 {cash}",
+      "accept": "接取任务",
+      "completedScore": "评分 {score} · 等级 {grade}",
+      "errorUnavailable": "该任务不可接取或已完成。",
+      "errorActive": "同时最多进行 2 个研究任务。"
+    },
+    "report": {
+      "thesis": "投资观点",
+      "bull": "看多",
+      "bear": "看空",
+      "neutral": "中性",
+      "conviction": "信心程度",
+      "convictionValue": "{value} / 5",
+      "target": "目标价",
+      "summary": "报告摘要",
+      "summaryHint": "写出你的论点、关键假设与主要风险……",
+      "summaryNote": "至少 {min} 个字符；包含数字与风险讨论会得到更高分。",
+      "submit": "提交报告",
+      "day": "日期",
+      "ticker": "标的",
+      "grade": "等级",
+      "score": "评分",
+      "errorTask": "找不到对应的研究任务。",
+      "errorTaskState": "请先接取该任务。",
+      "errorSummary": "报告摘要至少需要 40 个字符。",
+      "errorTarget": "请输入有效的目标价。",
+      "errorThesis": "请选择有效的投资观点。",
+      "errorConviction": "信心程度必须在 1 到 5 之间。"
+    },
+    "eval": {
+      "day": "日期",
+      "return": "区间收益",
+      "drawdown": "最大回撤",
+      "reports": "合格报告"
+    },
+    "cert": {
+      "foundation": {
+        "title": "市场基础证书",
+        "desc": "完成股票、市值、盈亏与订单四个基础单元。"
+      },
+      "technical": {
+        "title": "交易技术证书",
+        "desc": "完成技术分析、做空与止损单元。"
+      },
+      "analyst": {
+        "title": "研究分析师证书",
+        "desc": "提交 3 份评分 70 分以上的投资报告。"
+      },
+      "manager": {
+        "title": "组合经理证书",
+        "desc": "获得 2 次评分 70 分以上的绩效评价。"
+      },
+      "founder": {
+        "title": "基金创始人证书",
+        "desc": "晋升到对冲基金经理职级。"
+      },
+      "earned": "已获得",
+      "note": "证书只代表游戏内学习与职业进度，不是正式金融资格。"
     },
     "rank": {
       "retail": {

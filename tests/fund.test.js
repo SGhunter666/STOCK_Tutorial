@@ -13,7 +13,8 @@ import {
   fundBuy, fundSell, hireEmployee, fireEmployee, acceptClient, settleRedemption,
   withdrawCompanyCash, advanceFundDay, fundLeaderboard,
   FUND_FEE_INTERVAL, FUND_AUM_OPTIONS, FUND_COMPANY_SEED, FUND_RANK_REQUIREMENT,
-  FUND_MAX_DRAWDOWN, FUND_MAX_UNPAID_DAYS,
+  FUND_MAX_DRAWDOWN, FUND_MAX_UNPAID_DAYS, FUND_KEY_PERSON_DAYS, FUND_MAX_LEVERAGE_DAYS,
+  FUND_COMPLIANCE_DAYS,
 } from '../js/fund/fundEngine.js';
 
 const STOCK = COMPANIES.find((company) => !company.isEtf).ticker;
@@ -255,6 +256,140 @@ test('long unpaid payroll closes the fund', () => {
   }
   assertEqual(fund.status, 'closed');
   assertEqual(fund.closeReason, 'payroll');
+});
+
+test('benchmark selection follows the index, MKT ETF or cash', () => {
+  const state = makeState();
+  const fund = launch(state, { benchmarkId: 'mkt' });
+  assertEqual(fund.benchmarkId, 'mkt', 'MKT benchmark stored');
+  assertClose(fund.benchmarkStart, state.market.quotes.MKT.last, 1e-9, 'benchmark starts at the ETF price');
+  const before = fundMetrics(fund, state).benchmark;
+  state.market.index.value *= 1.2;
+  assertClose(fundMetrics(fund, state).benchmark, before, 0.01, 'index moves do not affect an MKT benchmark');
+  state.market.quotes.MKT.last *= 1.05;
+  assertClose(fundMetrics(fund, state).benchmark, 5, 0.3, 'benchmark follows the ETF');
+
+  const cashFund = launch(makeState(), { benchmarkId: 'cash' });
+  assertEqual(cashFund.benchmarkId, 'cash', 'cash benchmark stored');
+  assertClose(fundMetrics(cashFund, makeState()).benchmark, 0, 1e-9, 'cash benchmark is always zero');
+});
+
+test('hurdle rate gates the performance fee', () => {
+  const noHurdle = quietFund(1003000, 1000000);
+  const withHurdle = { ...quietFund(1003000, 1000000), hurdleRate: 0.04 };
+  const first = advanceFundDay(noHurdle, { day: FUND_FEE_INTERVAL, quotes: {}, seed: 'fund-test' });
+  const second = advanceFundDay(withHurdle, { day: FUND_FEE_INTERVAL, quotes: {}, seed: 'fund-test' });
+  assert(first.fund.performanceFees > 0, 'no hurdle pays a fee on the excess');
+  assertEqual(second.fund.performanceFees, 0, 'the hurdle blocks a fee within the threshold');
+});
+
+test('operating costs accrue monthly and can stay payable', () => {
+  const fund = {
+    ...quietFund(1000000, 1000000),
+    companyCash: 0,
+    managementRate: 0,
+    employees: [{ id: 'research', role: 'research', name: 'Maya Chen', salary: 1000, skill: 78, hiredDay: 0 }],
+  };
+  const result = advanceFundDay(fund, { day: FUND_FEE_INTERVAL, quotes: {}, seed: 'fund-test' });
+  assert(result.fund.operatingCosts >= 1200, 'base operating cost accrued');
+  assert(result.fund.operatingDue > 0, 'unpaid cost remains payable');
+  assert(result.events.some((event) => event.type === 'operatingCost'), 'operating event logged');
+});
+
+test('client expected returns match their risk profile and flow into subscriptions', () => {
+  const state = makeState();
+  const fund = launch(state);
+  const expected = { low: 6, medium: 10, high: 15 };
+  for (const client of fund.clients) {
+    assertEqual(client.expectedReturn, expected[client.risk], `${client.risk} client expects the profile return`);
+  }
+  const candidate = fund.candidates[0];
+  const metrics = { ...fundMetrics(fund, state), day: 0 };
+  const accepted = acceptClient(fund, candidate.id, metrics);
+  assert(accepted.ok, `subscription should succeed: ${accepted.error}`);
+  const joined = accepted.fund.clients.find((client) => client.id === accepted.client.id);
+  assertEqual(joined.expectedReturn, expected[candidate.risk], 'new client inherits the expected return');
+});
+
+test('a key person leaving closes the fund', () => {
+  const fund = {
+    ...quietFund(1000000, 1000000),
+    employees: [{ id: 'risk', role: 'risk', name: 'Priya Nair', salary: 1000, skill: 86, hiredDay: 0 }],
+    companyCash: 0,
+    managementRate: 0,
+  };
+  let next = fund;
+  for (let day = FUND_FEE_INTERVAL; day < FUND_FEE_INTERVAL + FUND_KEY_PERSON_DAYS; day += 1) {
+    next = advanceFundDay(next, { day, quotes: {}, seed: 'fund-test' }).fund;
+  }
+  assertEqual(next.status, 'closed');
+  assertEqual(next.closeReason, 'keyPerson');
+  assert(next.keyPersonLeft, 'key person recorded');
+});
+
+test('compliance officer prevents the early compliance closure', () => {
+  const base = {
+    ...quietFund(1000000, 1000000),
+    minCash: 1.2,
+  };
+  let unprotected = base;
+  for (let day = 1; day <= FUND_COMPLIANCE_DAYS; day += 1) {
+    unprotected = advanceFundDay(unprotected, { day, quotes: {}, seed: 'fund-test' }).fund;
+  }
+  assertEqual(unprotected.closeReason, 'compliance', 'no compliance officer closes on the 10th risk day');
+
+  let protectedFund = {
+    ...base,
+    employees: [{ id: 'compliance', role: 'compliance', name: 'Elena Rossi', salary: 750, skill: 88, hiredDay: 0 }],
+    companyCash: 100000,
+  };
+  for (let day = 1; day <= FUND_COMPLIANCE_DAYS; day += 1) {
+    protectedFund = advanceFundDay(protectedFund, { day, quotes: {}, seed: 'fund-test' }).fund;
+  }
+  assertEqual(protectedFund.status, 'active', 'compliance officer keeps the fund alive through day 10');
+});
+
+test('leverage can be enabled and failure closes after repeated breaches', () => {
+  const state = makeState();
+  const fund = launch(state, { leverageEnabled: true, riskProfile: 'balanced' });
+  assert(fund.leverageEnabled, 'leverage enabled');
+  assertClose(fund.leverageLimit, 1.25, 1e-9, 'balanced leverage cap');
+  const nav = fundMetrics(fund, state).nav;
+  let levered = fund;
+  const tickers = Object.entries(state.market.quotes)
+    .filter(([, quote]) => quote.last > 0)
+    .slice(0, 5)
+    .map(([ticker]) => ticker);
+  for (const ticker of tickers) {
+    const quote = state.market.quotes[ticker];
+    const qty = Math.floor((nav * 0.24) / quote.ask);
+    const result = fundBuy(levered, state.market.quotes, { ticker, qty, day: 0 });
+    if (result.ok) levered = result.fund;
+  }
+  const metrics = fundMetrics(levered, state);
+  assert(metrics.leverage > 1, 'gross exposure exceeds NAV');
+  const tight = { ...levered, leverageLimit: 1.05 };
+  let next = tight;
+  for (let day = 1; day <= FUND_MAX_LEVERAGE_DAYS; day += 1) {
+    next = advanceFundDay(next, { day, quotes: state.market.quotes, seed: 'fund-test' }).fund;
+  }
+  assertEqual(next.status, 'closed');
+  assertEqual(next.closeReason, 'leverage');
+});
+
+test('a closed fund can be launched again', () => {
+  const state = makeState();
+  const fund = launch(state);
+  const closed = { ...fund, status: 'closed', closeReason: 'drawdown', closedDay: 5 };
+  const result = setupFund({ ...state, fund: closed }, {
+    name: 'Second Chance',
+    strategy: 'quant',
+    riskProfile: 'aggressive',
+    initialAum: FUND_AUM_OPTIONS[0],
+  }, 6);
+  assert(result.ok, 'closed funds can be relaunched');
+  assertEqual(result.fund.status, 'active');
+  assertEqual(result.fund.name, 'Second Chance');
 });
 
 test('leaderboard is deterministic and includes every peer fund', () => {

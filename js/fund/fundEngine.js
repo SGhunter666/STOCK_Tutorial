@@ -18,10 +18,35 @@ export const FUND_REDEMPTION_GRACE = 3;
 export const FUND_MAX_DRAWDOWN = 40;
 export const FUND_MAX_UNPAID_DAYS = 10;
 export const FUND_MAX_RISK_DAYS = 15;
+export const FUND_COMPLIANCE_DAYS = 10;
 export const FUND_COMPANY_SEED = 3000;
 export const FUND_TRADE_FEE = 1;
 export const FUND_TRADER_FEE = 0.5;
 export const FUND_AUM_OPTIONS = [250000, 1000000, 5000000];
+export const FUND_HURDLE_OPTIONS = [0, 0.02, 0.04];
+export const FUND_OPERATING_BASE = 1200;
+export const FUND_OPERATING_PER_HEAD = 120;
+export const FUND_KEY_PERSON_DAYS = 5;
+export const FUND_MAX_LEVERAGE_DAYS = 3;
+
+export const FUND_BENCHMARKS = {
+  index: {
+    id: 'index',
+    nameKey: 'fund.benchmark.index',
+    descKey: 'fund.benchmark.indexDesc',
+  },
+  mkt: {
+    id: 'mkt',
+    nameKey: 'fund.benchmark.mkt',
+    descKey: 'fund.benchmark.mktDesc',
+    ticker: 'MKT',
+  },
+  cash: {
+    id: 'cash',
+    nameKey: 'fund.benchmark.cash',
+    descKey: 'fund.benchmark.cashDesc',
+  },
+};
 
 export const FUND_STRATEGIES = {
   longOnly: {
@@ -60,18 +85,24 @@ export const FUND_RISK_PROFILES = {
     nameKey: 'fund.riskProfile.conservative',
     maxPosition: 0.15,
     minCash: 0.2,
+    leverageLimit: 1,
+    expectedReturn: 6,
   },
   balanced: {
     id: 'balanced',
     nameKey: 'fund.riskProfile.balanced',
     maxPosition: 0.25,
     minCash: 0.1,
+    leverageLimit: 1.25,
+    expectedReturn: 10,
   },
   aggressive: {
     id: 'aggressive',
     nameKey: 'fund.riskProfile.aggressive',
     maxPosition: 0.35,
     minCash: 0.05,
+    leverageLimit: 1.5,
+    expectedReturn: 15,
   },
 };
 
@@ -123,6 +154,14 @@ export const FUND_ROLES = [
     salary: 500,
     skill: 76,
     person: 'Daniel Cho',
+  },
+  {
+    id: 'compliance',
+    nameKey: 'fund.role.compliance.name',
+    descKey: 'fund.role.compliance.desc',
+    salary: 750,
+    skill: 88,
+    person: 'Elena Rossi',
   },
 ];
 
@@ -180,12 +219,21 @@ export function createFundState() {
     units: 0,
     highWaterMark: 1,
     peakNav: 1,
+    benchmarkId: 'index',
     benchmarkStart: 0,
+    hurdleRate: 0,
     managementRate: 0.02,
     performanceRate: 0.2,
     maxPosition: 0.25,
     minCash: 0.1,
+    leverageEnabled: false,
+    leverageLimit: 1,
+    leverageBreachDays: 0,
     companyCash: 0,
+    operatingCosts: 0,
+    operatingDue: 0,
+    unpaidCostDays: 0,
+    keyPersonLeft: '',
     managementFees: 0,
     performanceFees: 0,
     feePayable: 0,
@@ -207,13 +255,19 @@ export function createFundState() {
   };
 }
 
+const CLIENT_EXPECTED_RETURN = { low: 6, medium: 10, high: 15 };
+
 function normalizeClient(client, index, day) {
   const source = client && typeof client === 'object' ? client : {};
+  const risk = ['low', 'medium', 'high'].includes(source.risk) ? source.risk : 'medium';
   return {
     id: String(source.id || `client-${index}`),
     name: String(source.name || 'Client'),
     typeKey: source.typeKey || 'fund.clientType.privateClient',
-    risk: ['low', 'medium', 'high'].includes(source.risk) ? source.risk : 'medium',
+    risk,
+    expectedReturn: Number.isFinite(Number(source.expectedReturn))
+      ? Number(source.expectedReturn)
+      : CLIENT_EXPECTED_RETURN[risk],
     horizon: source.horizon || 'medium',
     liquidity: source.liquidity || 'medium',
     principal: Number.isFinite(Number(source.principal)) ? Number(source.principal) : 0,
@@ -271,12 +325,22 @@ export function normalizeFund(fund, day = 0, seed = 'academy-2026') {
       ? Number(fund.highWaterMark) : 1,
     peakNav: Number.isFinite(Number(fund.peakNav)) && Number(fund.peakNav) > 0
       ? Number(fund.peakNav) : 1,
+    benchmarkId: FUND_BENCHMARKS[fund.benchmarkId] ? fund.benchmarkId : 'index',
     benchmarkStart: Number.isFinite(Number(fund.benchmarkStart)) ? Number(fund.benchmarkStart) : 0,
+    hurdleRate: Number.isFinite(Number(fund.hurdleRate)) ? Number(fund.hurdleRate) : 0,
     managementRate: Number.isFinite(Number(fund.managementRate)) ? Number(fund.managementRate) : 0.02,
     performanceRate: Number.isFinite(Number(fund.performanceRate)) ? Number(fund.performanceRate) : 0.2,
     maxPosition: Number.isFinite(Number(fund.maxPosition)) ? Number(fund.maxPosition) : 0.25,
     minCash: Number.isFinite(Number(fund.minCash)) ? Number(fund.minCash) : 0.1,
+    leverageEnabled: Boolean(fund.leverageEnabled),
+    leverageLimit: Boolean(fund.leverageEnabled) && Number.isFinite(Number(fund.leverageLimit))
+      ? Math.max(1, Number(fund.leverageLimit)) : 1,
+    leverageBreachDays: Number.isFinite(Number(fund.leverageBreachDays)) ? Number(fund.leverageBreachDays) : 0,
     companyCash: Number.isFinite(Number(fund.companyCash)) ? Number(fund.companyCash) : 0,
+    operatingCosts: Number.isFinite(Number(fund.operatingCosts)) ? Number(fund.operatingCosts) : 0,
+    operatingDue: Number.isFinite(Number(fund.operatingDue)) ? Math.max(0, Number(fund.operatingDue)) : 0,
+    unpaidCostDays: Number.isFinite(Number(fund.unpaidCostDays)) ? Number(fund.unpaidCostDays) : 0,
+    keyPersonLeft: typeof fund.keyPersonLeft === 'string' ? fund.keyPersonLeft : '',
     managementFees: Number.isFinite(Number(fund.managementFees)) ? Number(fund.managementFees) : 0,
     performanceFees: Number.isFinite(Number(fund.performanceFees)) ? Number(fund.performanceFees) : 0,
     feePayable: Number.isFinite(Number(fund.feePayable)) ? Math.max(0, Number(fund.feePayable)) : 0,
@@ -303,6 +367,27 @@ export function fundUnlocked(state) {
   return Boolean(state && state.career && Number(state.career.rank) >= FUND_RANK_REQUIREMENT);
 }
 
+export function benchmarkStartValue(state, benchmarkId = 'index') {
+  if (benchmarkId === 'mkt') {
+    const quote = state?.market?.quotes?.MKT;
+    return quote && Number.isFinite(quote.last) ? quote.last : 0;
+  }
+  if (benchmarkId === 'cash') return 0;
+  const value = Number(state?.market?.index?.value);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function benchmarkReturn(fund, state) {
+  const id = fund.benchmarkId || 'index';
+  if (id === 'cash') return 0;
+  const current = id === 'mkt'
+    ? Number(state?.market?.quotes?.MKT?.last)
+    : Number(state?.market?.index?.value);
+  const start = Number(fund.benchmarkStart);
+  if (!Number.isFinite(current) || !Number.isFinite(start) || start <= 0) return 0;
+  return ((current / start) - 1) * 100;
+}
+
 function pickClients(seed, strategy, count = 4) {
   const offset = hash32(`${seed}:${strategy}:clients`) % CLIENT_POOL.length;
   const picks = [];
@@ -325,6 +410,9 @@ export function setupFund(state, input = {}, day = 0) {
     ? Number(input.managementRate) : 0.02;
   const performanceRate = [0.1, 0.2].includes(Number(input.performanceRate))
     ? Number(input.performanceRate) : 0.2;
+  const benchmarkId = FUND_BENCHMARKS[input.benchmarkId] ? input.benchmarkId : 'index';
+  const hurdleRate = FUND_HURDLE_OPTIONS.includes(Number(input.hurdleRate))
+    ? Number(input.hurdleRate) : 0;
 
   const strategyDef = FUND_STRATEGIES[strategy];
   const riskDef = FUND_RISK_PROFILES[riskProfile];
@@ -339,6 +427,7 @@ export function setupFund(state, input = {}, day = 0) {
       name: entry.name,
       typeKey: entry.typeKey,
       risk: entry.risk,
+      expectedReturn: CLIENT_EXPECTED_RETURN[entry.risk] || 10,
       horizon: entry.horizon,
       liquidity: entry.liquidity,
       principal,
@@ -360,8 +449,10 @@ export function setupFund(state, input = {}, day = 0) {
   }));
 
   const account = createAccount(aum);
-  const benchmarkStart = Number.isFinite(state.market?.index?.value) ? state.market.index.value : 0;
+  const benchmarkStart = benchmarkStartValue(state, benchmarkId);
   const units = clients.reduce((sum, client) => sum + client.units, 0);
+  const leverageEnabled = Boolean(input.leverageEnabled);
+  const leverageLimit = leverageEnabled ? Math.max(1, riskDef.leverageLimit || 1) : 1;
 
   return {
     ok: true,
@@ -377,12 +468,21 @@ export function setupFund(state, input = {}, day = 0) {
       units,
       highWaterMark: 1,
       peakNav: 1,
+      benchmarkId,
       benchmarkStart,
+      hurdleRate,
       managementRate,
       performanceRate,
       maxPosition,
       minCash,
+      leverageEnabled,
+      leverageLimit,
+      leverageBreachDays: 0,
       companyCash: FUND_COMPANY_SEED,
+      operatingCosts: 0,
+      operatingDue: 0,
+      unpaidCostDays: 0,
+      keyPersonLeft: '',
       managementFees: 0,
       performanceFees: 0,
       feePayable: 0,
@@ -422,12 +522,14 @@ export function fundMetrics(fund, state) {
     !best || Math.abs(row.value) > Math.abs(best.value) ? row : best
   ), null);
   const topWeight = top && nav > 0 ? (Math.abs(top.value) / nav) * 100 : 0;
-  const indexValue = Number.isFinite(state.market.index?.value) ? state.market.index.value : 0;
-  const benchmark = fund.benchmarkStart > 0 && indexValue > 0
-    ? ((indexValue / fund.benchmarkStart) - 1) * 100
-    : 0;
+  const benchmark = benchmarkReturn(fund, state);
   const alpha = totalReturn - benchmark;
   const holdingsValue = rows.reduce((sum, row) => sum + Math.abs(row.value), 0);
+  const leverage = nav > 0 ? holdingsValue / nav : 0;
+  const leverageLimit = Math.max(1, fund.leverageLimit || 1);
+  const cashFloorPct = leverageLimit > 1 ? -(leverageLimit - 1) * 100 : (fund.minCash || 0) * 100;
+  const weightedExpected = fund.clients.reduce((sum, client) => sum + (client.units || 0) * (client.expectedReturn || 0), 0);
+  const avgExpectedReturn = units > 0 ? weightedExpected / units : 0;
   return {
     nav,
     units,
@@ -440,13 +542,24 @@ export function fundMetrics(fund, state) {
     holdingsValue,
     benchmark,
     alpha,
+    benchmarkId: fund.benchmarkId || 'index',
+    hurdleRate: fund.hurdleRate || 0,
     feePayable,
     cash: fund.account.cash,
     positionCount: rows.length,
     maxPositionPct: (fund.maxPosition || 0) * 100,
     minCashPct: (fund.minCash || 0) * 100,
-    cashBreach: cashRatio < (fund.minCash || 0) * 100,
+    cashFloorPct,
+    cashBreach: cashRatio < cashFloorPct,
     positionBreach: topWeight > (fund.maxPosition || 0) * 100,
+    leverage,
+    leverageEnabled: Boolean(fund.leverageEnabled),
+    leverageLimit,
+    leverageBreach: leverage > leverageLimit + 0.0001,
+    leverageDays: fund.leverageBreachDays || 0,
+    operatingCosts: fund.operatingCosts || 0,
+    operatingDue: fund.operatingDue || 0,
+    avgExpectedReturn,
     drawdownLimit: FUND_MAX_DRAWDOWN,
     riskDays: fund.riskBreachDays || 0,
   };
@@ -485,12 +598,21 @@ export function fundBuy(fund, quotes, { ticker, qty, day = 0, tick = 0 }) {
   if (nextValue > nav * (fund.maxPosition || 1) + 1e-6) {
     return { ok: false, error: 'fund.errorPositionCap' };
   }
+  const leverageLimit = Math.max(1, fund.leverageLimit || 1);
+  const holdings = positionRows(fund.account, quotes)
+    .reduce((sum, row) => sum + Math.abs(row.value), 0);
+  if (holdings + quantity * price > nav * leverageLimit + 1e-6) {
+    return { ok: false, error: 'fund.errorLeverage' };
+  }
   const nextCash = fund.account.cash - quantity * price - fee;
-  if (nextCash < nav * (fund.minCash || 0) - 1e-6) {
+  const cashFloor = leverageLimit > 1
+    ? -nav * (leverageLimit - 1)
+    : nav * (fund.minCash || 0);
+  if (nextCash < cashFloor - 1e-6) {
     return { ok: false, error: 'fund.errorCashFloor' };
   }
   const result = buy(fund.account, {
-    ticker, qty: quantity, price, fee, day, tick,
+    ticker, qty: quantity, price, fee, day, tick, allowDebit: true,
   });
   if (!result.ok) return result;
   return {
@@ -563,6 +685,7 @@ export function acceptClient(fund, candidateId, metrics) {
     name: candidate.name,
     typeKey: candidate.typeKey,
     risk: candidate.risk,
+    expectedReturn: CLIENT_EXPECTED_RETURN[candidate.risk] || 10,
     horizon: candidate.horizon,
     liquidity: candidate.liquidity,
     principal: candidate.principal,
@@ -750,8 +873,10 @@ export function advanceFundDay(fund, context = {}) {
     }
     const navAfterManagement = Math.max(0, equity(next.account, quotes) - (next.feePayable || 0));
     const highWaterValue = next.units * next.highWaterMark;
-    if (navAfterManagement > highWaterValue && next.performanceRate > 0) {
-      const performanceFee = round2((navAfterManagement - highWaterValue) * next.performanceRate);
+    const hurdleValue = highWaterValue * (next.hurdleRate || 0) / 12;
+    const excessOverHurdle = navAfterManagement - highWaterValue - hurdleValue;
+    if (excessOverHurdle > 0 && next.performanceRate > 0) {
+      const performanceFee = round2(excessOverHurdle * next.performanceRate);
       if (performanceFee > 0) {
         const paid = payObligation(next, performanceFee);
         next.performanceFees = round2(next.performanceFees + performanceFee);
@@ -762,9 +887,20 @@ export function advanceFundDay(fund, context = {}) {
     next.highWaterMark = Math.max(next.highWaterMark, navAfterFees / Math.max(0.0001, next.units));
     next.lastFeeDay = day;
 
-    const trustStep = next.employees.some((employee) => employee.id === 'operations') ? 2 : 1;
+    const reference = [...next.history].reverse()
+      .find((entry) => Number.isFinite(entry.day) && entry.day <= day - FUND_FEE_INTERVAL);
+    const referenceNav = reference && reference.navPerUnit > 0 ? reference.navPerUnit : 1;
+    const periodReturnPct = next.units > 0 && referenceNav > 0
+      ? ((navAfterFees / next.units) / referenceNav - 1) * 100
+      : 0;
+    const hasOperations = next.employees.some((employee) => employee.id === 'operations');
+    const hasCompliance = next.employees.some((employee) => employee.id === 'compliance');
     next.clients = next.clients.map((client) => {
-      let trust = client.trust + trustStep;
+      let trust = client.trust + (hasOperations ? 2 : 1) + (hasCompliance ? 1 : 0);
+      const expectedMonthly = (client.expectedReturn || 0) / 12;
+      if (periodReturnPct < expectedMonthly - 1) trust -= 4;
+      else if (periodReturnPct < expectedMonthly) trust -= 2;
+      else trust += 2;
       if (client.trust < 50) trust -= 1;
       if (client.request) trust -= 3;
       return { ...client, trust: clampPct(trust) };
@@ -785,6 +921,13 @@ export function advanceFundDay(fund, context = {}) {
       next.lastPayrollDay = day;
       events.push({ type: 'payroll', amount: payroll, paid: 0 });
     }
+
+    const operatingCost = round2(FUND_OPERATING_BASE + next.employees.length * FUND_OPERATING_PER_HEAD);
+    next.operatingCosts = round2(next.operatingCosts + operatingCost);
+    const operatingPaid = Math.min(next.companyCash, operatingCost);
+    next.companyCash = round2(next.companyCash - operatingPaid);
+    next.operatingDue = round2(next.operatingDue + operatingCost - operatingPaid);
+    events.push({ type: 'operatingCost', amount: operatingCost, paid: operatingPaid });
   }
 
   if (next.payrollDue > 0) {
@@ -799,6 +942,31 @@ export function advanceFundDay(fund, context = {}) {
     }
   } else {
     next.unpaidSalaryDays = 0;
+  }
+
+  if (next.operatingDue > 0) {
+    const paid = Math.min(next.companyCash, next.operatingDue);
+    next.companyCash = round2(next.companyCash - paid);
+    next.operatingDue = round2(next.operatingDue - paid);
+    if (next.operatingDue > 0) {
+      next.unpaidCostDays += 1;
+    } else {
+      next.unpaidCostDays = 0;
+    }
+  } else {
+    next.unpaidCostDays = 0;
+  }
+
+  if (next.unpaidSalaryDays >= FUND_KEY_PERSON_DAYS && next.status === 'active') {
+    const key = next.employees.find((employee) => (
+      ['risk', 'compliance', 'operations'].includes(employee.role)
+    ));
+    if (key) {
+      next.employees = next.employees.filter((employee) => employee.id !== key.id);
+      next.keyPersonLeft = key.name;
+      events.push({ type: 'keyPerson', name: key.name, role: key.role });
+      closeFund(next, day, 'keyPerson', events);
+    }
   }
 
   let navPerUnit = Math.max(0.0001, (equity(next.account, quotes) - (next.feePayable || 0)) / Math.max(0.0001, next.units));
@@ -825,13 +993,24 @@ export function advanceFundDay(fund, context = {}) {
     }
   }
 
+  const returnReference = [...next.history].reverse()
+    .find((entry) => Number.isFinite(entry.day) && entry.day <= day - FUND_FEE_INTERVAL);
+  const referenceReturnNav = returnReference && returnReference.navPerUnit > 0
+    ? returnReference.navPerUnit : 1;
+  const trailingReturnPct = referenceReturnNav > 0
+    ? (navPerUnit / referenceReturnNav - 1) * 100
+    : 0;
+
   if (next.status === 'active') {
     for (const client of next.clients) {
       if (client.request) continue;
-      const chance = 0.01
+      const expectedMonthly = (client.expectedReturn || 0) / 12;
+      const shortfall = Math.max(0, expectedMonthly - trailingReturnPct) / 100 * 0.4;
+      const chance = Math.min(0.4, 0.01
         + Math.max(0, drawdown - 5) / 100 * 0.6
         + (client.risk === 'low' ? 0.025 : client.risk === 'high' ? 0.005 : 0.015)
-        + (client.trust < 50 ? 0.02 : 0);
+        + (client.trust < 50 ? 0.02 : 0)
+        + shortfall);
       if (roll(seed, client.id, day) >= chance) continue;
       const fraction = 0.25 + roll(seed, `${client.id}:size`, day) * 0.2;
       const units = Math.max(1, Math.floor(client.units * fraction));
@@ -848,13 +1027,32 @@ export function advanceFundDay(fund, context = {}) {
   navPerUnit = Math.max(0.0001, (equity(next.account, quotes) - (next.feePayable || 0)) / Math.max(0.0001, next.units));
   const navNow = Math.max(0, equity(next.account, quotes) - (next.feePayable || 0));
   const cashRatio = navNow > 0 ? (next.account.cash / navNow) * 100 : 0;
-  if (next.status === 'active' && cashRatio < (next.minCash || 0) * 100) {
+  const leverageLimit = Math.max(1, next.leverageLimit || 1);
+  const cashFloorPct = leverageLimit > 1
+    ? -(leverageLimit - 1) * 100
+    : (next.minCash || 0) * 100;
+  if (next.status === 'active' && cashRatio < cashFloorPct) {
     next.riskBreachDays += 1;
-    if (next.riskBreachDays >= FUND_MAX_RISK_DAYS) {
+    const hasCompliance = next.employees.some((employee) => employee.id === 'compliance');
+    if (!hasCompliance && next.riskBreachDays >= FUND_COMPLIANCE_DAYS) {
+      closeFund(next, day, 'compliance', events);
+    } else if (next.riskBreachDays >= FUND_MAX_RISK_DAYS) {
       closeFund(next, day, 'risk', events);
     }
   } else {
     next.riskBreachDays = 0;
+  }
+
+  const holdingsNow = positionRows(next.account, quotes)
+    .reduce((sum, row) => sum + Math.abs(row.value), 0);
+  const grossExposure = navNow > 0 ? holdingsNow / navNow : 0;
+  if (next.status === 'active' && grossExposure > leverageLimit + 1e-4) {
+    next.leverageBreachDays += 1;
+    if (next.leverageBreachDays >= FUND_MAX_LEVERAGE_DAYS) {
+      closeFund(next, day, 'leverage', events);
+    }
+  } else {
+    next.leverageBreachDays = 0;
   }
 
   if (day >= next.lastCapitalDay + FUND_CAPITAL_INTERVAL && next.candidates.length < 2 && next.status === 'active') {

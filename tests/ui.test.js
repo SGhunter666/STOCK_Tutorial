@@ -13,6 +13,7 @@ import { createSandboxView } from '../js/ui/views/sandbox.js';
 import { createCareerView } from '../js/ui/views/career.js';
 import { createFundView } from '../js/ui/views/fund.js';
 import { setupFund, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
+import { refreshResearchTasks, acceptResearchTask } from '../js/education/career.js';
 
 const fakeI18n = {
   locale: 'en',
@@ -96,6 +97,27 @@ test('career view shows the ladder and a ready promotion button', () => {
   host.remove();
 });
 
+test('career view renders research tasks, reports, reviews and certificates', () => {
+  const state = createGameState({ seed: 'ui-career-tasks' });
+  state.career.rank = 2;
+  state.career = refreshResearchTasks(state, 0);
+  const { ctx } = makeCtx(state);
+  ctx.actions.promoteCareer = () => ({ ok: true });
+  ctx.actions.acceptResearchTask = () => ({ ok: true });
+  ctx.actions.submitInvestmentReport = () => ({ ok: true, report: { grade: 'B', score: 72 } });
+  acceptResearchTask(ctx.store, null, state.career.tasks[0].id);
+  const view = createCareerView(ctx);
+  const host = mountView(view);
+  assertEqual(host.querySelectorAll('.career-task').length, 2, 'research task cards render');
+  assert(host.querySelector('.career-task.is-active'), 'accepted task is highlighted');
+  assert(host.querySelector('[data-report-form]'), 'report form renders for the active task');
+  assert(host.textContent.includes('career.reportsTitle'), 'report history card renders');
+  assert(host.textContent.includes('career.evalsTitle'), 'performance review card renders');
+  assert(host.textContent.includes('career.certsTitle'), 'certificate card renders');
+  view.destroy();
+  host.remove();
+});
+
 test('fund view gates, launches and renders an active fund', () => {
   const lockedState = createGameState({ seed: 'ui-fund-locked' });
   lockedState.career.rank = 1;
@@ -131,7 +153,7 @@ test('fund view gates, launches and renders an active fund', () => {
   assert(activeHost.querySelector('#fund-nav-chart'), 'NAV chart renders');
   assert(activeHost.querySelector('[data-fund-buy]'), 'fund buy button renders');
   assert(activeHost.querySelector('[data-fund-ticker]'), 'fund ticker selector renders');
-  assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 6, 'six team roles render');
+  assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 7, 'seven team roles render');
   active.destroy();
   activeHost.remove();
 });

@@ -8,6 +8,7 @@ import { progressBar, emptyState } from '../dom.js';
 import { icon } from '../icons.js';
 import { equity, marketValue, unrealizedPnl, returnPct, positionRows } from '../../trading/account.js';
 import { levelInfo, ACHIEVEMENTS } from '../../education/progress.js';
+import { careerCertificates } from '../../education/career.js';
 import { currentUnit, firstUnreadSection, unitProgress, isUnitComplete } from '../../education/lessonEngine.js';
 import { STAGE_1_UNITS } from '../../education/curriculum.js';
 import { companyName, unitLabel } from '../labels.js';
@@ -209,6 +210,25 @@ export function createDashboardView(ctx) {
     });
   }
 
+  function credentialsCard(state) {
+    const certificates = careerCertificates(state);
+    const earned = certificates.filter((entry) => entry.earned);
+    const ready = certificates.filter((entry) => entry.done && !entry.earned);
+    return card({
+      title: t('dashboard.credentialsTitle'),
+      subtitle: t('dashboard.credentialsSubtitle', { earned: earned.length, total: certificates.length }),
+      actions: `<button class="link-btn" type="button" data-go="/career">${t('nav.career')} ${icon('arrowRight', { size: 14 })}</button>`,
+      body: earned.length || ready.length
+        ? `<div class="achievement-strip">${[...earned, ...ready].slice(0, 5).map((entry) => `
+            <div class="achievement-chip" title="${t(entry.descKey)}">
+              <span class="achievement-chip__icon">${icon(entry.earned ? 'check' : 'sparkle', { size: 15 })}</span>
+              <span>${t(entry.titleKey)}</span>
+            </div>`).join('')}</div>
+          ${ready.length ? `<p class="chart-note muted">${t('dashboard.credentialsReady', { count: ready.length })}</p>` : ''}`
+        : `<p class="muted">${t('dashboard.credentialsEmpty')}</p>`,
+    });
+  }
+
   function template(state) {
     const total = equity(state.account, state.market.quotes);
     const mv = marketValue(state.account, state.market.quotes);
@@ -239,6 +259,7 @@ export function createDashboardView(ctx) {
           <div class="dash-side">
             ${activityCard(state)}
             ${achievementsCard(state)}
+            ${credentialsCard(state)}
           </div>
         </div>
         ${pathCard(state)}

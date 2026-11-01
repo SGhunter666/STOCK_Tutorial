@@ -326,18 +326,31 @@ export function positionRows(account, quotes) {
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
 }
 
-/** Cash already committed to resting buy limit orders. */
+/** Cash already committed to resting buy limit and stop-limit orders. */
 export function reservedCash(orders, fee = 0) {
   return orders
-    .filter((o) => o.status === 'open' && o.type === 'limit' && o.side === 'buy')
+    .filter((o) => o.status === 'open' && o.side === 'buy'
+      && (o.type === 'limit' || o.type === 'stop-limit'))
     .reduce((sum, o) => sum + o.qty * o.limitPrice + fee, 0);
 }
 
-/** Shares already committed to resting sell limit orders. */
+/**
+ * Shares already committed to resting sell orders. Both legs of an OCO reserve the
+ * same shares, so grouped legs are counted once instead of twice.
+ */
 export function reservedShares(orders, ticker) {
-  return orders
-    .filter((o) => o.status === 'open' && o.side === 'sell' && o.ticker === ticker)
-    .reduce((sum, o) => sum + o.qty, 0);
+  const groups = new Map();
+  let total = 0;
+  for (const order of orders) {
+    if (order.status !== 'open' || order.side !== 'sell' || order.ticker !== ticker) continue;
+    if (order.ocoGroup) {
+      groups.set(order.ocoGroup, Math.max(groups.get(order.ocoGroup) || 0, order.qty));
+    } else {
+      total += order.qty;
+    }
+  }
+  for (const qty of groups.values()) total += qty;
+  return total;
 }
 
 export function availableCash(account, orders, fee = 0) {

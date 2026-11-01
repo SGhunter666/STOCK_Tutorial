@@ -16,7 +16,7 @@ import { TICKS_PER_DAY } from './market/calendar.js';
 import { payableDividends, applyDividends } from './market/dividends.js';
 import {
   processOpenOrders, placeMarketOrder, placeLimitOrder, placeConditionalOrder,
-  cancelOrder, ORDER_STATUS,
+  placeOcoOrder, cancelOrder, ORDER_STATUS,
 } from './trading/orderEngine.js';
 import {
   snapshotEquity, buyingPower, shortCapacity, availableCash,
@@ -46,6 +46,9 @@ import { isCompanyUnlocked, newlyUnlockedSegments, segmentById } from './market/
 import { evaluateAchievements, achievementById } from './education/progress.js';
 import {
   careerProgress, promoteCareer, applyCareerSalary, careerRankByNumber,
+  refreshResearchTasks, acceptResearchTask,
+  submitInvestmentReport,
+  evaluateCareerPerformance, syncCareerCertificates,
 } from './education/career.js';
 import {
   createFundState, setupFund, fundMetrics, fundBuy, fundSell,
@@ -457,9 +460,14 @@ const actions = {
       toast(i18n.t('error.shortLocked'), 'error');
       return { ok: false, error: 'error.shortLocked' };
     }
-    if ((input.type === 'stop' || input.type === 'trailing') && !isToolUnlocked(state, 'order.stop')) {
+    if (['stop', 'trailing', 'stop-limit', 'oco'].includes(input.type)
+      && !isToolUnlocked(state, 'order.stop')) {
       toast(i18n.t('error.stopLocked'), 'error');
       return { ok: false, error: 'error.stopLocked' };
+    }
+    if (input.type === 'oco' && !isToolUnlocked(state, 'order.limit')) {
+      toast(i18n.t('error.limitLocked'), 'error');
+      return { ok: false, error: 'error.limitLocked' };
     }
     const fee = state.settings.commission;
     const marginEnabled = isToolUnlocked(state, 'trade.margin');
@@ -481,16 +489,18 @@ const actions = {
     let result;
     if (input.type === 'market') result = placeMarketOrder(args);
     else if (input.type === 'limit') result = placeLimitOrder(args);
+    else if (input.type === 'oco') result = placeOcoOrder(args);
     else result = placeConditionalOrder(args);
     if (!result.ok) {
       toast(i18n.t(result.error), 'error');
       return result;
     }
 
+    const placedOrders = result.orders || [result.order];
     store.update((s) => {
       s.account = result.account;
-      s.orders = [result.order, ...s.orders].slice(0, 120);
-      s.orderSeq += 1;
+      s.orders = [...placedOrders, ...s.orders].slice(0, 120);
+      s.orderSeq += placedOrders.length;
     }, { type: 'order:placed' });
     scheduleSave();
     announceAchievements();
@@ -870,6 +880,31 @@ const actions = {
   promoteCareer() {
     const result = advanceCareer();
     if (!result.ok) toast(i18n.t(result.error), 'warning');
+    else if (result.certificates?.length) {
+      toast(i18n.t('toast.certificateEarned', {
+        names: result.certificates.map((entry) => i18n.t(entry.titleKey)).join(' · '),
+      }), 'success', 6200);
+    }
+    scheduleSave();
+    return result;
+  },
+  acceptResearchTask(taskId) {
+    const result = acceptResearchTask(store, bus, taskId);
+    if (!result.ok) toast(i18n.t(result.error), 'warning');
+    scheduleSave();
+    return result;
+  },
+  submitInvestmentReport(input) {
+    const result = submitInvestmentReport(store, bus, input);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+    } else {
+      toast(i18n.t('toast.reportGraded', {
+        grade: result.report.grade,
+        score: result.report.score,
+        xp: result.xpGained,
+      }), result.passed ? 'success' : 'warning', 6200);
+    }
     scheduleSave();
     return result;
   },
@@ -1085,6 +1120,8 @@ function runSimulation(ticks) {
   let orders = state.orders;
   let career = state.career;
   let careerSalary = 0;
+  let careerEvaluation = null;
+  let careerCertificatesEarned = [];
   let fund = state.fund;
   let fundEvents = [];
   let fills = [];
@@ -1180,6 +1217,23 @@ function runSimulation(ticks) {
         ...account,
         equityHistory: snapshotEquity(account, state.market.quotes, Math.max(0, prevDay)),
       };
+      if (appMode === 'career') {
+        const day = Math.max(0, prevDay);
+        const careerState = {
+          ...state, account, career, fund,
+        };
+        career = refreshResearchTasks(careerState, day);
+        const evaluated = evaluateCareerPerformance({ ...careerState, career }, day);
+        career = evaluated.career;
+        if (evaluated.due) {
+          careerEvaluation = evaluated.evaluation;
+        }
+        const synced = syncCareerCertificates({ ...careerState, career }, day);
+        career = synced.career;
+        if (synced.newlyEarned.length) {
+          careerCertificatesEarned = [...careerCertificatesEarned, ...synced.newlyEarned];
+        }
+      }
     }
   }
 
@@ -1222,6 +1276,17 @@ function runSimulation(ticks) {
       amount: money(careerSalary, i18n.locale),
       rank: i18n.t(careerRankByNumber(career.rank).titleKey),
     }), 'success', 4600);
+  }
+  if (careerEvaluation) {
+    toast(i18n.t('toast.careerEvaluation', {
+      grade: careerEvaluation.grade,
+      score: careerEvaluation.score,
+    }), ['A', 'B'].includes(careerEvaluation.grade) ? 'success' : 'warning', 5200);
+  }
+  if (careerCertificatesEarned.length) {
+    toast(i18n.t('toast.certificateEarned', {
+      names: careerCertificatesEarned.map((entry) => i18n.t(entry.titleKey)).join(' · '),
+    }), 'success', 6200);
   }
   if (fundEvents.length) {
     const closed = fundEvents.find((event) => event.type === 'closed');

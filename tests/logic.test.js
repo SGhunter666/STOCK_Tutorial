@@ -13,8 +13,8 @@ import {
   reservedCash, buyingPower, shortCapacity, availableShortShares, optionValue,
 } from '../js/trading/account.js';
 import {
-  placeMarketOrder, placeLimitOrder, placeConditionalOrder, processOpenOrders, cancelOrder,
-  estimateOrder, ORDER_STATUS,
+  placeMarketOrder, placeLimitOrder, placeConditionalOrder, placeOcoOrder,
+  processOpenOrders, cancelOrder, estimateOrder, ORDER_STATUS,
 } from '../js/trading/orderEngine.js';
 import { financingCharge, applyFinancing, marginStatus, forceLiquidation } from '../js/trading/margin.js';
 import { buildOrderBook, estimateMarketFill } from '../js/market/orderBook.js';
@@ -63,8 +63,10 @@ import {
   CHALLENGES, startChallenge, abandonChallenge, checkChallenge, challengeProgress,
 } from '../js/education/challenges.js';
 import {
-  CAREER_RANKS, CAREER_SALARY_INTERVAL, normalizeCareer, careerProgress,
-  promoteCareer, applyCareerSalary,
+  CAREER_RANKS, CAREER_SALARY_INTERVAL, CAREER_EVAL_INTERVAL, normalizeCareer, careerProgress,
+  promoteCareer, applyCareerSalary, refreshResearchTasks, acceptResearchTask,
+  submitInvestmentReport, evaluateCareerPerformance, syncCareerCertificates,
+  careerCertificates,
 } from '../js/education/career.js';
 import { createBus } from '../js/core/bus.js';
 import { money, pct, compactNumber, clamp } from '../js/core/format.js';
@@ -321,6 +323,139 @@ test('conditional orders reject a stop on the wrong side of the market', () => {
   });
   assertEqual(bad.ok, false, 'sell stop above market rejected');
   assertEqual(bad.error, 'error.stopDirection', 'direction error');
+});
+
+test('stop-limit waits for the trigger, then only fills inside the limit', () => {
+  const seedState = createGameState({ seed: 'stop-limit' });
+  const account = buy(seedState.account, {
+    ticker: 'AURA', qty: 10, price: 50, fee: 1, day: 0, tick: 0,
+  }).account;
+  const placed = placeConditionalOrder({
+    account,
+    orders: [],
+    input: {
+      ticker: 'AURA', side: 'sell', type: 'stop-limit', qty: 10, stopPrice: 45, limitPrice: 44.5,
+    },
+    quote: { ticker: 'AURA', last: 50, bid: 49.99, ask: 50.01 },
+    fee: 1,
+    seq: 1,
+  });
+  assert(placed.ok, 'stop-limit placed');
+  assertEqual(placed.order.status, ORDER_STATUS.open, 'stop-limit rests');
+  assertEqual(placed.order.armed, false, 'not armed before trigger');
+
+  const triggered = processOpenOrders({
+    account,
+    orders: [placed.order],
+    quotes: { AURA: { last: 44.2, bid: 44.19, ask: 44.21 } },
+    fee: 1,
+    day: 1,
+    tick: 0,
+  });
+  assertEqual(triggered.fills.length, 0, 'bid below the limit does not fill');
+  assertEqual(triggered.orders[0].armed, true, 'order arms on the trigger');
+  assertEqual(triggered.orders[0].status, ORDER_STATUS.open, 'still resting');
+
+  const filled = processOpenOrders({
+    account: triggered.account,
+    orders: triggered.orders,
+    quotes: { AURA: { last: 44.4, bid: 44.6, ask: 44.8 } },
+    fee: 1,
+    day: 1,
+    tick: 1,
+  });
+  assertEqual(filled.fills.length, 1, 'fills once the bid reaches the limit');
+  assertClose(filled.fills[0].order.fillPrice, 44.6, 1e-9, 'fills at the bid');
+});
+
+test('stop-limit rejects a limit on the wrong side of the trigger', () => {
+  const account = createGameState({ seed: 'stop-limit-range' }).account;
+  const bad = placeConditionalOrder({
+    account,
+    orders: [],
+    input: {
+      ticker: 'AURA', side: 'buy', type: 'stop-limit', qty: 1, stopPrice: 52, limitPrice: 51,
+    },
+    quote: { ticker: 'AURA', last: 50, bid: 49.99, ask: 50.01 },
+    fee: 1,
+    seq: 1,
+  });
+  assertEqual(bad.ok, false, 'buy stop-limit with limit below the trigger rejected');
+  assertEqual(bad.error, 'error.stopLimitRange', 'range error');
+});
+
+test('OCO take-profit fill cancels the protective stop leg', () => {
+  const seedState = createGameState({ seed: 'oco' });
+  const account = buy(seedState.account, {
+    ticker: 'AURA', qty: 10, price: 50, fee: 1, day: 0, tick: 0,
+  }).account;
+  const placed = placeOcoOrder({
+    account,
+    orders: [],
+    input: {
+      ticker: 'AURA', side: 'sell', type: 'oco', qty: 10, limitPrice: 55, stopPrice: 45,
+    },
+    quote: { ticker: 'AURA', last: 50, bid: 49.99, ask: 50.01 },
+    fee: 1,
+    seq: 1,
+  });
+  assert(placed.ok, 'OCO placed');
+  assertEqual(placed.orders.length, 2, 'two legs created');
+  assertEqual(placed.orders[0].ocoGroup, placed.orders[1].ocoGroup, 'legs share a group');
+  assertEqual(placed.orders[0].ocoRole, 'takeProfit', 'first leg is take-profit');
+  assertEqual(placed.orders[1].ocoRole, 'stopLoss', 'second leg is stop-loss');
+
+  const processed = processOpenOrders({
+    account,
+    orders: placed.orders,
+    quotes: { AURA: { last: 56, bid: 55.99, ask: 56.01 } },
+    fee: 1,
+    day: 1,
+    tick: 0,
+  });
+  assertEqual(processed.fills.length, 1, 'only one leg fills');
+  assertEqual(processed.fills[0].order.ocoRole, 'takeProfit', 'take-profit fills first');
+  const open = processed.orders.filter((order) => order.status === ORDER_STATUS.open);
+  assertEqual(open.length, 0, 'no leg remains open');
+  const cancelled = processed.orders.filter((order) => order.status === ORDER_STATUS.cancelled);
+  assertEqual(cancelled.length, 1, 'the sibling is cancelled');
+  assertEqual(cancelled[0].reason, 'order.ocoCancelled', 'cancellation reason');
+});
+
+test('OCO shares are reserved once across both legs', () => {
+  const seedState = createGameState({ seed: 'oco-reserve' });
+  const account = buy(seedState.account, {
+    ticker: 'AURA', qty: 10, price: 50, fee: 1, day: 0, tick: 0,
+  }).account;
+  const placed = placeOcoOrder({
+    account,
+    orders: [],
+    input: {
+      ticker: 'AURA', side: 'sell', type: 'oco', qty: 10, limitPrice: 55, stopPrice: 45,
+    },
+    quote: { ticker: 'AURA', last: 50, bid: 49.99, ask: 50.01 },
+    fee: 1,
+    seq: 1,
+  });
+  assert(placed.ok);
+  assertEqual(reservedCash(placed.orders, 1), 0, 'no cash reserved for sells');
+  assertEqual(availableShares(account, placed.orders, 'AURA'), 0, 'all shares reserved by OCO');
+});
+
+test('OCO rejects opening sides', () => {
+  const account = createGameState({ seed: 'oco-side' }).account;
+  const bad = placeOcoOrder({
+    account,
+    orders: [],
+    input: {
+      ticker: 'AURA', side: 'buy', type: 'oco', qty: 1, limitPrice: 55, stopPrice: 45,
+    },
+    quote: { ticker: 'AURA', last: 50, bid: 49.99, ask: 50.01 },
+    fee: 1,
+    seq: 1,
+  });
+  assertEqual(bad.ok, false, 'buy OCO rejected');
+  assertEqual(bad.error, 'error.ocoSide', 'OCO side error');
 });
 
 test('order book is monotonic and reports slippage for large orders', () => {
@@ -1123,6 +1258,107 @@ test('career salary is paid once per 21 trading days', () => {
   assertEqual(paid.career.salaryPaidDay, CAREER_SALARY_INTERVAL, 'next salary day advanced');
   const repeated = applyCareerSalary(paid.account, paid.career, CAREER_SALARY_INTERVAL);
   assertEqual(repeated.amount, 0, 'same day is not paid twice');
+});
+
+test('research tasks generate, accept and grade into a passing report', () => {
+  const state = createGameState({ seed: 'career-research' });
+  state.career.rank = 2;
+  const store = createStore({ bus: createBus(), initialState: state });
+  state.career = refreshResearchTasks(state, 0);
+  assert(state.career.tasks.length >= 2, 'tasks are generated for a trader');
+  assertEqual(state.career.tasks[0].status, 'available', 'first task is available');
+
+  const accepted = acceptResearchTask(store, null, state.career.tasks[0].id);
+  assert(accepted.ok, 'task accepted');
+  assertEqual(accepted.task.status, 'active', 'task becomes active');
+
+  const task = accepted.task;
+  const quote = state.market.quotes[task.ticker];
+  state.education.inspectedTickers = [task.ticker];
+  state.education.units.u12.completedAt = Date.now();
+  const summary = `Thesis for ${task.ticker}: revenue growth of 12% and a 4% free-cash-flow yield support the valuation. `
+    + 'Key risks include a 200 bps margin compression and a 15% drawdown if demand slows. '
+    + 'I model three scenarios and size the position at 3% of the portfolio.';
+  const submitted = submitInvestmentReport(store, null, {
+    taskId: task.id,
+    thesis: 'neutral',
+    conviction: 3,
+    targetPrice: quote.last,
+    summary,
+  });
+  assert(submitted.ok, 'report submitted');
+  assert(submitted.report.score >= 60, 'report passes');
+  assertEqual(submitted.task.status, 'completed', 'task completed');
+  assertEqual(state.career.reports.length, 1, 'report recorded');
+  assert(submitted.xpGained > 0, 'XP awarded');
+  assert(submitted.cash > 0, 'cash bonus awarded');
+  assertEqual(careerProgress(state).passedReports, 1, 'passing report counted');
+});
+
+test('a short or invalid report is rejected before grading', () => {
+  const state = createGameState({ seed: 'career-report-errors' });
+  state.career.rank = 2;
+  const store = createStore({ bus: createBus(), initialState: state });
+  state.career = refreshResearchTasks(state, 0);
+  const task = state.career.tasks[0];
+  const accepted = acceptResearchTask(store, null, task.id);
+  assert(accepted.ok);
+  const short = submitInvestmentReport(store, null, {
+    taskId: task.id,
+    thesis: 'bull',
+    conviction: 4,
+    targetPrice: 10,
+    summary: 'too short',
+  });
+  assertEqual(short.ok, false, 'short summary rejected');
+  assertEqual(short.error, 'career.report.errorSummary', 'summary error');
+  const badTarget = submitInvestmentReport(store, null, {
+    taskId: task.id,
+    thesis: 'bull',
+    conviction: 4,
+    targetPrice: -1,
+    summary: 'A sufficiently long report with numbers and a clear risk section.',
+  });
+  assertEqual(badTarget.ok, false, 'negative target rejected');
+  assertEqual(badTarget.error, 'career.report.errorTarget', 'target error');
+});
+
+test('performance review runs every 21 trading days from real equity history', () => {
+  const state = createGameState({ seed: 'career-eval' });
+  state.career = normalizeCareer({ rank: 2, lastEvalDay: 0 }, 0);
+  state.market.day = CAREER_EVAL_INTERVAL;
+  state.account.equityHistory = [];
+  for (let day = 0; day <= CAREER_EVAL_INTERVAL; day += 1) {
+    state.account.equityHistory.push({
+      day,
+      equity: 10000 + day * 100,
+    });
+  }
+  const result = evaluateCareerPerformance(state, CAREER_EVAL_INTERVAL);
+  assert(result.due, 'review is due');
+  assertEqual(result.evaluation.reports, 0, 'no reports in the period');
+  assert(result.evaluation.score >= 55, 'positive returns lift the score');
+  assertEqual(result.evaluation.grade, result.evaluation.grade.toUpperCase(), 'grade is set');
+  assertEqual(result.career.evaluations.length, 1, 'review stored');
+  assertEqual(result.career.lastEvalDay, CAREER_EVAL_INTERVAL, 'review day advanced');
+  assert(result.xpGained > 0, 'review awards XP');
+  const early = evaluateCareerPerformance({ ...state, career: result.career }, CAREER_EVAL_INTERVAL);
+  assertEqual(early.due, false, 'not due again on the same day');
+});
+
+test('certificates are awarded from completed units and stored once', () => {
+  const state = createGameState({ seed: 'career-certs' });
+  for (const unitId of ['u1', 'u2', 'u3', 'u4']) {
+    state.education.units[unitId].completedAt = Date.now();
+  }
+  const first = syncCareerCertificates(state, 0);
+  assert(first.newlyEarned.some((entry) => entry.id === 'foundation'), 'foundation certificate earned');
+  assertEqual(first.career.certificates.length, 1, 'certificate persisted');
+  state.career = first.career;
+  const second = syncCareerCertificates(state, 0);
+  assertEqual(second.newlyEarned.length, 0, 'certificate is not awarded twice');
+  const certificates = careerCertificates(state, second.career);
+  assertEqual(certificates.find((entry) => entry.id === 'foundation').earned, true, 'earned flag set');
 });
 
 test('the top career rank cannot be promoted further', () => {

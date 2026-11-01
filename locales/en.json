@@ -84,6 +84,9 @@
     "insufficientShortShares": "Not enough short shares available to cover.",
     "insufficientMargin": "Insufficient collateral to open a short that large.",
     "stopDirection": "The trigger must sit on the correct side of the market.",
+    "stopLimitRange": "The limit must be at or better than the stop trigger.",
+    "ocoSide": "OCO applies to sell or cover orders only.",
+    "limitLocked": "Limit orders are locked, so OCO is unavailable.",
     "shortLocked": "Short selling is locked. Read section 1 of Unit 17 first.",
     "stopLocked": "Stop orders are locked. Read section 1 of Unit 19 first.",
     "optionsLocked": "Options are locked. Read section 1 of Unit 21 first.",
@@ -140,6 +143,9 @@
     "optionAssignedEarly": "{count} short {ticker} option(s) were assigned early and settled by stock delivery at the strike.",
     "careerPromoted": "Promoted to {rank} · +{xp} XP",
     "careerSalary": "Career salary paid: {amount} ({rank})",
+    "careerEvaluation": "Performance review: grade {grade} ({score} points)",
+    "certificateEarned": "Certificate earned: {names}",
+    "reportGraded": "Report scored {score} (grade {grade}) and earned {xp} XP",
     "fundCreated": "Fund launched: {name}. Client capital is now in the fund account.",
     "fundHired": "Hired {role}.",
     "fundFired": "A team member has left the fund.",
@@ -5167,6 +5173,10 @@
     "stageCompleteTitle": "You now speak the language of markets",
     "stageCompleteText": "You finished the four units on stocks, trading, P&L and order basics. The next stage arrives in a later build.",
     "certificateBadge": "Stage 1 badge",
+    "credentialsTitle": "Career certificates",
+    "credentialsSubtitle": "{earned} of {total} earned",
+    "credentialsEmpty": "Certificates appear here as you finish courses, reports and performance reviews.",
+    "credentialsReady": "{count} certificate(s) meet the requirements and await settlement.",
     "stageUnits": "{done} of {total} units",
     "reviewAcademy": "Review lessons",
     "seeRoadmap": "See roadmap",
@@ -5335,26 +5345,34 @@
         "market": "A market buy fills immediately at the ask and makes you a shareholder.",
         "limit": "A limit buy waits for the price to reach your limit or lower.",
         "stop": "A buy stop becomes a market buy when the price rises to the trigger.",
-        "trailing": "A trailing buy stop moves its trigger down as the price falls, protecting a short."
+        "trailing": "A trailing buy stop moves its trigger down as the price falls, protecting a short.",
+        "stop-limit": "A buy stop-limit triggers first, then buys only at or below your limit; it may not fill.",
+        "oco": "OCO is for selling or covering: take-profit and stop-loss rest together, and one leg cancels the other."
       },
       "sell": {
         "market": "A market sell fills immediately at the bid and locks in realised P&L.",
         "limit": "A limit sell waits for the price to reach your limit or higher.",
         "stop": "A sell stop becomes a market sell when the price falls through the trigger.",
-        "trailing": "A trailing sell stop ratchets up with the price to lock in part of the gain."
+        "trailing": "A trailing sell stop ratchets up with the price to lock in part of the gain.",
+        "stop-limit": "After the trigger, a sell stop-limit only fills at or above your limit; it may not fill.",
+        "oco": "OCO rests a take-profit limit sell and a stop-loss sell; whichever fills first cancels the other."
       },
       "always": "Check quantity, price and total cash impact before submitting.",
       "short": {
         "market": "A market short borrows and sells now; proceeds count as collateral.",
         "limit": "A limit short waits for the price to rise to your limit before selling.",
         "stop": "A short stop covers at market if the price rises to the trigger.",
-        "trailing": "A trailing short stop moves its trigger down as the price falls."
+        "trailing": "A trailing short stop moves its trigger down as the price falls.",
+        "stop-limit": "A short stop-limit only sells at or better than the limit after its trigger.",
+        "oco": "OCO does not open shorts; it protects an existing position."
       },
       "cover": {
         "market": "A market cover buys back the borrowed shares immediately and locks in realised P&L.",
         "limit": "A limit cover waits for the price to fall to your limit before buying.",
         "stop": "A cover stop buys back at market if the price rises to the trigger.",
-        "trailing": "A trailing cover stop moves its trigger down as the price falls."
+        "trailing": "A trailing cover stop moves its trigger down as the price falls.",
+        "stop-limit": "A cover stop-limit buys back only at or below the limit after the trigger.",
+        "oco": "OCO can rest a cover take-profit limit and a cover stop; the first fill cancels the other."
       }
     },
     "reservedCash": "Reserved cash {value}",
@@ -5425,7 +5443,10 @@
       "trail": "Enter a valid trailing amount.",
       "stopDirection": "The trigger must sit on the correct side of the market.",
       "margin": "Insufficient collateral for that short size.",
-      "shortShares": "Not enough short shares available to cover."
+      "shortShares": "Not enough short shares available to cover.",
+      "stopLimitRange": "The limit must be at or better than the stop trigger.",
+      "ocoSide": "OCO applies to sell or cover orders only.",
+      "ocoTarget": "The OCO take-profit must sit on the correct side of the market."
     },
     "indicatorsTitle": "Technical indicators",
     "indicatorsSubtitle": "Based on current and past closes only, no future data",
@@ -5454,6 +5475,12 @@
     "cover": "Cover",
     "stopOrder": "Stop",
     "trailingOrder": "Trailing stop",
+    "stopLimitOrder": "Stop-limit",
+    "ocoOrder": "OCO bracket",
+    "takeProfit": "Take-profit",
+    "stopLossPrice": "Stop-loss",
+    "stopLimitHint": "Once triggered, it only fills at your limit or better; otherwise it keeps resting.",
+    "ocoHint": "Take-profit and stop-loss rest together; when one leg fills the other is cancelled.",
     "stopPrice": "Trigger price",
     "trailAmount": "Trail amount",
     "trailHint": "The stop tightens by this amount as the price moves favourably.",
@@ -6416,6 +6443,9 @@
     "goCareer": "Go to Career",
     "setupTitle": "Launch your fund",
     "setupSubtitle": "Choose a strategy, risk profile, starting size and fee schedule. Clients split the initial AUM.",
+    "reopenTitle": "Relaunch your fund",
+    "reopenSubtitle": "Your previous fund closed. Keep or change the strategy, benchmark and fees in a new fund.",
+    "reopen": "Relaunch fund",
     "nameLabel": "Fund name",
     "namePlaceholder": "e.g. Atlas Capital",
     "strategyLabel": "Strategy",
@@ -6425,8 +6455,22 @@
     "managementFeeOption": "{value}% / year",
     "performanceFeeLabel": "Performance fee",
     "performanceFeeOption": "{value}%",
+    "benchmarkLabel": "Benchmark",
+    "hurdleLabel": "Hurdle rate",
+    "hurdleOption": "{value}% annual",
+    "leverageLabel": "Leverage",
+    "leverageOff": "No leverage",
+    "leverageOn": "Enabled (risk-profile cap)",
     "create": "Launch fund",
-    "setupNote": "The annual management fee of {fee} is accrued every {interval} trading days. Performance fees use a high-water mark.",
+    "setupNote": "The annual management fee of {fee} is accrued every {interval} trading days. Performance fees must clear both the high-water mark and the hurdle. Operating costs and a compliance officer affect trust and closure risk.",
+    "benchmark": {
+      "index": "Market index",
+      "indexDesc": "Use the broad market index as the opportunity-cost benchmark.",
+      "mkt": "MKT broad ETF",
+      "mktDesc": "Use the tradable broad ETF, closer to an achievable passive return.",
+      "cash": "Cash",
+      "cashDesc": "Use cash as the benchmark and judge absolute return only."
+    },
     "strategy": {
       "longOnly": { "name": "Long only", "desc": "Long stocks only, 25% position cap and 10% cash floor. Built for steady growth." },
       "macro": { "name": "Macro", "desc": "Positions sized around the macro cycle, 30% cap and 15% cash floor." },
@@ -6441,6 +6485,7 @@
     "errorNotActive": "There is no active fund.",
     "errorPositionCap": "This purchase would breach the single-position cap.",
     "errorCashFloor": "This purchase would breach the minimum cash ratio.",
+    "errorLeverage": "This purchase would exceed the fund's leverage limit.",
     "errorNoNav": "Fund NAV is zero, so trading is unavailable.",
     "errorUnknownRole": "Unknown role.",
     "errorRoleFilled": "That role is already filled.",
@@ -6474,6 +6519,10 @@
       "subtitle": "Position and drawdown checks run continuously; breaches accumulate risk days.",
       "cash": "Cash ratio",
       "minCash": "Floor {value}",
+      "cashFloor": "Leverage floor {value}",
+      "leverage": "Gross exposure",
+      "maxLeverage": "Cap {value}",
+      "leverageDays": "{days} / {max} consecutive leverage breaches before forced closure.",
       "topPosition": "Largest position",
       "maxPosition": "Cap {value}",
       "noPosition": "No positions yet",
@@ -6511,6 +6560,7 @@
       "name": "Client",
       "value": "Holding value",
       "risk": "Risk",
+      "expected": "Expected annual",
       "trust": "Trust",
       "status": "Status",
       "action": "Action",
@@ -6553,7 +6603,8 @@
       "risk": { "name": "Risk manager", "desc": "Reviews cash ratio, concentration and drawdown each day." },
       "trader": { "name": "Trader", "desc": "Lowers the fund's trading fee." },
       "macro": { "name": "Macro analyst", "desc": "Tracks rates, inflation and growth." },
-      "operations": { "name": "Operations", "desc": "Speeds up client trust gains." }
+      "operations": { "name": "Operations", "desc": "Speeds up client trust gains." },
+      "compliance": { "name": "Compliance officer", "desc": "Monitors risk breaches, lowers compliance closure risk and lifts client trust." }
     },
     "ops": {
       "title": "Fund operations",
@@ -6561,10 +6612,16 @@
       "managementRate": "Management fee",
       "perYear": "/ year",
       "performanceRate": "Performance fee",
+      "hurdle": "Hurdle rate",
       "hwm": "High-water mark (per unit)",
+      "benchmark": "Benchmark",
       "nextFee": "Next accrual",
       "inDays": "in {days} trading days",
       "payrollDue": "Payroll due",
+      "operatingCosts": "Operating costs to date",
+      "operatingDue": "Unpaid operating costs",
+      "leverage": "Leverage limit",
+      "noLeverage": "Disabled",
       "feePayable": "Unpaid fees",
       "companyCash": "Company cash",
       "withdrawn": "Withdrawn to personal account",
@@ -6606,6 +6663,8 @@
       "performanceFee": "Performance fee accrued: {amount}.",
       "payroll": "Payroll accrued: {amount}.",
       "payrollShort": "Payroll short by {amount}.",
+      "operatingCost": "Operating costs accrued: {amount}.",
+      "keyPerson": "Key person {name} ({role}) left, forcing the fund to close.",
       "candidate": "New prospect {name} with {amount}.",
       "closed": "Fund closed: {reason}.",
       "other": "Operating record."
@@ -6622,7 +6681,10 @@
       "liquidity": "A redemption could not be paid on time",
       "payroll": "Payroll was unpaid for too long",
       "risk": "Risk limits were breached for too many days",
-      "redeemed": "All clients redeemed"
+      "redeemed": "All clients redeemed",
+      "compliance": "Risk limits were breached without a compliance officer",
+      "keyPerson": "A key person left the fund",
+      "leverage": "Gross exposure exceeded the leverage cap for too many days"
     }
   },
   "career": {
@@ -6672,7 +6734,105 @@
       "challenges": "Complete {target} challenges",
       "branch": "Complete the “{branch}” branch",
       "branches": "Complete {target} professional branches",
-      "xp": "Earn {target} XP"
+      "xp": "Earn {target} XP",
+      "reports": "Complete {target} passing investment reports",
+      "reportScore": "Reach a report score of {target}",
+      "evaluations": "Earn {target} passing performance reviews",
+      "certificates": "Earn {target} career certificates"
+    },
+    "tasksTitle": "Research tasks",
+    "tasksSubtitle": "Active {active} · available {available}",
+    "tasksEmpty": "Research tasks appear once you become an independent trader.",
+    "reportsTitle": "Investment reports",
+    "reportsSubtitle": "{passed} passing of {total} total",
+    "reportsEmpty": "Submit your first report to see scores and grades here.",
+    "reportsNote": "A report passes at {min} points; the score weighs coverage, target-price sanity and trend alignment.",
+    "evalsTitle": "Performance reviews",
+    "evalsSubtitle": "Next review in {days} trading days",
+    "evalsEmpty": "Every 21 trading days you are reviewed on return, drawdown and report completion.",
+    "evalsInterval": "Every {days} trading days",
+    "certsTitle": "Career certificates",
+    "certsSubtitle": "Awarded automatically for real milestones",
+    "task": {
+      "equity": {
+        "title": "Single-stock research report",
+        "desc": "Write a report on {ticker} covering fundamentals, valuation and risks."
+      },
+      "sector": {
+        "title": "Sector observation note",
+        "desc": "Map the drivers, competitive landscape and risks around {ticker}'s sector."
+      },
+      "risk": {
+        "title": "Risk memo",
+        "desc": "Assess {ticker}'s downside, position limit and hedging options."
+      },
+      "status": {
+        "available": "Available",
+        "active": "Active",
+        "completed": "Completed",
+        "expired": "Expired"
+      },
+      "deadline": "Due {day}",
+      "ticker": "Ticker {ticker}",
+      "rewardXp": "{xp} XP",
+      "rewardCash": "Bonus {cash}",
+      "accept": "Accept task",
+      "completedScore": "Score {score} · grade {grade}",
+      "errorUnavailable": "That task is unavailable or already completed.",
+      "errorActive": "You can run at most 2 research tasks at once."
+    },
+    "report": {
+      "thesis": "Thesis",
+      "bull": "Bull",
+      "bear": "Bear",
+      "neutral": "Neutral",
+      "conviction": "Conviction",
+      "convictionValue": "{value} / 5",
+      "target": "Target price",
+      "summary": "Report summary",
+      "summaryHint": "State your thesis, key assumptions and main risks…",
+      "summaryNote": "At least {min} characters; numbers and risk discussion raise the score.",
+      "submit": "Submit report",
+      "day": "Date",
+      "ticker": "Ticker",
+      "grade": "Grade",
+      "score": "Score",
+      "errorTask": "That research task could not be found.",
+      "errorTaskState": "Accept the task before submitting a report.",
+      "errorSummary": "The report summary needs at least 40 characters.",
+      "errorTarget": "Enter a valid target price.",
+      "errorThesis": "Choose a valid thesis.",
+      "errorConviction": "Conviction must be between 1 and 5."
+    },
+    "eval": {
+      "day": "Date",
+      "return": "Period return",
+      "drawdown": "Max drawdown",
+      "reports": "Passing reports"
+    },
+    "cert": {
+      "foundation": {
+        "title": "Market foundations certificate",
+        "desc": "Complete the stock, market-cap, P&L and order basics units."
+      },
+      "technical": {
+        "title": "Trading technique certificate",
+        "desc": "Complete the technical analysis, short selling and stop-order units."
+      },
+      "analyst": {
+        "title": "Research analyst certificate",
+        "desc": "Submit 3 investment reports scoring 70 or higher."
+      },
+      "manager": {
+        "title": "Portfolio manager certificate",
+        "desc": "Earn 2 performance reviews scoring 70 or higher."
+      },
+      "founder": {
+        "title": "Fund founder certificate",
+        "desc": "Reach the hedge fund manager rank."
+      },
+      "earned": "Earned",
+      "note": "Certificates reflect in-game learning and career progress only, not a formal finance qualification."
     },
     "rank": {
       "retail": {

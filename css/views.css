@@ -1356,6 +1356,75 @@
   .career-grid { grid-template-columns: 1fr; }
 }
 
+.career-page .card { margin-bottom: 14px; }
+
+.career-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.career-panels .card { height: 100%; }
+
+.career-task-list { display: flex; flex-direction: column; gap: 10px; }
+
+.career-task {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg-alt);
+}
+
+.career-task.is-active { border-color: rgba(94, 234, 212, 0.32); }
+
+.career-task__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.career-task__head strong { font-size: 12.5px; }
+.career-task__head .muted { font-size: 10.5px; line-height: 1.5; margin-top: 3px; }
+
+.career-task__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 8px;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.career-task__result {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.career-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.career-form textarea { min-height: 88px; resize: vertical; font-family: var(--font-sans); }
+
+@media (max-width: 980px) {
+  .career-panels { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .career-form { grid-template-columns: 1fr; }
+  .career-task__head { flex-direction: column; }
+}
+
 .fund-page .card { margin-bottom: 14px; }
 
 .fund-form {
