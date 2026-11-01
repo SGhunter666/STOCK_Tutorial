@@ -89,6 +89,197 @@ export function intradayBar(bar, symbol, tick = 0) {
   };
 }
 
+export const HISTORY_TIMEFRAMES = ['5m', '15m', '1h', '1d', '1w', '1mo', '1y'];
+const INTRADAY_5M_BARS = 78;
+const MINUTES_PER_BAR = 5;
+
+function clockText(minutes) {
+  const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const mm = String(minutes % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function minutePath(bar, symbol) {
+  const [, open, high, low, close] = bar;
+  const steps = INTRADAY_5M_BARS * MINUTES_PER_BAR;
+  if (!Number.isFinite(high) || !Number.isFinite(low) || high <= low) {
+    return Array.from({ length: steps }, () => round(open));
+  }
+  const hash = hashString(`${symbol}|${bar[0]}|minute`);
+  const highFirst = (hash & 1) === 0;
+  const anchors = [
+    { step: 0, price: open },
+    { step: Math.floor(steps * 0.32), price: highFirst ? high : low },
+    { step: Math.floor(steps * 0.66), price: highFirst ? low : high },
+    { step: steps - 1, price: close },
+  ];
+  const prices = [];
+  for (let step = 0; step < steps; step += 1) {
+    const nextIndex = anchors.findIndex((anchor) => anchor.step >= step);
+    const right = anchors[nextIndex] || anchors[anchors.length - 1];
+    const left = anchors.reduce((best, anchor) => (anchor.step <= step ? anchor : best), anchors[0]);
+    const span = right.step - left.step;
+    const ratio = span > 0 ? (step - left.step) / span : 0;
+    let price = left.price + (right.price - left.price) * ratio;
+    if (step !== left.step) {
+      price += noise(hash, step + 3) * (high - low) * 0.035;
+    }
+    prices.push(round(Math.min(high, Math.max(low, price)), 4));
+  }
+  for (const anchor of anchors) {
+    prices[anchor.step] = round(anchor.price, 4);
+  }
+  return prices;
+}
+
+function aggregateCandles(candles, size) {
+  if (size <= 1) return candles;
+  const out = [];
+  for (let index = 0; index < candles.length; index += size) {
+    const group = candles.slice(index, index + size);
+    out.push({
+      d: group[0].d,
+      time: group[0].time,
+      end: group[group.length - 1].d,
+      o: group[0].o,
+      h: Math.max(...group.map((candle) => candle.h)),
+      l: Math.min(...group.map((candle) => candle.l)),
+      c: group[group.length - 1].c,
+      v: group.reduce((sum, candle) => sum + (candle.v || 0), 0),
+    });
+  }
+  return out;
+}
+
+/** Builds 5m / 15m / 1h candles for the current historical day. */
+export function buildIntradayCandles(bar, symbol, tick, timeframe, currentPrice) {
+  const minutePrices = minutePath(bar, symbol);
+  const bars = [];
+  const weights = [];
+  for (let index = 0; index < INTRADAY_5M_BARS; index += 1) {
+    const position = INTRADAY_5M_BARS > 1 ? index / (INTRADAY_5M_BARS - 1) : 0;
+    weights.push(0.55 + 0.9 * Math.abs(position * 2 - 1));
+  }
+  const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+  for (let index = 0; index < INTRADAY_5M_BARS; index += 1) {
+    const start = index * MINUTES_PER_BAR;
+    const group = minutePrices.slice(start, start + MINUTES_PER_BAR);
+    const open = group[0];
+    const close = group[group.length - 1];
+    bars.push({
+      d: bar[0],
+      o: open,
+      h: Math.max(...group),
+      l: Math.min(...group),
+      c: close,
+      v: Math.round((bar[5] || 0) * (weights[index] / weightSum)),
+      time: clockText(9 * 60 + 30 + start),
+    });
+  }
+  const elapsed = Math.max(0, Number(tick) || 0) * 48;
+  const visible = Math.min(
+    INTRADAY_5M_BARS,
+    Math.max(1, Math.round(elapsed / MINUTES_PER_BAR) + 1),
+  );
+  let candles = bars.slice(0, visible);
+  if (timeframe === '15m') candles = aggregateCandles(candles, 3);
+  else if (timeframe === '1h') candles = aggregateCandles(candles, 12);
+  if (Number.isFinite(currentPrice) && candles.length) {
+    const last = candles[candles.length - 1];
+    last.c = round(currentPrice, 4);
+    last.h = Math.max(last.h, last.c);
+    last.l = Math.min(last.l, last.c);
+  }
+  return candles;
+}
+
+function weekKey(dateText) {
+  const date = new Date(`${dateText}T00:00:00Z`);
+  const offset = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function aggregateByPeriod(candles, timeframe) {
+  const keyFor = timeframe === '1w'
+    ? (candle) => weekKey(candle.d)
+    : timeframe === '1mo'
+      ? (candle) => candle.d.slice(0, 7)
+      : (candle) => candle.d.slice(0, 4);
+  const out = [];
+  for (const candle of candles) {
+    const key = keyFor(candle);
+    const last = out[out.length - 1];
+    if (last && last.key === key) {
+      last.h = Math.max(last.h, candle.h);
+      last.l = Math.min(last.l, candle.l);
+      last.c = candle.c;
+      last.v += candle.v || 0;
+      last.end = candle.d;
+    } else {
+      out.push({
+        key,
+        d: candle.d,
+        end: candle.d,
+        o: candle.o,
+        h: candle.h,
+        l: candle.l,
+        c: candle.c,
+        v: candle.v || 0,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Returns candles for the requested timeframe, using only data up to the
+ * current day and tick. Intraday timeframes are derived from the real daily
+ * OHLC; daily and higher timeframes aggregate the real daily bars.
+ */
+export function historyCandles(dataset, symbol, dayIndex, tick, timeframe, currentPrice) {
+  const bars = barsFor(dataset, symbol);
+  if (!bars.length) return { candles: [], labels: [], intraday: false };
+  if (timeframe === '5m' || timeframe === '15m' || timeframe === '1h') {
+    const candles = buildIntradayCandles(bars[dayIndex], symbol, tick, timeframe, currentPrice);
+    return {
+      candles,
+      labels: [candles[0]?.time || clockText(9 * 60 + 30), sessionClockText(tick)],
+      intraday: true,
+    };
+  }
+  const completed = bars.slice(0, dayIndex).map(([date, open, high, low, close, volume]) => ({
+    d: date,
+    end: date,
+    o: open,
+    h: high,
+    l: low,
+    c: close,
+    v: volume,
+  }));
+  const partial = intradayBar(bars[dayIndex], symbol, tick);
+  completed.push({
+    d: partial.d,
+    end: partial.d,
+    o: partial.o,
+    h: partial.h,
+    l: partial.l,
+    c: partial.c,
+    v: partial.v,
+  });
+  const candles = timeframe === '1d' ? completed : aggregateByPeriod(completed, timeframe);
+  return {
+    candles,
+    labels: [candles[0]?.d || '', candles[candles.length - 1]?.end || candles[candles.length - 1]?.d || ''],
+    intraday: false,
+  };
+}
+
+function sessionClockText(tick) {
+  const minutes = 9 * 60 + 30 + Math.min(TICKS_PER_DAY - 1, Math.max(0, Number(tick) || 0)) * 48;
+  return clockText(minutes);
+}
+
 export function createHistoryRun(scenarioId, startCash = HISTORY_START_CASH) {
   return {
     scenarioId,

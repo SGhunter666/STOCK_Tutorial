@@ -9,7 +9,7 @@ import { HISTORY_SCENARIOS, HISTORY_SECTOR_PACKS, getHistoryScenario, eventsUpTo
 import {
   createHistoryRun, ensureHistoryRun, quoteAt, advanceRun, tradeAtClose, summary,
   barCount, currentDate, HISTORY_WARMUP, intradayPath, intradayBar, quoteAtTick,
-  tradeAtTick, advanceHistoryTick, summaryAtTick,
+  tradeAtTick, advanceHistoryTick, summaryAtTick, historyCandles,
 } from '../js/history/replayEngine.js';
 import { TICKS_PER_DAY } from '../js/market/calendar.js';
 import { createGameState, hydrateState, serializeState } from '../js/game/gameState.js';
@@ -184,6 +184,37 @@ test('tradeAtTick fills at the current intraday price', async () => {
   assertEqual(bought.trade.tick, 4, 'trade records the tick');
   const sum = summaryAtTick(bought.run, dataset);
   assert(Number.isFinite(sum.total), 'equity at tick is finite');
+});
+
+test('history candles support 5m, 15m, 1h, daily, weekly, monthly and yearly views', async () => {
+  const data = await loadDatasets();
+  const dataset = data['2008-crisis'];
+  const day = 80;
+  const tick = TICKS_PER_DAY - 1;
+  const quote = quoteAtTick(dataset, 'AAPL', day, tick);
+  const five = historyCandles(dataset, 'AAPL', day, tick, '5m', quote.last);
+  const fifteen = historyCandles(dataset, 'AAPL', day, tick, '15m', quote.last);
+  const hour = historyCandles(dataset, 'AAPL', day, tick, '1h', quote.last);
+  assertEqual(five.intraday, true, 'intraday flag');
+  assert(five.candles.length > 60, '5m bars fill the session');
+  assertEqual(fifteen.candles.length, Math.ceil(five.candles.length / 3), '15m aggregation');
+  assertEqual(hour.candles.length, Math.ceil(five.candles.length / 12), '1h aggregation');
+  assertClose(five.candles[0].o, dataset.tickers.find((t) => t.symbol === 'AAPL').bars[day][1], 0.01, '5m opens at daily open');
+  assertClose(five.candles[five.candles.length - 1].c, quote.last, 0.01, '5m current close matches tick quote');
+  for (const candle of five.candles) {
+    assert(candle.h >= candle.l, 'valid candle range');
+  }
+
+  const daily = historyCandles(dataset, 'AAPL', day, tick, '1d', quote.last);
+  const weekly = historyCandles(dataset, 'AAPL', day, tick, '1w', quote.last);
+  const monthly = historyCandles(dataset, 'AAPL', day, tick, '1mo', quote.last);
+  const yearly = historyCandles(dataset, 'AAPL', day, tick, '1y', quote.last);
+  assertEqual(daily.candles.length, day + 1, 'daily bars up to the current day');
+  assert(weekly.candles.length < daily.candles.length, 'weekly aggregation reduces bars');
+  assert(monthly.candles.length < weekly.candles.length, 'monthly aggregation reduces bars');
+  assert(yearly.candles.length < monthly.candles.length, 'yearly aggregation reduces bars');
+  assertClose(daily.candles[daily.candles.length - 1].c, quote.last, 0.01, 'daily current close matches tick quote');
+  assertClose(daily.candles[0].o, dataset.tickers.find((t) => t.symbol === 'AAPL').bars[0][1], 0.01, 'daily series starts at the first open');
 });
 
 test('quoteAt only uses current and previous bars', async () => {

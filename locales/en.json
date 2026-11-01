@@ -5735,8 +5735,8 @@
     "statBenchmark": "QQQ benchmark",
     "statBenchmarkSub": "Buy and hold from start",
     "chartTitle": "Historical chart",
-    "chartSubtitle": "Real adjusted daily candles · OHLC + volume",
-    "chartNote": "Showing the latest {count} trading days; only data up to the current date is used, never the future.",
+    "chartSubtitle": "Adjusted candles · 5m / 15m / 1h / daily / weekly / monthly / yearly",
+    "chartNote": "{count} {tf} candles; only data up to the current date is used, never the future.",
     "avgCostLine": "The dashed line is your average cost {cost}",
     "avgCostMarker": "Average cost",
     "ticketTitle": "Trade at the close",
@@ -6037,7 +6037,17 @@
     "nextDay": "Advance to the next trading day",
     "jumpLabel": "Jump",
     "chartRangeAll": "All days",
-    "chartRangeRecent": "Last 120 days"
+    "chartRangeRecent": "Last 120 days",
+    "tf": {
+      "5m": "5m",
+      "15m": "15m",
+      "1h": "1h",
+      "1d": "1D",
+      "1w": "1W",
+      "1mo": "1M",
+      "1y": "1Y"
+    },
+    "chartNoteIntraday": "{count} {tf} candles in the current session; intraday candles are derived deterministically from the real daily OHLC."
   },
   "macro": {
     "regime": {

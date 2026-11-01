@@ -5735,8 +5735,8 @@
     "statBenchmark": "QQQ 基准",
     "statBenchmarkSub": "同期买入并持有",
     "chartTitle": "历史走势",
-    "chartSubtitle": "真实复权日线 · 开 / 高 / 低 / 收 + 成交量",
-    "chartNote": "显示最近 {count} 个交易日；只使用当前日期及之前的数据，避免看到未来。",
+    "chartSubtitle": "复权 K 线 · 5分 / 15分 / 1时 / 日 / 周 / 月 / 年",
+    "chartNote": "共 {count} 根{tf}K；只使用当前日期及之前的数据，避免看到未来。",
     "avgCostLine": "虚线为你的平均成本 {cost}",
     "avgCostMarker": "平均成本",
     "ticketTitle": "按收盘价交易",
@@ -6037,7 +6037,17 @@
     "nextDay": "推进到下一交易日",
     "jumpLabel": "快速跳转",
     "chartRangeAll": "全部日子",
-    "chartRangeRecent": "近 120 日"
+    "chartRangeRecent": "近 120 日",
+    "tf": {
+      "5m": "5分",
+      "15m": "15分",
+      "1h": "1时",
+      "1d": "日K",
+      "1w": "周K",
+      "1mo": "月K",
+      "1y": "年K"
+    },
+    "chartNoteIntraday": "当前交易日 {count} 根{tf}K；分钟 K 由真实日线 OHLC 确定性展开，属于模拟盘中路径。"
   },
   "macro": {
     "regime": {

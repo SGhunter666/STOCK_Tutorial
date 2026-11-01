@@ -17,8 +17,8 @@ import {
   tickHistory,
 } from '../../history/replayActions.js';
 import {
-  summaryAtTick, quoteAtTick, quotesAtTick, currentDate, intradayBar, localeDateText,
-  HISTORY_FEE,
+  summaryAtTick, quoteAtTick, quotesAtTick, currentDate, historyCandles, localeDateText,
+  HISTORY_FEE, HISTORY_TIMEFRAMES,
 } from '../../history/replayEngine.js';
 import { TICKS_PER_DAY, sessionClock } from '../../market/calendar.js';
 import { confirmModal } from '../components.js';
@@ -131,7 +131,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
   let qty = '10';
   let groupFilter = 'all';
   let query = '';
-  let chartRange = 'all';
+  let timeframe = '1d';
 
   function run(state) {
     return runFor(state, scenarioId);
@@ -233,26 +233,27 @@ export function createHistoryScenarioView(ctx, scenarioId) {
 
   function chartCard(sum) {
     const currentRun = run(store.get());
+    const quote = quoteAtTick(dataset, selectedTicker, currentRun.dayIndex, currentRun.tick || 0);
+    const info = historyCandles(
+      dataset, selectedTicker, currentRun.dayIndex, currentRun.tick || 0, timeframe, quote?.last,
+    );
     const position = currentRun.account.positions[selectedTicker];
-    const candleCount = chartRange === 'recent'
-      ? Math.min(120, sum.dayIndex + 1)
-      : sum.dayIndex + 1;
+    const note = info.intraday
+      ? t('history.chartNoteIntraday', { count: info.candles.length, tf: t(`history.tf.${timeframe}`) })
+      : t('history.chartNote', { count: info.candles.length, tf: t(`history.tf.${timeframe}`) });
     return card({
       title: `${selectedTicker} · ${t('history.chartTitle')}`,
       subtitle: t('history.chartSubtitle'),
       actions: `
         ${segmented({
-          options: [
-            { value: 'all', label: t('history.chartRangeAll') },
-            { value: 'recent', label: t('history.chartRangeRecent') },
-          ],
-          active: chartRange,
-          attr: 'chart-range',
+          options: HISTORY_TIMEFRAMES.map((value) => ({ value, label: t(`history.tf.${value}`) })),
+          active: timeframe,
+          attr: 'history-timeframe',
         })}
         <span class="pill">${t(scenario.periodKey)}</span>`,
       body: `
         <div class="chart-wrap"><canvas id="history-chart" style="height:340px"></canvas></div>
-        <p class="chart-note muted">${t('history.chartNote', { count: candleCount })}${position ? ` · ${t('history.avgCostLine', { cost: money(position.costBasis / position.qty, i18n.locale) })}` : ''}</p>`,
+        <p class="chart-note muted">${note}${position ? ` · ${t('history.avgCostLine', { cost: money(position.costBasis / position.qty, i18n.locale) })}` : ''}</p>`,
     });
   }
 
@@ -499,26 +500,19 @@ export function createHistoryScenarioView(ctx, scenarioId) {
   function chartPayload(state) {
     if (!dataset) return null;
     const currentRun = run(state);
-    const ticker = dataset.tickers.find((entry) => entry.symbol === selectedTicker);
-    if (!ticker) return null;
-    const allBars = ticker.bars.slice(0, currentRun.dayIndex + 1);
-    if (!allBars.length) return null;
-    const visible = chartRange === 'recent' ? allBars.slice(-120) : allBars;
-    const currentBar = allBars[allBars.length - 1];
-    const partial = intradayBar(currentBar, selectedTicker, currentRun.tick || 0);
-    const candles = visible.slice(0, -1).map(([date, open, high, low, close, volume]) => ({
-      d: date,
-      o: open,
-      h: high,
-      l: low,
-      c: close,
-      v: volume,
-    }));
-    candles.push(partial);
+    const tick = currentRun.tick || 0;
+    const quote = quoteAtTick(dataset, selectedTicker, currentRun.dayIndex, tick);
+    const info = historyCandles(
+      dataset, selectedTicker, currentRun.dayIndex, tick, timeframe, quote?.last,
+    );
+    if (!info.candles.length) return null;
+    const labels = info.intraday
+      ? info.labels
+      : info.labels.map((date) => localeDateText(date, i18n.locale));
     const position = currentRun.account.positions[selectedTicker];
     return {
-      candles,
-      labels: [localeDateText(visible[0]?.[0], i18n.locale), localeDateText(currentBar[0], i18n.locale)],
+      candles: info.candles,
+      labels,
       markers: position
         ? [{ value: position.costBasis / position.qty, label: t('history.avgCostMarker'), color: 'rgba(245,183,80,0.85)' }]
         : [],
@@ -681,9 +675,9 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     container.querySelector('[data-history-next]')?.addEventListener('click', () => {
       actions.nextDay();
     });
-    container.querySelectorAll('[data-chart-range]').forEach((button) => {
+    container.querySelectorAll('[data-history-timeframe]').forEach((button) => {
       button.addEventListener('click', () => {
-        chartRange = button.dataset.chartRange;
+        timeframe = button.dataset.historyTimeframe;
         render(store.get());
       });
     });

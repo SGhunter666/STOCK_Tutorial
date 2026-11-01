@@ -245,6 +245,8 @@ test('historical replay content is localised', () => {
     'history.clockLabel', 'history.clockNote', 'history.tickOf', 'history.play',
     'history.pause', 'history.nextDay', 'history.jumpLabel', 'history.chartRangeAll',
     'history.chartRangeRecent', 'history.closePrice', 'history.fillNote',
+    'history.tf.5m', 'history.tf.15m', 'history.tf.1h', 'history.tf.1d',
+    'history.tf.1w', 'history.tf.1mo', 'history.tf.1y', 'history.chartNoteIntraday',
     'history.avgCostMarker', 'history.ticketTitle', 'history.ticketSubtitle',
     'history.selected', 'history.cashLine', 'history.sharesLine', 'history.closePrice',
     'history.fillNote', 'history.feeNote', 'history.universeTitle', 'history.universeSubtitle',
