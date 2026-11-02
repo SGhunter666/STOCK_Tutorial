@@ -68,10 +68,10 @@ export function cryptoPrice(definition, day, seed = '', macro = null) {
   return roundPrice(definition.base * (1 + drift + tilt));
 }
 
-export function cryptoQuotes(day, seed = '', macro = null) {
+export function cryptoQuotes(day, seed = '', macro = null, previousMacro = macro) {
   return CRYPTO_DEFS.map((definition) => {
     const price = cryptoPrice(definition, day, seed, macro);
-    const previous = cryptoPrice(definition, day - 1, seed, macro);
+    const previous = cryptoPrice(definition, day - 1, seed, previousMacro);
     return {
       ...definition,
       price,

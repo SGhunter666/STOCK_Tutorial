@@ -5,7 +5,8 @@
 import {
   suite, test, assert, assertEqual, assertClose,
 } from './harness.js';
-import { createGameState } from '../js/game/gameState.js';
+import { createGameState, marketEngineFromState } from '../js/game/gameState.js';
+import { TICKS_PER_DAY } from '../js/market/calendar.js';
 import {
   QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_MIN_BARS, QUANT_MODES, QUANT_OBJECTIVES,
   ML_MODELS, ML_FACTORS,
@@ -190,11 +191,16 @@ test('optimisation searches a valid grid and checks out of sample', () => {
 
 test('ML panel, logistic model and out-of-sample selection are deterministic', () => {
   const state = createGameState({ seed: 'quant-ml' });
+  // Advance far enough that some panel dates overlap the simulated news ledger.
+  const engine = marketEngineFromState(state);
+  for (let tick = 0; tick < TICKS_PER_DAY * 23; tick += 1) engine.tick();
   const panel = buildMlPanel(state, { lookback: 30, horizon: 10 });
   assert(panel.ok, 'ML panel builds');
   assert(panel.samples.length >= 120, 'enough labelled samples');
   assert(panel.samples.every((sample) => sample.label === 0 || sample.label === 1), 'labels are binary');
   assertEqual(ML_FACTORS.length, 6, 'four price/news factors plus sentiment change and volume');
+  const newsFeature = ML_FACTORS.indexOf('news');
+  assert(panel.samples.some((sample) => sample.features[newsFeature] !== 0), 'news sentiment reaches the ML samples');
   const subset = panel.samples.slice(0, 300);
   const model = trainLogisticModel(subset);
   assertEqual(model.weights.length, 7, 'six factors plus intercept');
@@ -212,6 +218,8 @@ test('ML panel, logistic model and out-of-sample selection are deterministic', (
   assert(result.ok, 'ML selection runs');
   assert(result.picks.length >= 1, 'at least one out-of-sample rebalance');
   assert(result.picks.every((pick) => pick.tickers.length <= 5), 'top-N respected');
+  assert(result.picks.every((pick) => pick.date <= state.market.day), 'pick labels use market days, not array indices');
+  assert(result.splitDate <= state.market.day, 'OOS start is a market day');
   assert(result.portfolio.totalReturnPct >= -100, 'portfolio return is bounded');
   assertEqual(typeof result.overfitRisk, 'boolean', 'ML overfit flag is boolean');
   const second = mlStockSelection(state, {

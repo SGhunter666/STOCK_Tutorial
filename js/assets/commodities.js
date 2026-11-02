@@ -97,10 +97,10 @@ export function commodityPrice(definition, day, seed = '', macro = null) {
   return roundPrice(definition.base * (1 + drift + tilt), definition.base < 10 ? 3 : 2);
 }
 
-export function commodityQuotes(day, seed = '', macro = null) {
+export function commodityQuotes(day, seed = '', macro = null, previousMacro = macro) {
   return COMMODITY_DEFS.map((definition) => {
     const price = commodityPrice(definition, day, seed, macro);
-    const previous = commodityPrice(definition, day - 1, seed, macro);
+    const previous = commodityPrice(definition, day - 1, seed, previousMacro);
     return {
       ...definition,
       price,

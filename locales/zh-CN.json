@@ -6678,6 +6678,7 @@
       "strategyHint": "计划基于当前已完成的日线；执行时仍会经过仓位、现金与杠杆校验。",
       "generated": "生成于 {day}",
       "lastAuto": "最近自动再平衡 {day}",
+      "autoDisabledHint": "自动再平衡只有在状态为「启用」时才会执行。",
       "nav": "净值 {value}",
       "cashAfter": "预计现金 {value}",
       "side": "方向",

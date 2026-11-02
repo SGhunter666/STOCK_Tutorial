@@ -547,6 +547,8 @@ export function createFundView(ctx) {
             days: config.rebalanceDays,
             top: config.topN,
           })}</p>
+          ${Number.isFinite(config.lastAutoDay) ? `<p class="chart-note muted">${t('fund.plan.lastAuto', { day: formatMarketDate(config.lastAutoDay, i18n.locale) })}</p>` : ''}
+          ${config.autoRebalance && !config.enabled ? `<p class="chart-note muted">${t('fund.plan.autoDisabledHint')}</p>` : ''}
         </form>
         ${plan
           ? `<div class="fund-plan-preview">
@@ -554,7 +556,6 @@ export function createFundView(ctx) {
                 <span>${t('fund.plan.generated', { day: formatMarketDate(plan.day, i18n.locale) })}</span>
                 <span>${t('fund.plan.nav', { value: money(plan.nav, i18n.locale) })}</span>
                 <span>${t('fund.plan.cashAfter', { value: money(plan.expectedCash, i18n.locale) })}</span>
-                ${config.lastAutoDay !== null ? `<span>${t('fund.plan.lastAuto', { day: formatMarketDate(config.lastAutoDay, i18n.locale) })}</span>` : ''}
               </div>
               ${tradeRows.length
                 ? `<div class="table-wrap"><table class="table table--compact">

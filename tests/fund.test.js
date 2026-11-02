@@ -409,6 +409,7 @@ test('fund strategy plans normalise, build and execute through normal risk check
   assertEqual(config.cashBuffer, 0.5, 'cash buffer clamps');
   assertEqual(config.autoRebalance, false, 'auto rebalance defaults off');
   assertEqual(normalizeFundPlanConfig({ autoRebalance: true }).autoRebalance, true, 'auto rebalance normalises');
+  assertEqual(createFundState().quantPlan.lastAutoDay, null, 'new funds start without an auto rebalance date');
 
   const state = makeState();
   const fund = launch(state);
@@ -422,6 +423,7 @@ test('fund strategy plans normalise, build and execute through normal risk check
   assertEqual(built.plan.candidates.length, 3, 'top three candidates selected');
   assert(built.plan.trades.every((trade) => trade.side === 'buy'), 'empty fund only buys');
   assert(built.plan.expectedCash >= 0, 'plan keeps cash non-negative');
+  assert(built.plan.expectedCash >= built.plan.nav * 0.1, 'plan leaves a cash buffer above the fund floor');
   const executed = executeFundPlan(fund, state.market.quotes, built.plan, { day: 0 });
   assert(executed.ok, 'plan executes');
   assert(executed.applied.length > 0, 'some plan trades filled');
@@ -438,6 +440,7 @@ test('fund auto rebalance respects disabled, schedule and success paths', () => 
 
   const config = normalizeFundPlanConfig({
     ...fund.quantPlan,
+    enabled: true,
     autoRebalance: true,
     strategyId: 'buyHold',
     topN: 3,
@@ -445,6 +448,8 @@ test('fund auto rebalance respects disabled, schedule and success paths', () => 
     cashBuffer: 0.1,
   });
   const enabledFund = { ...fund, quantPlan: config };
+  const offFund = { ...fund, quantPlan: { ...config, enabled: false } };
+  assertEqual(autoRebalanceFund(offFund, state, 0).skipped, 'disabled', 'status off blocks auto trading');
   const first = autoRebalanceFund(enabledFund, state, 0);
   assert(first.ok, `first due auto rebalance runs (${first.error || first.skipped || 'unknown'})`);
   assert(first.executed, 'auto rebalance executes trades');

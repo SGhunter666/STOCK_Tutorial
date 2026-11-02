@@ -43,8 +43,8 @@ export function createMultiAssetView(ctx) {
     const bonds = bondQuoteRows(macro);
     const rates = fxRates(state.market.day, state.seed, macro);
     const previousRates = fxRates(Math.max(0, state.market.day - 1), state.seed, previousMacro);
-    const commodities = commodityQuotes(state.market.day, state.seed, macro);
-    const crypto = cryptoQuotes(state.market.day, state.seed, macro);
+    const commodities = commodityQuotes(state.market.day, state.seed, macro, previousMacro);
+    const crypto = cryptoQuotes(state.market.day, state.seed, macro, previousMacro);
     return {
       macro, bonds, rates, previousRates, commodities, crypto,
     };
@@ -56,7 +56,7 @@ export function createMultiAssetView(ctx) {
     return `
       <div class="stat-grid">
         ${statCard({ label: t('multiasset.bondValue'), value: money(bondValue(state.account), i18n.locale), sub: t('multiasset.bondUnrealized', { value: signedMoney(bondUnrealized(state.account), i18n.locale) }), tone: bondUnrealized(state.account) >= 0 ? 'up' : 'down', iconName: 'portfolio' })}
-        ${statCard({ label: t('multiasset.fxValue'), value: money(fxValue(state.account, context.rates), i18n.locale), sub: t('multiasset.fxUnrealized', { value: signedMoney(fxUnrealized(state.account, context.rates), i18n.locale) }), tone: fxUnrealized(state.account, context.rates) >= 0 ? 'up' : 'down', iconName: 'market' })}
+        ${statCard({ label: t('multiasset.fxValue'), value: money(fxValue(state.account), i18n.locale), sub: t('multiasset.fxUnrealized', { value: signedMoney(fxUnrealized(state.account), i18n.locale) }), tone: fxUnrealized(state.account) >= 0 ? 'up' : 'down', iconName: 'market' })}
         ${statCard({ label: t('multiasset.commodityValue'), value: money(commodityValue(state.account), i18n.locale), sub: t('multiasset.commodityUnrealized', { value: signedMoney(commodityPnl, i18n.locale) }), tone: commodityPnl >= 0 ? 'up' : 'down', iconName: 'challenges' })}
         ${statCard({ label: t('multiasset.cryptoValue'), value: money(cryptoValue(state.account), i18n.locale), sub: t('multiasset.cryptoUnrealized', { value: signedMoney(cryptoPnl, i18n.locale) }), tone: cryptoPnl >= 0 ? 'up' : 'down', iconName: 'options' })}
         ${statCard({ label: t('multiasset.cash'), value: money(state.account.cash, i18n.locale), sub: t('multiasset.cashSub'), iconName: 'sparkle' })}
@@ -159,7 +159,7 @@ export function createMultiAssetView(ctx) {
     const positions = state.account.fx || [];
     const rows = positions.map((position) => {
       const pair = FX_PAIRS.find((entry) => entry.id === position.id);
-      const rate = context.rates[position.id] || position.currentRate || 0;
+      const rate = position.currentRate || position.entryRate || 0;
       const value = position.units * rate;
       const pnl = value - (position.costBasis || 0);
       return `<tr>
@@ -276,7 +276,7 @@ export function createMultiAssetView(ctx) {
       const pnl = value - (position.costBasis || 0);
       return `<tr>
         <td>${position.id}<span class="fund-sub">${definition ? t(definition.nameKey) : ''}</span></td>
-        <td class="num">${num(position.units, i18n.locale, 4)}</td>
+        <td class="num">${num(position.units, i18n.locale, 6)}</td>
         <td class="num">${money(position.costBasis / Math.max(1e-9, position.units), i18n.locale)}</td>
         <td class="num">${money(position.currentPrice || 0, i18n.locale)}</td>
         <td class="num">${money(value, i18n.locale)}</td>

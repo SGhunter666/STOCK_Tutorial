@@ -719,7 +719,7 @@ test('fund management UI, roles, strategies and events are localised', () => {
     'fund.plan.topNLabel', 'fund.plan.intervalLabel', 'fund.plan.autoLabel',
     'fund.plan.cashBufferLabel',
     'fund.plan.generate', 'fund.plan.hint', 'fund.plan.strategyHint', 'fund.plan.generated',
-    'fund.plan.lastAuto', 'fund.plan.nav', 'fund.plan.cashAfter', 'fund.plan.side', 'fund.plan.ticker',
+    'fund.plan.lastAuto', 'fund.plan.autoDisabledHint', 'fund.plan.nav', 'fund.plan.cashAfter', 'fund.plan.side', 'fund.plan.ticker',
     'fund.plan.qty', 'fund.plan.price', 'fund.plan.reason', 'fund.plan.apply',
     'fund.plan.aligned', 'fund.plan.noPlan', 'fund.plan.errorEmpty',
     'fund.plan.reasonKey.rebalance', 'fund.plan.reasonKey.signalBuy', 'fund.plan.reasonKey.momentum',

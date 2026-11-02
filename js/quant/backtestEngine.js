@@ -710,11 +710,13 @@ export function buildMlPanel(state, { lookback = 30, horizon = 10 } = {}) {
   const forward = Math.round(clamp(horizon, 5, 30, 10));
   const companies = COMPANIES.filter((company) => !company.isEtf);
   const series = companies.map((company) => {
-    const candles = state.market?.history?.[company.ticker] || [];
+    const candles = (state.market?.history?.[company.ticker] || [])
+      .filter((candle) => Number.isFinite(candle.c));
     return {
       company,
-      closes: candles.map((candle) => candle.c).filter((value) => Number.isFinite(value)),
+      closes: candles.map((candle) => candle.c),
       volumes: candles.map((candle) => Number(candle.v) || 0),
+      days: candles.map((candle, index) => (Number.isFinite(candle.d) ? candle.d : index)),
     };
   }).filter((entry) => entry.closes.length >= window + forward + 1);
   if (!series.length) return { ok: false, error: 'quant.error.mlData' };
@@ -727,15 +729,17 @@ export function buildMlPanel(state, { lookback = 30, horizon = 10 } = {}) {
   for (const date of dates) {
     const rows = [];
     for (const entry of series) {
+      const marketDay = entry.days[date];
       const features = ML_FACTORS.map((factor) => {
-        if (factor === 'news') return newsSentiment(state, entry.company.ticker, date, window);
-        if (factor === 'newsTrend') return newsSentimentTrend(state, entry.company.ticker, date, window);
+        if (factor === 'news') return newsSentiment(state, entry.company.ticker, marketDay, window);
+        if (factor === 'newsTrend') return newsSentimentTrend(state, entry.company.ticker, marketDay, window);
         return mlFactorValue(entry.closes, date, factor, window, entry.volumes);
       });
       if (features.some((value) => value == null || !Number.isFinite(value))) continue;
       const forwardReturn = (entry.closes[date + forward] / entry.closes[date] - 1) * 100;
       rows.push({
         date,
+        day: marketDay,
         ticker: entry.company.ticker,
         sector: entry.company.sector,
         features,
@@ -746,7 +750,7 @@ export function buildMlPanel(state, { lookback = 30, horizon = 10 } = {}) {
     const sorted = [...rows].sort((a, b) => a.forwardReturn - b.forwardReturn);
     const median = sorted[Math.floor(sorted.length / 2)].forwardReturn;
     const labeled = rows.map((row) => ({ ...row, label: row.forwardReturn >= median ? 1 : 0 }));
-    groups.push({ date, rows: zScoreRows(labeled, ML_FACTORS.length) });
+    groups.push({ date, day: rows[0]?.day ?? date, rows: zScoreRows(labeled, ML_FACTORS.length) });
     samples.push(...groups[groups.length - 1].rows);
   }
   return {
@@ -931,9 +935,11 @@ export function mlStockSelection(state, {
     return { ok: false, error: 'quant.error.mlData' };
   }
   const testCount = Math.max(2, Math.round(sortedDates.length * clamp(testPct, 20, 50, 30) / 100));
-  const splitDate = sortedDates[sortedDates.length - testCount];
-  const trainSamples = panel.samples.filter((sample) => sample.date < splitDate);
-  const testSamples = panel.samples.filter((sample) => sample.date >= splitDate);
+  const splitIndex = sortedDates[sortedDates.length - testCount];
+  const splitGroup = panel.groups.find((group) => group.date === splitIndex);
+  const splitDate = splitGroup?.day ?? splitIndex;
+  const trainSamples = panel.samples.filter((sample) => sample.date < splitIndex);
+  const testSamples = panel.samples.filter((sample) => sample.date >= splitIndex);
   if (!trainSamples.length || !testSamples.length) return { ok: false, error: 'quant.error.mlData' };
   const normalizedModel = ML_MODELS.some((entry) => entry.id === modelType) ? modelType : 'mlp';
   let model = null;
@@ -966,9 +972,9 @@ export function mlStockSelection(state, {
   const testAccuracy = testSamples.length ? testCorrect / testSamples.length : 0;
   const top = Math.round(clamp(topN, 3, 10, 5));
   const rebalanceDates = [];
-  let nextDate = splitDate;
+  let nextDate = splitIndex;
   for (const date of sortedDates) {
-    if (date < splitDate) continue;
+    if (date < splitIndex) continue;
     if (date >= nextDate) {
       rebalanceDates.push(date);
       nextDate = date + Math.max(5, Math.round(clamp(horizon, 5, 30, 10)));
@@ -999,7 +1005,8 @@ export function mlStockSelection(state, {
     if (topReturn > universeReturn) wins += 1;
     excessSum += topReturn - universeReturn;
     picks.push({
-      date,
+      date: group.day ?? date,
+      index: date,
       tickers: selected.map((row) => row.ticker),
       topReturn: Math.round(topReturn * 100) / 100,
       universeReturn: Math.round(universeReturn * 100) / 100,
@@ -1022,6 +1029,7 @@ export function mlStockSelection(state, {
     topN: top,
     testPct: Math.round(clamp(testPct, 20, 50, 30)),
     splitDate,
+    splitIndex,
     trainSamples: trainSamples.length,
     testSamples: testSamples.length,
     model: {

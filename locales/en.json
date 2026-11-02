@@ -6678,6 +6678,7 @@
       "strategyHint": "The plan uses completed daily bars; execution still passes position, cash and leverage checks.",
       "generated": "Generated {day}",
       "lastAuto": "Last auto rebalance {day}",
+      "autoDisabledHint": "Auto rebalancing only runs while status is On.",
       "nav": "NAV {value}",
       "cashAfter": "Expected cash {value}",
       "side": "Side",

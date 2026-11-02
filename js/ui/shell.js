@@ -132,26 +132,32 @@ export function createShell({
       </div>`;
   }
 
+  function accountChange(state) {
+    const total = equity(state.account, state.market.quotes);
+    const history = state.account.equityHistory || [];
+    const last = history[history.length - 1];
+    const base = last && Number.isFinite(last.equity) ? last.equity : state.account.initialCash;
+    const change = total - base;
+    return {
+      total,
+      change,
+      pct: base ? (change / base) * 100 : 0,
+    };
+  }
+
   function accountHtml() {
     const state = store.get();
-    const total = equity(state.account, state.market.quotes);
-    const prevValue = state.account.cash
-      + Object.entries(state.account.positions).reduce((sum, [ticker, pos]) => {
-        const quote = state.market.quotes[ticker];
-        return sum + (quote ? pos.qty * quote.prevClose : 0);
-      }, 0);
-    const dayChange = total - prevValue;
-    const dayPct = prevValue ? (dayChange / prevValue) * 100 : 0;
+    const summary = accountChange(state);
     return `
       <div class="acct">
         <div class="acct__main">
           <span class="acct__label">${t('shell.equity')}</span>
-          <strong class="acct__value" id="acct-equity">${money(total, i18n.locale)}</strong>
+          <strong class="acct__value" id="acct-equity">${money(summary.total, i18n.locale)}</strong>
         </div>
         <div class="acct__sub">
           <span class="acct__label">${t('shell.today')}</span>
-          <span class="delta ${dayChange > 0 ? 'up' : dayChange < 0 ? 'down' : 'flat'}" id="acct-change">
-            ${pct(dayPct, i18n.locale, 2)} · ${money(dayChange, i18n.locale)}
+          <span class="delta ${summary.change > 0 ? 'up' : summary.change < 0 ? 'down' : 'flat'}" id="acct-change">
+            ${pct(summary.pct, i18n.locale, 2)} · ${money(summary.change, i18n.locale)}
           </span>
         </div>
       </div>`;
@@ -253,22 +259,15 @@ export function createShell({
 
   function updateAccount() {
     const state = store.get();
-    const total = equity(state.account, state.market.quotes);
-    const prevValue = state.account.cash
-      + Object.entries(state.account.positions).reduce((sum, [ticker, pos]) => {
-        const quote = state.market.quotes[ticker];
-        return sum + (quote ? pos.qty * quote.prevClose : 0);
-      }, 0);
-    const dayChange = total - prevValue;
-    const dayPct = prevValue ? (dayChange / prevValue) * 100 : 0;
+    const summary = accountChange(state);
     const equityNode = rootEl?.querySelector('#acct-equity');
     const changeNode = rootEl?.querySelector('#acct-change');
-    if (equityNode) equityNode.textContent = money(total, i18n.locale);
+    if (equityNode) equityNode.textContent = money(summary.total, i18n.locale);
     if (changeNode) {
-      changeNode.textContent = `${pct(dayPct, i18n.locale, 2)} · ${money(dayChange, i18n.locale)}`;
-      changeNode.classList.toggle('up', dayChange > 0);
-      changeNode.classList.toggle('down', dayChange < 0);
-      changeNode.classList.toggle('flat', dayChange === 0);
+      changeNode.textContent = `${pct(summary.pct, i18n.locale, 2)} · ${money(summary.change, i18n.locale)}`;
+      changeNode.classList.toggle('up', summary.change > 0);
+      changeNode.classList.toggle('down', summary.change < 0);
+      changeNode.classList.toggle('flat', summary.change === 0);
     }
   }
 
@@ -368,6 +367,7 @@ export function createShell({
     updateNavActive();
     footerEl.innerHTML = footerHtml();
     if (tapeTrack) tapeTrack.innerHTML = tapeHtml();
+    updateAccount();
   }
 
   return {

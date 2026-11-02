@@ -256,7 +256,9 @@ export function createFundState() {
       topN: 5,
       rebalanceDays: 21,
       cashBuffer: 0.1,
+      autoRebalance: false,
       lastPlanDay: null,
+      lastAutoDay: null,
       plan: null,
     },
     insights: [],
@@ -316,6 +318,8 @@ export function normalizeFund(fund, day = 0, seed = 'academy-2026') {
   account.initialCash = Number.isFinite(Number(account.initialCash)) ? Number(account.initialCash) : aum;
   account.bonds = Array.isArray(account.bonds) ? account.bonds : [];
   account.fx = Array.isArray(account.fx) ? account.fx : [];
+  account.commodities = Array.isArray(account.commodities) ? account.commodities : [];
+  account.crypto = Array.isArray(account.crypto) ? account.crypto : [];
 
   const clients = (Array.isArray(fund.clients) ? fund.clients : [])
     .map((client, index) => normalizeClient(client, index, currentDay))

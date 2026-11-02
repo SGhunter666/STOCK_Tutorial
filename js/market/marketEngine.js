@@ -413,6 +413,16 @@ export class MarketEngine {
       const shock = Math.max(-4, Math.min(4, event.impactPct * Math.max(0.6, company.beta)));
       this._applyShock(company.ticker, shock);
     }
+    for (const etf of COMPANIES.filter((entry) => entry.isEtf)) {
+      const quote = st.quotes[etf.ticker];
+      const basket = etf.components.reduce((sum, component) => (
+        sum + component.weight * st.quotes[component.ticker].last
+      ), 0);
+      quote.last = clampPrice(basket * (st.etfDivisors[etf.ticker] || 1));
+      quote.high = Math.max(quote.high, quote.last);
+      quote.low = Math.min(quote.low, quote.last);
+      this._refreshQuoteDerived(etf);
+    }
     this._pushNews({
       day: st.day,
       tick: 0,

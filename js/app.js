@@ -1292,7 +1292,7 @@ const actions = {
     scheduleSave();
     toast(i18n.t('toast.cryptoBought', {
       name: definition.id,
-      units: num(result.units, i18n.locale, 4),
+      units: num(result.units, i18n.locale, 6),
       amount: money(result.units * result.price, i18n.locale),
     }), 'success', 4200);
     return result;
@@ -1319,7 +1319,7 @@ const actions = {
     scheduleSave();
     toast(i18n.t('toast.cryptoSold', {
       name: definition.id,
-      units: num(result.units, i18n.locale, 4),
+      units: num(result.units, i18n.locale, 6),
       pnl: money(result.realized, i18n.locale),
     }), result.realized >= 0 ? 'success' : 'warning', 4200);
     return result;
@@ -1497,7 +1497,7 @@ function runSimulation(ticks) {
               market: { ...state.market, day: autoDay },
             }, autoDay);
             fund = auto.fund;
-            if (auto.executed) {
+            if (auto.executed || (auto.failures || []).length) {
               fundAutoRebalances = [...fundAutoRebalances, {
                 day: autoDay,
                 applied: auto.applied.length,
@@ -1770,6 +1770,11 @@ function renderRoute(route) {
   const viewEl = shell.viewEl;
   if (!viewEl) return;
   viewEl.innerHTML = '';
+  // Views attach their delegated listeners to the node they receive. Give each
+  // route a fresh wrapper so listeners from a previous visit cannot fire again.
+  const mountRoot = document.createElement('div');
+  mountRoot.className = 'view-root';
+  viewEl.appendChild(mountRoot);
 
   let view = null;
   const ctx = {
@@ -1858,7 +1863,7 @@ function renderRoute(route) {
   }
 
   try {
-    view.mount(viewEl);
+    view.mount(mountRoot);
   } catch (err) {
     console.error('[route] view failed', err);
     viewEl.innerHTML = `<div class="view-error"><h2>${i18n.t('error.viewFailed')}</h2><p>${i18n.t('error.viewFailedText')}</p></div>`;

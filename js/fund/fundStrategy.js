@@ -108,9 +108,10 @@ export function buildFundPlan(fund, state, config) {
       return b.momentum - a.momentum;
     });
   const selected = ranked.slice(0, cfg.topN);
+  const cashTarget = Math.min(0.5, Math.max(cfg.cashBuffer, (fund.minCash || 0) + 0.02));
   const targetWeight = Math.min(
     fund.maxPosition || 1,
-    (1 - cfg.cashBuffer) / Math.max(1, selected.length),
+    (1 - cashTarget) / Math.max(1, selected.length),
   );
   const rows = positionRows(fund.account, quotes);
   const held = new Map(rows.map((row) => [row.ticker, row]));
@@ -214,7 +215,7 @@ export function autoRebalanceFund(fund, state, day = 0) {
     return { ok: false, error: 'fund.errorNotActive', executed: false, fund };
   }
   const config = normalizeFundPlanConfig(fund.quantPlan);
-  if (!config.autoRebalance) {
+  if (!config.enabled || !config.autoRebalance) {
     return { ok: false, skipped: 'disabled', executed: false, fund };
   }
   if (config.lastAutoDay !== null && day - config.lastAutoDay < config.rebalanceDays) {
