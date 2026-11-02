@@ -8,6 +8,7 @@ import { positionRows } from '../trading/account.js';
 import { unlockedCompanies } from '../market/marketAccess.js';
 import { annualizedVolatility } from '../market/indicators.js';
 import { fundBuy, fundSell, fundMetrics } from './fundEngine.js';
+import { estimateTradeCost, summarizePlanCosts, targetBuyQuantity } from './costModel.js';
 import { QUANT_STRATEGIES, strategyRegime } from '../quant/backtestEngine.js';
 
 export const FUND_PLAN_DEFAULT = {
@@ -125,33 +126,47 @@ export function buildFundPlan(fund, state, config) {
     const quote = quotes[row.ticker];
     if (!quote) continue;
     const qty = row.qty;
-    cash += qty * quote.bid - fee;
+    const cost = estimateTradeCost(row.ticker, quote, 'sell', qty, fee);
+    const fillPrice = Math.round(quote.bid * (1 - (cost?.impactPct || 0) / 100) * 100) / 100;
+    cash += qty * fillPrice - fee;
     trades.push({
       ticker: row.ticker,
       side: 'sell',
       qty,
       price: quote.bid,
       reason: 'rebalance',
+      slippagePct: cost?.impactPct || 0,
+      impactCost: cost?.impactCost || 0,
+      spreadCost: cost?.spreadCost || 0,
+      commission: fee,
     });
   }
   for (const row of selected) {
     const quote = quotes[row.ticker];
     if (!quote) continue;
     const targetValue = metrics.nav * targetWeight;
-    const desiredQty = Math.floor(targetValue / quote.ask);
+    const desiredQty = targetBuyQuantity(row.ticker, quote, targetValue, fee);
     const existingQty = held.get(row.ticker)?.qty || 0;
     const delta = desiredQty - existingQty;
     if (delta <= 0) continue;
-    const affordable = Math.floor((cash - fee) / quote.ask);
+    const estimate = estimateTradeCost(row.ticker, quote, 'buy', delta, fee);
+    const effectivePrice = Math.round(quote.ask * (1 + (estimate?.impactPct || 0) / 100) * 100) / 100;
+    const affordable = Math.floor((cash - fee) / effectivePrice);
     const qty = Math.min(delta, Math.max(0, affordable));
     if (qty <= 0) continue;
-    cash -= qty * quote.ask + fee;
+    const cost = estimateTradeCost(row.ticker, quote, 'buy', qty, fee);
+    const fillPrice = Math.round(quote.ask * (1 + (cost?.impactPct || 0) / 100) * 100) / 100;
+    cash -= qty * fillPrice + fee;
     trades.push({
       ticker: row.ticker,
       side: 'buy',
       qty,
       price: quote.ask,
       reason: row.regime === 'buy' ? 'signalBuy' : 'momentum',
+      slippagePct: cost?.impactPct || 0,
+      impactCost: cost?.impactCost || 0,
+      spreadCost: cost?.spreadCost || 0,
+      commission: fee,
     });
   }
   const plan = {
@@ -168,6 +183,7 @@ export function buildFundPlan(fund, state, config) {
     cashBefore: Math.round(fund.account.cash * 100) / 100,
     expectedCash: Math.round(cash * 100) / 100,
     nav: Math.round(metrics.nav * 100) / 100,
+    costs: summarizePlanCosts(trades, metrics.nav),
   };
   return { ok: true, plan, config: cfg };
 }
@@ -187,6 +203,7 @@ export function executeFundPlan(fund, quotes, plan, { day = 0, tick = 0 } = {}) 
       qty: trade.qty,
       day,
       tick,
+      slippagePct: trade.slippagePct || 0,
     };
     const result = trade.side === 'sell'
       ? fundSell(next, quotes, args)

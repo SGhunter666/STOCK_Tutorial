@@ -599,13 +599,14 @@ export function fundLeaderboard(fund, day) {
   });
 }
 
-export function fundBuy(fund, quotes, { ticker, qty, day = 0, tick = 0 }) {
+export function fundBuy(fund, quotes, { ticker, qty, day = 0, tick = 0, slippagePct = 0 }) {
   if (!fund || fund.status !== 'active') return { ok: false, error: 'fund.errorNotActive' };
   const quote = quotes[ticker];
   if (!quote) return { ok: false, error: 'error.unknownTicker' };
   const quantity = Math.floor(Number(qty));
   if (!Number.isInteger(quantity) || quantity <= 0) return { ok: false, error: 'error.qtyInvalid' };
-  const price = quote.ask;
+  const slip = Math.max(0, Math.min(2, Number(slippagePct) || 0));
+  const price = round2(quote.ask * (1 + slip / 100));
   if (!Number.isFinite(price) || price <= 0) return { ok: false, error: 'error.priceInvalid' };
   const fee = fund.employees?.some((employee) => employee.id === 'trader')
     ? FUND_TRADER_FEE : FUND_TRADE_FEE;
@@ -641,14 +642,16 @@ export function fundBuy(fund, quotes, { ticker, qty, day = 0, tick = 0 }) {
   };
 }
 
-export function fundSell(fund, quotes, { ticker, qty, day = 0, tick = 0 }) {
+export function fundSell(fund, quotes, { ticker, qty, day = 0, tick = 0, slippagePct = 0 }) {
   if (!fund || fund.status !== 'active') return { ok: false, error: 'fund.errorNotActive' };
   const quote = quotes[ticker];
   if (!quote) return { ok: false, error: 'error.unknownTicker' };
+  const slip = Math.max(0, Math.min(2, Number(slippagePct) || 0));
+  const price = round2(Math.max(0.01, quote.bid * (1 - slip / 100)));
   const fee = fund.employees?.some((employee) => employee.id === 'trader')
     ? FUND_TRADER_FEE : FUND_TRADE_FEE;
   const result = sell(fund.account, {
-    ticker, qty: Math.floor(Number(qty)), price: quote.bid, fee, day, tick,
+    ticker, qty: Math.floor(Number(qty)), price, fee, day, tick,
   });
   if (!result.ok) return result;
   return {

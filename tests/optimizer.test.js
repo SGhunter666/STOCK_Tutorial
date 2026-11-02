@@ -10,6 +10,7 @@ import { setupFund, FUND_AUM_OPTIONS, FUND_RANK_REQUIREMENT } from '../js/fund/f
 import {
   FUND_OPTIMIZER_METHODS, optimizeFundPortfolio, buildFundWeightPlan,
 } from '../js/fund/optimizer.js';
+import { estimateTradeCost, targetBuyQuantity } from '../js/fund/costModel.js';
 
 function activeFundState(seed) {
   const state = createGameState({ seed, locale: 'en', initialCash: 10000 });
@@ -34,6 +35,23 @@ suite('Fund: portfolio optimiser');
 test('optimiser methods expose names and descriptions', () => {
   assertEqual(FUND_OPTIMIZER_METHODS.length, 3, 'three optimisation methods');
   assert(FUND_OPTIMIZER_METHODS.every((entry) => entry.nameKey && entry.descKey), 'localised method keys');
+});
+
+test('transaction costs are bounded and target sizing accounts for impact', () => {
+  const state = createGameState({ seed: 'optimizer-costs', locale: 'en' });
+  const ticker = Object.keys(state.market.quotes)[0];
+  const quote = state.market.quotes[ticker];
+  const cost = estimateTradeCost(ticker, quote, 'buy', 100, 1);
+  assert(cost, 'trade cost estimate exists');
+  assert(cost.notional > 0, 'notional is positive');
+  assert(cost.impactPct >= 0 && cost.impactPct <= 0.35, `impact is bounded (${cost.impactPct})`);
+  assert(cost.commission === 1, 'commission is reported');
+  const targetValue = 10000;
+  const qty = targetBuyQuantity(ticker, quote, targetValue, 1);
+  assert(qty > 0, 'target quantity is positive');
+  const targetCost = estimateTradeCost(ticker, quote, 'buy', qty, 1);
+  const effectivePrice = Math.round(quote.ask * (1 + targetCost.impactPct / 100) * 100) / 100;
+  assert(qty * effectivePrice <= targetValue + effectivePrice, 'quantity respects the target value after impact');
 });
 
 test('risk parity allocates bounded long-only weights deterministically', () => {
@@ -114,6 +132,7 @@ test('optimised weights become an advisory plan without mutating the fund', () =
   assert(plan.plan.trades.length > 0, 'plan contains actionable buys');
   assertEqual(plan.plan.source, 'optimizer', 'plan source is labelled');
   assert(plan.plan.candidates.length >= 3, 'candidates carry target weights');
+  assert(plan.plan.costs && plan.plan.costs.total > 0, 'optimiser plan estimates costs');
   assert(plan.plan.trades.every((trade) => trade.reason === 'optimizer' || trade.reason === 'optimizerExit' || trade.reason === 'rebalance'), 'optimiser reasons are labelled');
   assertEqual(JSON.stringify(state.fund), before, 'building the plan leaves the fund untouched');
   const empty = buildFundWeightPlan(state.fund, state, []);

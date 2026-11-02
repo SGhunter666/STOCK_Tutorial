@@ -424,9 +424,13 @@ test('fund strategy plans normalise, build and execute through normal risk check
   assert(built.plan.trades.every((trade) => trade.side === 'buy'), 'empty fund only buys');
   assert(built.plan.expectedCash >= 0, 'plan keeps cash non-negative');
   assert(built.plan.expectedCash >= built.plan.nav * 0.1, 'plan leaves a cash buffer above the fund floor');
+  assert(built.plan.costs && built.plan.costs.total > 0, 'plan estimates transaction costs');
+  assert(built.plan.costs.commission > 0 && built.plan.costs.impact >= 0, 'commission and impact are reported');
+  assert(built.plan.trades.every((trade) => trade.slippagePct >= 0 && trade.impactCost >= 0), 'trades carry their cost estimate');
   const executed = executeFundPlan(fund, state.market.quotes, built.plan, { day: 0 });
   assert(executed.ok, 'plan executes');
   assert(executed.applied.length > 0, 'some plan trades filled');
+  assert(executed.applied.every((trade) => trade.fillPrice >= trade.price), 'buy fills include the impact slippage');
   assert(executed.fund.account.positions && Object.keys(executed.fund.account.positions).length > 0, 'positions created');
   assertEqual(executeFundPlan(fund, state.market.quotes, { trades: [] }, {}).error, 'fund.plan.errorEmpty');
 });

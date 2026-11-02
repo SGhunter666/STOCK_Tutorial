@@ -5698,12 +5698,12 @@
       "future": {
         "a": "Exchange-grade live quote connectivity and licensed data (the optional JSON reference channel is available now)",
         "b": "Real minute history and broader market coverage (tick-level simulated intraday and daily snapshots are available now)",
-        "c": "A fuller risk model: multi-factor covariance, trading costs and taxes"
+        "c": "Tax and regulatory cost calibration: regional rules, real fee schedules and compliance costs"
       },
       "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
       "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes",
       "p1g": "Standalone Quant Lab: strategy backtests, grid optimisation, in/out-of-sample checks, multi-factor regression (premia / Rank IC / R²), logistic / MLP / two-hidden-layer selection with automatic hyperparameter search, plus momentum / low-vol / trend / value / news / sentiment-change / volume / money-flow / analyst-revision factors",
-      "p1h": "Fund quant plans: rebalance suggestions, scheduled automatic execution, pre-trade risk checks, 100-set sizing research, minimum-variance / risk-parity / mean-variance optimisation with weight-based rebalance plans, plus market / sector / holding / factor-exposure attribution",
+      "p1h": "Fund quant plans: rebalance suggestions, scheduled automatic execution, pre-trade risk checks, 100-set sizing research, minimum-variance / risk-parity / mean-variance optimisation, multi-factor risk decomposition and stress tests, commission / spread / impact modelling with cost-aware plans, plus market / sector / holding / factor-exposure attribution",
       "p1i": "Macro World: policy rate, inflation, growth, unemployment, yield curve, credit spread, economic calendar, event shocks and global market linkages",
       "p1j": "Multi-asset: bond coupon present-value pricing and yield marking, USD-quoted FX, commodity pricing and fractional crypto trading with unified daily revaluation",
       "p1k": "Intraday data: simulated candles per tick, a daily/intraday chart switch and an optional external JSON live-quote channel with CORS, refresh interval and source labels"
@@ -5716,10 +5716,10 @@
   "roadmap": {
     "eyebrow": "Roadmap",
     "title": "Development Roadmap",
-    "subtitle": "Phases 1–11 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
+    "subtitle": "Phases 1–12 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
     "statusShipped": "Shipped",
     "statusPlanned": "Planned",
-    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management with auto rebalancing / sizing research / a portfolio optimiser, a Macro World with event shocks, bonds / FX / commodities / crypto, intraday tick candles with an optional external JSON quote channel, and a Quant Lab with parameter optimisation, multi-factor regression, logistic / MLP / two-hidden-layer networks, auto tuning and analyst-revision / money-flow factors; exchange-grade live data, real minute history and a multi-factor risk model remain unimplemented.",
+    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management with auto rebalancing / sizing research / a portfolio optimiser / multi-factor risk decomposition / transaction-cost modelling, a Macro World with event shocks, bonds / FX / commodities / crypto, intraday tick candles with an optional external JSON quote channel, and a Quant Lab with parameter optimisation, multi-factor regression, logistic / MLP / two-hidden-layer networks, auto tuning and analyst-revision / money-flow factors; exchange-grade live data, real minute history and tax / regulatory cost calibration remain unimplemented.",
     "p1": {
       "title": "Phase 1 · Teaching foundation",
       "text": "A complete learning and trading loop for Stage 1, starting from zero.",
@@ -5806,6 +5806,14 @@
       "i2": "Optional external JSON quote feed with URL / interval settings, reference quotes and source time on the Market page, isolated from the simulated account",
       "i3": "Portfolio optimiser with constrained minimum variance, inverse-volatility risk parity and mean-variance, producing a weight-based rebalance plan",
       "i4": "Holding contribution plus Beta / momentum / volatility / P/E exposure, analyst-revision factors and intraday money flow"
+    },
+    "p12": {
+      "title": "Phase 12 · Multi-factor risk and transaction costs",
+      "text": "Extend portfolio optimisation with risk decomposition, stress testing and execution costs closer to reality.",
+      "i1": "Multi-factor risk model with market beta, size, value, momentum and low-volatility exposures",
+      "i2": "Factor / specific risk contribution split plus market-down, momentum-reversal, value-weakness and low-vol-weakness stress paths",
+      "i3": "Transaction-cost model: commission, bid/ask spread and volume-based market impact",
+      "i4": "Plan cost summary, cost-aware order sizing and execution slippage; taxes still follow external rules"
     }
   },
   "locked": {
@@ -6741,6 +6749,9 @@
       "autoDisabledHint": "Auto rebalancing only runs while status is On.",
       "nav": "NAV {value}",
       "cashAfter": "Expected cash {value}",
+      "cost": "Estimated cost {value}",
+      "costPct": "{value} of NAV",
+      "costBreakdown": "Commission {commission} · spread {spread} · impact {impact}; execution applies the estimated impact as slippage.",
       "side": "Side",
       "ticker": "Ticker",
       "qty": "Quantity",
@@ -6819,6 +6830,37 @@
       "apply": "Generate optimised rebalance plan",
       "applyNote": "Applying creates buy/sell suggestions in the strategy plan; execution still passes position, cash and leverage checks.",
       "disclaimer": "Covariance and expected returns come from one historical window; the result can concentrate or overfit and is not investment advice."
+    },
+    "riskModel": {
+      "title": "Multi-factor risk model",
+      "subtitle": "Decompose current holdings into market / size / value / momentum / low-vol exposure, specific risk and stress scenarios",
+      "pill": "Risk attribution",
+      "empty": "Once the fund holds positions, its multi-factor risk decomposition appears here.",
+      "history": "Not enough history to estimate factor risk.",
+      "totalRisk": "Total risk {value}",
+      "factorRisk": "Factor risk {value}",
+      "specificRisk": "Specific risk {value}",
+      "invested": "Invested {value}",
+      "factorTitle": "Factor exposure and risk contribution",
+      "factor": "Factor",
+      "exposure": "Exposure",
+      "contribution": "Risk contribution",
+      "specific": "Specific",
+      "market": "Market (beta)",
+      "size": "Size",
+      "value": "Value",
+      "momentum": "Momentum",
+      "lowVol": "Low volatility",
+      "stressTitle": "Stress scenarios",
+      "scenario": "Scenario",
+      "shock": "Shock",
+      "impact": "Portfolio impact",
+      "marketDown": "Market falls 10%",
+      "momentumDown": "Momentum reverses",
+      "valueDown": "Value factor weakens",
+      "volSpike": "Low-vol factor weakens",
+      "note": "Uses returns from the last {lookback} trading days and current cross-sectional exposures; risk contributions split variance.",
+      "disclaimer": "Factor returns are built from the current cross-section, so this is a teaching approximation rather than a point-in-time factor model; stress paths do not include changing correlations or liquidity."
     },
     "attr": {
       "title": "Return attribution",

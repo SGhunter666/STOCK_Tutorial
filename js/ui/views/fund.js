@@ -21,6 +21,7 @@ import {
 } from '../../fund/fundEngine.js';
 import { fundAttribution, researchFundPlan } from '../../fund/fundStrategy.js';
 import { FUND_OPTIMIZER_METHODS, optimizeFundPortfolio } from '../../fund/optimizer.js';
+import { portfolioFactorRisk } from '../../fund/riskModel.js';
 import { QUANT_STRATEGIES } from '../../quant/backtestEngine.js';
 
 export function createFundView(ctx) {
@@ -565,7 +566,14 @@ export function createFundView(ctx) {
                 <span>${t('fund.plan.generated', { day: formatMarketDate(plan.day, i18n.locale) })}</span>
                 <span>${t('fund.plan.nav', { value: money(plan.nav, i18n.locale) })}</span>
                 <span>${t('fund.plan.cashAfter', { value: money(plan.expectedCash, i18n.locale) })}</span>
+                ${plan.costs ? `<span>${t('fund.plan.cost', { value: money(plan.costs.total, i18n.locale, 2) })}</span>` : ''}
+                ${plan.costs ? `<span>${t('fund.plan.costPct', { value: pct(plan.costs.totalPct, i18n.locale, 2, false) })}</span>` : ''}
               </div>
+              ${plan.costs ? `<p class="chart-note muted">${t('fund.plan.costBreakdown', {
+    commission: money(plan.costs.commission, i18n.locale, 2),
+    spread: money(plan.costs.spread, i18n.locale, 2),
+    impact: money(plan.costs.impact, i18n.locale, 2),
+  })}</p>` : ''}
               ${tradeRows.length
                 ? `<div class="table-wrap"><table class="table table--compact">
                     <thead><tr><th>${t('fund.plan.side')}</th><th>${t('fund.plan.ticker')}</th><th class="num">${t('fund.plan.qty')}</th><th class="num">${t('fund.plan.price')}</th><th>${t('fund.plan.reason')}</th></tr></thead>
@@ -763,6 +771,63 @@ export function createFundView(ctx) {
         <p class="chart-note muted">${t(method.descKey)}</p>
         <p class="chart-note muted">${t('fund.optimizer.note')}</p>
         ${optimizerBody(optimizerResult)}`,
+    });
+  }
+
+  function riskModelCard(state) {
+    const metrics = fundMetrics(state.fund, state);
+    const rows = metrics
+      ? positionRows(state.fund.account, state.market.quotes).filter((row) => row.qty > 0) : [];
+    const weights = metrics && metrics.nav > 0
+      ? rows.map((row) => ({ ticker: row.ticker, weight: row.value / metrics.nav }))
+      : [];
+    const result = weights.length ? portfolioFactorRisk(state, weights, { lookback: 60 }) : null;
+    return card({
+      className: 'fund-risk-model',
+      title: t('fund.riskModel.title'),
+      subtitle: t('fund.riskModel.subtitle'),
+      actions: `<span class="pill">${t('fund.riskModel.pill')}</span>`,
+      body: !weights.length
+        ? `<p class="muted">${t('fund.riskModel.empty')}</p>`
+        : !result?.ok
+          ? `<p class="muted">${t(result?.error || 'fund.riskModel.history')}</p>`
+          : `
+            <div class="fund-plan-meta">
+              <span>${t('fund.riskModel.totalRisk', { value: pct(result.totalRiskPct, i18n.locale, 2, false) })}</span>
+              <span>${t('fund.riskModel.factorRisk', { value: pct(result.factorRiskPct, i18n.locale, 2, false) })}</span>
+              <span>${t('fund.riskModel.specificRisk', { value: pct(result.specificRiskPct, i18n.locale, 2, false) })}</span>
+              <span>${t('fund.riskModel.invested', { value: pct(result.investedPct, i18n.locale, 1, false) })}</span>
+            </div>
+            <p class="fund-subtitle">${t('fund.riskModel.factorTitle')}</p>
+            <div class="table-wrap"><table class="table table--compact">
+              <thead><tr>
+                <th>${t('fund.riskModel.factor')}</th>
+                <th class="num">${t('fund.riskModel.exposure')}</th>
+                <th class="num">${t('fund.riskModel.contribution')}</th>
+              </tr></thead>
+              <tbody>${result.contributions.map((row) => `
+                <tr>
+                  <td>${t(`fund.riskModel.${row.id}`)}</td>
+                  <td class="num">${row.id === 'specific' ? '—' : num(row.exposure, i18n.locale, 2)}</td>
+                  <td class="num ${row.contributionPct >= 0 ? 'up' : 'down'}">${pct(row.contributionPct, i18n.locale, 1)}</td>
+                </tr>`).join('')}</tbody>
+            </table></div>
+            <p class="fund-subtitle">${t('fund.riskModel.stressTitle')}</p>
+            <div class="table-wrap"><table class="table table--compact">
+              <thead><tr>
+                <th>${t('fund.riskModel.scenario')}</th>
+                <th class="num">${t('fund.riskModel.shock')}</th>
+                <th class="num">${t('fund.riskModel.impact')}</th>
+              </tr></thead>
+              <tbody>${result.stress.map((row) => `
+                <tr>
+                  <td>${t(`fund.riskModel.${row.id}`)}</td>
+                  <td class="num down">${pct(row.shockPct, i18n.locale, 1)}</td>
+                  <td class="num ${row.impactPct >= 0 ? 'up' : 'down'}">${pct(row.impactPct, i18n.locale, 2)}</td>
+                </tr>`).join('')}</tbody>
+            </table></div>
+            <p class="chart-note muted">${t('fund.riskModel.note', { lookback: result.lookback })}</p>
+            <p class="chart-note muted">${t('fund.riskModel.disclaimer')}</p>`,
     });
   }
 
@@ -993,6 +1058,7 @@ export function createFundView(ctx) {
       </div>
       ${planResearchCard(state)}
       ${optimizerCard(state)}
+      ${riskModelCard(state)}
       <div class="fund-split">
         ${clientsCard(metrics, state)}
         ${teamCard(state)}

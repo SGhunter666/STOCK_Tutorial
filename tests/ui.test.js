@@ -17,7 +17,8 @@ import { createMacroView } from '../js/ui/views/macro.js';
 import { createMarketView } from '../js/ui/views/market.js';
 import { createSettingsView } from '../js/ui/views/settings.js';
 import { createMultiAssetView } from '../js/ui/views/multiasset.js';
-import { setupFund, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
+import { setupFund, fundBuy, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
+import { COMPANIES } from '../js/data/companies.js';
 import { refreshResearchTasks, acceptResearchTask } from '../js/education/career.js';
 
 const fakeI18n = {
@@ -156,6 +157,10 @@ test('fund view gates, launches and renders an active fund', () => {
   }, 0);
   assert(result.ok, 'fund setup succeeds in the UI test');
   activeState.fund = result.fund;
+  const stock = COMPANIES.find((company) => !company.isEtf).ticker;
+  const bought = fundBuy(activeState.fund, activeState.market.quotes, { ticker: stock, qty: 10 });
+  assert(bought.ok, `fund position should open: ${bought.error}`);
+  activeState.fund = bought.fund;
   const active = createFundView(makeCtx(activeState).ctx);
   const activeHost = mountView(active);
   assert(activeHost.querySelector('#fund-aum'), 'AUM stat card renders');
@@ -173,6 +178,8 @@ test('fund view gates, launches and renders an active fund', () => {
   assert(activeHost.querySelector('[data-fund-apply-optimizer]'), 'optimiser plan button renders');
   assert(activeHost.textContent.includes('fund.attr.exposureTitle'), 'holding exposure section renders');
   assert(activeHost.textContent.includes('fund.attr.title'), 'factor attribution card renders');
+  assert(activeHost.textContent.includes('fund.riskModel.title'), 'multi-factor risk card renders');
+  assert(activeHost.textContent.includes('fund.riskModel.factorTitle'), 'factor risk table renders');
   assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 7, 'seven team roles render');
   active.destroy();
   activeHost.remove();
