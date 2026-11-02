@@ -137,6 +137,7 @@ export function hydrateState(saved) {
     equityHistory: Array.isArray(state.account.equityHistory) ? state.account.equityHistory : [],
     realizedPnl: Number.isFinite(state.account.realizedPnl) ? state.account.realizedPnl : 0,
     feesPaid: Number.isFinite(state.account.feesPaid) ? state.account.feesPaid : 0,
+    taxesPaid: Number.isFinite(state.account.taxesPaid) ? state.account.taxesPaid : 0,
     financingPaid: Number.isFinite(state.account.financingPaid) ? state.account.financingPaid : 0,
     careerIncome: Number.isFinite(state.account.careerIncome) ? state.account.careerIncome : 0,
     marginCalls: Array.isArray(state.account.marginCalls) ? state.account.marginCalls : [],

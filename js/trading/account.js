@@ -23,6 +23,7 @@ export function createAccount(initialCash = 10000) {
     positions: {},
     realizedPnl: 0,
     feesPaid: 0,
+    taxesPaid: 0,
     financingPaid: 0,
     careerIncome: 0,
     marginCalls: [],
@@ -73,7 +74,9 @@ function pushTrade(account, trade) {
   return next;
 }
 
-export function buy(account, { ticker, qty, price, fee, day = 0, tick = 0, allowDebit = false }) {
+export function buy(account, {
+  ticker, qty, price, fee, day = 0, tick = 0, allowDebit = false, levyRate = 0,
+}) {
   const quantity = Math.floor(qty);
   if (!Number.isInteger(quantity) || quantity <= 0) {
     return { ok: false, error: 'error.qtyInvalid' };
@@ -86,8 +89,10 @@ export function buy(account, { ticker, qty, price, fee, day = 0, tick = 0, allow
     return { ok: false, error: 'error.positionIsShort' };
   }
   const safeFee = Math.max(0, Number(fee) || 0);
+  const safeLevyRate = Math.max(0, Math.min(0.05, Number(levyRate) || 0));
   const gross = quantity * price;
-  const total = gross + safeFee;
+  const levy = gross * safeLevyRate;
+  const total = gross + safeFee + levy;
   if (!allowDebit && total > account.cash + 1e-9) {
     return { ok: false, error: 'error.insufficientCash' };
   }
@@ -101,6 +106,7 @@ export function buy(account, { ticker, qty, price, fee, day = 0, tick = 0, allow
     cash: account.cash - total,
     positions: { ...account.positions, [ticker]: nextPos },
     feesPaid: account.feesPaid + safeFee,
+    taxesPaid: (account.taxesPaid || 0) + levy,
     trades: account.trades,
   };
   const trade = pushTrade(draft, {
@@ -109,6 +115,8 @@ export function buy(account, { ticker, qty, price, fee, day = 0, tick = 0, allow
     qty: quantity,
     price,
     fee: safeFee,
+    levy,
+    tax: 0,
     gross,
     realized: 0,
     day,
@@ -117,7 +125,9 @@ export function buy(account, { ticker, qty, price, fee, day = 0, tick = 0, allow
   return { ok: true, account: draft, trade };
 }
 
-export function sell(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
+export function sell(account, {
+  ticker, qty, price, fee, day = 0, tick = 0, capitalGainsRate = 0, levyRate = 0,
+}) {
   const quantity = Math.floor(qty);
   if (!Number.isInteger(quantity) || quantity <= 0) {
     return { ok: false, error: 'error.qtyInvalid' };
@@ -130,10 +140,14 @@ export function sell(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
     return { ok: false, error: 'error.priceInvalid' };
   }
   const safeFee = Math.max(0, Number(fee) || 0);
+  const safeLevyRate = Math.max(0, Math.min(0.05, Number(levyRate) || 0));
+  const safeTaxRate = Math.max(0, Math.min(0.6, Number(capitalGainsRate) || 0));
   const gross = quantity * price;
-  const proceeds = gross - safeFee;
+  const levy = gross * safeLevyRate;
   const costPart = (pos.costBasis / pos.qty) * quantity;
-  const realized = proceeds - costPart;
+  const realized = gross - safeFee - costPart;
+  const tax = Math.max(0, realized) * safeTaxRate;
+  const proceeds = gross - safeFee - levy - tax;
   const remainingQty = pos.qty - quantity;
 
   const nextPositions = { ...account.positions };
@@ -148,6 +162,7 @@ export function sell(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
     cash: account.cash + proceeds,
     positions: nextPositions,
     feesPaid: account.feesPaid + safeFee,
+    taxesPaid: (account.taxesPaid || 0) + levy + tax,
     realizedPnl: account.realizedPnl + realized,
     trades: account.trades,
   };
@@ -157,8 +172,11 @@ export function sell(account, { ticker, qty, price, fee, day = 0, tick = 0 }) {
     qty: quantity,
     price,
     fee: safeFee,
+    levy,
+    tax,
     gross,
     realized,
+    netProceeds: proceeds,
     day,
     tick,
   });

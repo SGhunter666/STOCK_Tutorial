@@ -20,6 +20,7 @@ import {
   normalizeFundPlanConfig, buildFundPlan, executeFundPlan, autoRebalanceFund,
   researchFundPlan, FUND_PLAN_RESEARCH_GRID, fundAttribution,
 } from '../js/fund/fundStrategy.js';
+import { FUND_TAX_PROFILES, taxProfileById } from '../js/fund/taxProfiles.js';
 
 const STOCK = COMPANIES.find((company) => !company.isEtf).ticker;
 
@@ -523,6 +524,30 @@ test('fund attribution components reconcile to the total return', () => {
   for (const key of ['beta', 'momentumPct', 'volatilityPct', 'pe']) {
     assert(Number.isFinite(attribution.exposures[key]), `${key} exposure is finite`);
   }
+});
+
+test('fund tax profiles charge levies and capital gains without changing defaults', () => {
+  assertEqual(FUND_TAX_PROFILES.length, 3, 'three simplified profiles');
+  assertEqual(taxProfileById('moon').id, 'none', 'unknown profiles fall back to no tax');
+  const state = makeState();
+  const fund = launch(state, { taxProfileId: 'flat25Levy' });
+  assertEqual(fund.taxProfileId, 'flat25Levy', 'tax profile is stored');
+  const quote = state.market.quotes[STOCK];
+  const bought = fundBuy(fund, state.market.quotes, { ticker: STOCK, qty: 10 });
+  assert(bought.ok, `taxed buy should succeed: ${bought.error}`);
+  assert(bought.fund.account.taxesPaid > 0, 'buy levy is charged');
+  assertEqual(bought.trade.tax, 0, 'buys do not pay capital gains tax');
+  const higherQuotes = {
+    ...state.market.quotes,
+    [STOCK]: { ...quote, bid: quote.bid * 1.5, ask: quote.ask * 1.5 },
+  };
+  const sold = fundSell(bought.fund, higherQuotes, { ticker: STOCK, qty: 10 });
+  assert(sold.ok, `taxed sell should succeed: ${sold.error}`);
+  assert(sold.trade.tax > 0, 'positive realised gains are taxed');
+  assert(sold.fund.account.taxesPaid > bought.fund.account.taxesPaid, 'tax ledger accumulates');
+  assert(sold.fund.account.cash > bought.fund.account.cash, 'sale still credits net proceeds');
+  const untaxed = launch(makeState(), { taxProfileId: 'none' });
+  assertEqual(untaxed.taxProfileId, 'none', 'default profile stays available');
 });
 
 test('leaderboard is deterministic and includes every peer fund', () => {

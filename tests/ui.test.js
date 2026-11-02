@@ -143,6 +143,7 @@ test('fund view gates, launches and renders an active fund', () => {
   const setup = createFundView(makeCtx(setupState).ctx);
   const setupHost = mountView(setup);
   assert(setupHost.querySelector('[data-fund-form]'), 'setup form renders once unlocked');
+  assert(setupHost.querySelector('[name="taxProfileId"]'), 'fund tax profile selector renders');
   assert(setupHost.querySelector('[data-fund-ticker]') === null, 'no trading UI before a fund exists');
   setup.destroy();
   setupHost.remove();

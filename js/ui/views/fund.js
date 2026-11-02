@@ -23,6 +23,7 @@ import { fundAttribution, researchFundPlan } from '../../fund/fundStrategy.js';
 import { FUND_OPTIMIZER_METHODS, optimizeFundPortfolio } from '../../fund/optimizer.js';
 import { portfolioFactorRisk } from '../../fund/riskModel.js';
 import { QUANT_STRATEGIES } from '../../quant/backtestEngine.js';
+import { FUND_TAX_PROFILES, taxProfileById } from '../../fund/taxProfiles.js';
 
 export function createFundView(ctx) {
   const { i18n, store, actions } = ctx;
@@ -110,6 +111,12 @@ export function createFundView(ctx) {
               <select class="input input--select" name="leverageEnabled">
                 <option value="false" selected>${t('fund.leverageOff')}</option>
                 <option value="true">${t('fund.leverageOn')}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">${t('fund.taxLabel')}</span>
+              <select class="input input--select" name="taxProfileId">
+                ${FUND_TAX_PROFILES.map((profile) => `<option value="${profile.id}" title="${t(profile.descKey)}" ${profile.id === 'none' ? 'selected' : ''}>${t(profile.nameKey)}</option>`).join('')}
               </select>
             </label>
           </div>
@@ -489,6 +496,8 @@ export function createFundView(ctx) {
           [t('fund.ops.feePayable'), money(fund.feePayable || 0, i18n.locale)],
           [t('fund.ops.companyCash'), money(fund.companyCash, i18n.locale)],
           [t('fund.ops.withdrawn'), money(fund.withdrawnToPersonal || 0, i18n.locale)],
+          [t('fund.ops.taxProfile'), t(taxProfileById(fund.taxProfileId).nameKey)],
+          [t('fund.ops.taxesPaid'), money(fund.account?.taxesPaid || 0, i18n.locale)],
         ])}
         <div class="button-row">
           <button class="btn btn--ghost" type="button" data-fund-withdraw ${fund.companyCash > 0 ? '' : 'disabled'}>
@@ -573,6 +582,8 @@ export function createFundView(ctx) {
     commission: money(plan.costs.commission, i18n.locale, 2),
     spread: money(plan.costs.spread, i18n.locale, 2),
     impact: money(plan.costs.impact, i18n.locale, 2),
+    levy: money(plan.costs.levy || 0, i18n.locale, 2),
+    tax: money(plan.costs.tax || 0, i18n.locale, 2),
   })}</p>` : ''}
               ${tradeRows.length
                 ? `<div class="table-wrap"><table class="table table--compact">
@@ -1276,6 +1287,7 @@ export function createFundView(ctx) {
         benchmarkId: data.get('benchmarkId'),
         hurdleRate: Number(data.get('hurdleRate')),
         leverageEnabled: data.get('leverageEnabled') === 'true',
+        taxProfileId: data.get('taxProfileId'),
       });
     });
     root.addEventListener('change', (event) => {

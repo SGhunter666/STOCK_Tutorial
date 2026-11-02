@@ -48,12 +48,16 @@ export function summarizePlanCosts(trades, nav = 0) {
     commission: sum.commission + (trade.commission || 0),
     spread: sum.spread + (trade.spreadCost || 0),
     impact: sum.impact + (trade.impactCost || 0),
-  }), { commission: 0, spread: 0, impact: 0 });
-  const total = totals.commission + totals.spread + totals.impact;
+    levy: sum.levy + (trade.levy || 0),
+    tax: sum.tax + (trade.tax || 0),
+  }), { commission: 0, spread: 0, impact: 0, levy: 0, tax: 0 });
+  const total = totals.commission + totals.spread + totals.impact + totals.levy + totals.tax;
   return {
     commission: Math.round(totals.commission * 100) / 100,
     spread: Math.round(totals.spread * 100) / 100,
     impact: Math.round(totals.impact * 100) / 100,
+    levy: Math.round(totals.levy * 100) / 100,
+    tax: Math.round(totals.tax * 100) / 100,
     total: Math.round(total * 100) / 100,
     totalPct: nav > 0 ? Math.round(total / nav * 10000) / 100 : 0,
   };

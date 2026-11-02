@@ -9,6 +9,7 @@ import {
 import { COMPANIES, getCompany } from '../data/companies.js';
 import { payableDividends, applyDividends } from '../market/dividends.js';
 import { macroSnapshot } from '../market/macro.js';
+import { taxProfileById } from './taxProfiles.js';
 
 export const FUND_RANK_REQUIREMENT = 5;
 export const FUND_FEE_INTERVAL = 21;
@@ -222,6 +223,7 @@ export function createFundState() {
     benchmarkId: 'index',
     benchmarkStart: 0,
     hurdleRate: 0,
+    taxProfileId: 'none',
     managementRate: 0.02,
     performanceRate: 0.2,
     maxPosition: 0.25,
@@ -346,6 +348,7 @@ export function normalizeFund(fund, day = 0, seed = 'academy-2026') {
     benchmarkId: FUND_BENCHMARKS[fund.benchmarkId] ? fund.benchmarkId : 'index',
     benchmarkStart: Number.isFinite(Number(fund.benchmarkStart)) ? Number(fund.benchmarkStart) : 0,
     hurdleRate: Number.isFinite(Number(fund.hurdleRate)) ? Number(fund.hurdleRate) : 0,
+    taxProfileId: taxProfileById(fund.taxProfileId).id,
     managementRate: Number.isFinite(Number(fund.managementRate)) ? Number(fund.managementRate) : 0.02,
     performanceRate: Number.isFinite(Number(fund.performanceRate)) ? Number(fund.performanceRate) : 0.2,
     maxPosition: Number.isFinite(Number(fund.maxPosition)) ? Number(fund.maxPosition) : 0.25,
@@ -432,6 +435,7 @@ export function setupFund(state, input = {}, day = 0) {
   const benchmarkId = FUND_BENCHMARKS[input.benchmarkId] ? input.benchmarkId : 'index';
   const hurdleRate = FUND_HURDLE_OPTIONS.includes(Number(input.hurdleRate))
     ? Number(input.hurdleRate) : 0;
+  const taxProfileId = taxProfileById(input.taxProfileId).id;
 
   const strategyDef = FUND_STRATEGIES[strategy];
   const riskDef = FUND_RISK_PROFILES[riskProfile];
@@ -490,6 +494,7 @@ export function setupFund(state, input = {}, day = 0) {
       benchmarkId,
       benchmarkStart,
       hurdleRate,
+      taxProfileId,
       managementRate,
       performanceRate,
       maxPosition,
@@ -610,6 +615,8 @@ export function fundBuy(fund, quotes, { ticker, qty, day = 0, tick = 0, slippage
   if (!Number.isFinite(price) || price <= 0) return { ok: false, error: 'error.priceInvalid' };
   const fee = fund.employees?.some((employee) => employee.id === 'trader')
     ? FUND_TRADER_FEE : FUND_TRADE_FEE;
+  const taxProfile = taxProfileById(fund.taxProfileId);
+  const levy = quantity * price * taxProfile.levyRate;
   const nav = Math.max(0, equity(fund.account, quotes) - (fund.feePayable || 0));
   if (nav <= 0) return { ok: false, error: 'fund.errorNoNav' };
   const existing = fund.account.positions[ticker];
@@ -624,7 +631,7 @@ export function fundBuy(fund, quotes, { ticker, qty, day = 0, tick = 0, slippage
   if (holdings + quantity * price > nav * leverageLimit + 1e-6) {
     return { ok: false, error: 'fund.errorLeverage' };
   }
-  const nextCash = fund.account.cash - quantity * price - fee;
+  const nextCash = fund.account.cash - quantity * price - fee - levy;
   const cashFloor = leverageLimit > 1
     ? -nav * (leverageLimit - 1)
     : nav * (fund.minCash || 0);
@@ -632,7 +639,7 @@ export function fundBuy(fund, quotes, { ticker, qty, day = 0, tick = 0, slippage
     return { ok: false, error: 'fund.errorCashFloor' };
   }
   const result = buy(fund.account, {
-    ticker, qty: quantity, price, fee, day, tick, allowDebit: true,
+    ticker, qty: quantity, price, fee, day, tick, allowDebit: true, levyRate: taxProfile.levyRate,
   });
   if (!result.ok) return result;
   return {
@@ -650,8 +657,16 @@ export function fundSell(fund, quotes, { ticker, qty, day = 0, tick = 0, slippag
   const price = round2(Math.max(0.01, quote.bid * (1 - slip / 100)));
   const fee = fund.employees?.some((employee) => employee.id === 'trader')
     ? FUND_TRADER_FEE : FUND_TRADE_FEE;
+  const taxProfile = taxProfileById(fund.taxProfileId);
   const result = sell(fund.account, {
-    ticker, qty: Math.floor(Number(qty)), price, fee, day, tick,
+    ticker,
+    qty: Math.floor(Number(qty)),
+    price,
+    fee,
+    day,
+    tick,
+    capitalGainsRate: taxProfile.capitalGainsRate,
+    levyRate: taxProfile.levyRate,
   });
   if (!result.ok) return result;
   return {

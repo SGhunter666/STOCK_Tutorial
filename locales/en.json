@@ -5698,12 +5698,12 @@
       "future": {
         "a": "Exchange-grade live quote connectivity and licensed data (the optional JSON reference channel is available now)",
         "b": "Real minute history and broader market coverage (tick-level simulated intraday and daily snapshots are available now)",
-        "c": "Tax and regulatory cost calibration: regional rules, real fee schedules and compliance costs"
+        "c": "Real regional tax rules, filing and regulatory costs (simplified teaching profiles are available now)"
       },
       "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
       "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes",
       "p1g": "Standalone Quant Lab: strategy backtests, grid optimisation, in/out-of-sample checks, multi-factor regression (premia / Rank IC / R²), logistic / MLP / two-hidden-layer selection with automatic hyperparameter search, plus momentum / low-vol / trend / value / news / sentiment-change / volume / money-flow / analyst-revision factors",
-      "p1h": "Fund quant plans: rebalance suggestions, scheduled automatic execution, pre-trade risk checks, 100-set sizing research, minimum-variance / risk-parity / mean-variance optimisation, multi-factor risk decomposition and stress tests, commission / spread / impact modelling with cost-aware plans, plus market / sector / holding / factor-exposure attribution",
+      "p1h": "Fund quant plans: rebalance suggestions, scheduled automatic execution, pre-trade risk checks, 100-set sizing research, minimum-variance / risk-parity / mean-variance optimisation, multi-factor risk decomposition and stress tests, commission / spread / impact / levy / capital-gains modelling with cost-aware plans, plus market / sector / holding / factor-exposure attribution",
       "p1i": "Macro World: policy rate, inflation, growth, unemployment, yield curve, credit spread, economic calendar, event shocks and global market linkages",
       "p1j": "Multi-asset: bond coupon present-value pricing and yield marking, USD-quoted FX, commodity pricing and fractional crypto trading with unified daily revaluation",
       "p1k": "Intraday data: simulated candles per tick, a daily/intraday chart switch and an optional external JSON live-quote channel with CORS, refresh interval and source labels"
@@ -5716,10 +5716,10 @@
   "roadmap": {
     "eyebrow": "Roadmap",
     "title": "Development Roadmap",
-    "subtitle": "Phases 1–12 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
+    "subtitle": "Phases 1–13 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
     "statusShipped": "Shipped",
     "statusPlanned": "Planned",
-    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management with auto rebalancing / sizing research / a portfolio optimiser / multi-factor risk decomposition / transaction-cost modelling, a Macro World with event shocks, bonds / FX / commodities / crypto, intraday tick candles with an optional external JSON quote channel, and a Quant Lab with parameter optimisation, multi-factor regression, logistic / MLP / two-hidden-layer networks, auto tuning and analyst-revision / money-flow factors; exchange-grade live data, real minute history and tax / regulatory cost calibration remain unimplemented.",
+    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management with auto rebalancing / sizing research / a portfolio optimiser / multi-factor risk decomposition / transaction and tax modelling, a Macro World with event shocks, bonds / FX / commodities / crypto, intraday tick candles with an optional external JSON quote channel, and a Quant Lab with parameter optimisation, multi-factor regression, logistic / MLP / two-hidden-layer networks, auto tuning and analyst-revision / money-flow factors; exchange-grade live data, real minute history and real regional tax filing remain unimplemented.",
     "p1": {
       "title": "Phase 1 · Teaching foundation",
       "text": "A complete learning and trading loop for Stage 1, starting from zero.",
@@ -5814,6 +5814,14 @@
       "i2": "Factor / specific risk contribution split plus market-down, momentum-reversal, value-weakness and low-vol-weakness stress paths",
       "i3": "Transaction-cost model: commission, bid/ask spread and volume-based market impact",
       "i4": "Plan cost summary, cost-aware order sizing and execution slippage; taxes still follow external rules"
+    },
+    "p13": {
+      "title": "Phase 13 · Simplified tax profiles",
+      "text": "Add an optional teaching tax layer so fund net cash, plan costs and after-tax results are more complete.",
+      "i1": "Three simplified profiles: no tax, 15% capital gains, 25% capital gains plus a 0.1% transaction levy",
+      "i2": "Buy levies enter the cost basis; sell levies and capital gains tax reduce net cash",
+      "i3": "Account-level taxes paid plus the fund tax profile and cumulative taxes on the operations card",
+      "i4": "Plan costs include levies and capital gains tax; real regional rules and filing remain external"
     }
   },
   "locked": {
@@ -6558,6 +6566,15 @@
     "leverageLabel": "Leverage",
     "leverageOff": "No leverage",
     "leverageOn": "Enabled (risk-profile cap)",
+    "taxLabel": "Tax profile (teaching)",
+    "taxProfile": {
+      "none": "No tax",
+      "noneDesc": "No tax on trades or realised gains.",
+      "flat15": "15% capital gains",
+      "flat15Desc": "Positive realised gains are taxed at 15%; no transaction levy.",
+      "flat25Levy": "25% + 0.1% levy",
+      "flat25LevyDesc": "Positive realised gains are taxed at 25%; buys and sells pay a 0.1% levy."
+    },
     "create": "Launch fund",
     "setupNote": "The annual management fee of {fee} is accrued every {interval} trading days. Performance fees must clear both the high-water mark and the hurdle. Operating costs and a compliance officer affect trust and closure risk.",
     "benchmark": {
@@ -6725,6 +6742,8 @@
       "feePayable": "Unpaid fees",
       "companyCash": "Company cash",
       "withdrawn": "Withdrawn to personal account",
+      "taxProfile": "Tax profile",
+      "taxesPaid": "Taxes paid",
       "withdraw": "Withdraw to personal account",
       "note": "Management and performance fees land in the management company; you can move that cash to your personal account."
     },
@@ -6751,7 +6770,7 @@
       "cashAfter": "Expected cash {value}",
       "cost": "Estimated cost {value}",
       "costPct": "{value} of NAV",
-      "costBreakdown": "Commission {commission} · spread {spread} · impact {impact}; execution applies the estimated impact as slippage.",
+      "costBreakdown": "Commission {commission} · spread {spread} · impact {impact} · levy {levy} · capital gains tax {tax}; execution applies the estimated impact as slippage.",
       "side": "Side",
       "ticker": "Ticker",
       "qty": "Quantity",

@@ -8,6 +8,7 @@ import { getCompany } from '../data/companies.js';
 import { unlockedCompanies } from '../market/marketAccess.js';
 import { fundMetrics } from './fundEngine.js';
 import { estimateTradeCost, summarizePlanCosts, targetBuyQuantity } from './costModel.js';
+import { taxProfileById } from './taxProfiles.js';
 
 export const FUND_OPTIMIZER_METHODS = [
   {
@@ -303,6 +304,7 @@ export function buildFundWeightPlan(fund, state, weights) {
     .filter((entry) => entry.ticker && entry.weight > 0 && quotes[entry.ticker]);
   if (!clean.length) return { ok: false, error: 'fund.errorOptimizerEmpty' };
   const fee = fund.employees?.some((employee) => employee.id === 'trader') ? 0.5 : 1;
+  const taxProfile = taxProfileById(fund.taxProfileId);
   const target = new Map(clean.map((entry) => [entry.ticker, entry.weight]));
   const rows = positionRowsForPlan(fund);
   const held = new Map(rows.map((row) => [row.ticker, row.qty]));
@@ -319,7 +321,11 @@ export function buildFundWeightPlan(fund, state, weights) {
     if (excess <= 0) continue;
     const cost = estimateTradeCost(row.ticker, quote, 'sell', excess, fee);
     const fillPrice = Math.round(quote.bid * (1 - (cost?.impactPct || 0) / 100) * 100) / 100;
-    cash += excess * fillPrice - fee;
+    const levy = excess * fillPrice * taxProfile.levyRate;
+    const costPart = row.costBasis > 0 ? (row.costBasis / row.qty) * excess : 0;
+    const realized = excess * fillPrice - fee - costPart;
+    const tax = Math.max(0, realized) * taxProfile.capitalGainsRate;
+    cash += excess * fillPrice - fee - levy - tax;
     held.set(row.ticker, row.qty - excess);
     trades.push({
       ticker: row.ticker,
@@ -331,6 +337,8 @@ export function buildFundWeightPlan(fund, state, weights) {
       impactCost: cost?.impactCost || 0,
       spreadCost: cost?.spreadCost || 0,
       commission: fee,
+      levy,
+      tax,
     });
   }
   for (const entry of clean) {
@@ -342,12 +350,13 @@ export function buildFundWeightPlan(fund, state, weights) {
     if (delta <= 0) continue;
     const estimate = estimateTradeCost(entry.ticker, quote, 'buy', delta, fee);
     const effectivePrice = Math.round(quote.ask * (1 + (estimate?.impactPct || 0) / 100) * 100) / 100;
-    const affordable = Math.floor((cash - fee) / effectivePrice);
+    const affordable = Math.floor((cash - fee) / (effectivePrice * (1 + taxProfile.levyRate)));
     const qty = Math.min(delta, Math.max(0, affordable));
     if (qty <= 0) continue;
     const cost = estimateTradeCost(entry.ticker, quote, 'buy', qty, fee);
     const fillPrice = Math.round(quote.ask * (1 + (cost?.impactPct || 0) / 100) * 100) / 100;
-    cash -= qty * fillPrice + fee;
+    const levy = qty * fillPrice * taxProfile.levyRate;
+    cash -= qty * fillPrice + fee + levy;
     held.set(entry.ticker, existing + qty);
     trades.push({
       ticker: entry.ticker,
@@ -359,6 +368,8 @@ export function buildFundWeightPlan(fund, state, weights) {
       impactCost: cost?.impactCost || 0,
       spreadCost: cost?.spreadCost || 0,
       commission: fee,
+      levy,
+      tax: 0,
     });
   }
   const candidates = clean.map((entry) => {
@@ -389,5 +400,9 @@ export function buildFundWeightPlan(fund, state, weights) {
 function positionRowsForPlan(fund) {
   return Object.entries(fund.account.positions || {})
     .filter(([, position]) => position && position.qty > 0)
-    .map(([ticker, position]) => ({ ticker, qty: position.qty }));
+    .map(([ticker, position]) => ({
+      ticker,
+      qty: position.qty,
+      costBasis: position.costBasis || 0,
+    }));
 }

@@ -110,6 +110,13 @@ const PHASES = [
     textKey: 'roadmap.p12.text',
     items: ['roadmap.p12.i1', 'roadmap.p12.i2', 'roadmap.p12.i3', 'roadmap.p12.i4'],
   },
+  {
+    id: 13,
+    status: 'shipped',
+    titleKey: 'roadmap.p13.title',
+    textKey: 'roadmap.p13.text',
+    items: ['roadmap.p13.i1', 'roadmap.p13.i2', 'roadmap.p13.i3', 'roadmap.p13.i4'],
+  },
 ];
 
 export function createRoadmapView(ctx) {
