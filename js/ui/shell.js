@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { id: 'history', path: '/history', labelKey: 'nav.history', icon: 'roadmap' },
   { id: 'market', path: '/market', labelKey: 'nav.market', icon: 'market' },
   { id: 'macro', path: '/macro', labelKey: 'nav.macro', icon: 'roadmap', requiresUnit: 'u13' },
+  { id: 'multiasset', path: '/multiasset', labelKey: 'nav.multiasset', icon: 'portfolio', requiresUnit: 'u13' },
   { id: 'trading', path: '/trade', labelKey: 'nav.trading', icon: 'trading' },
   { id: 'portfolio', path: '/portfolio', labelKey: 'nav.portfolio', icon: 'portfolio' },
   { id: 'sandbox', path: '/sandbox', labelKey: 'nav.sandbox', icon: 'sparkle' },
@@ -55,6 +56,7 @@ export function createShell({
     if (path.startsWith('/trade')) return 'trading';
     if (path.startsWith('/market')) return 'market';
     if (path.startsWith('/macro')) return 'macro';
+    if (path.startsWith('/multiasset')) return 'multiasset';
     if (path.startsWith('/portfolio')) return 'portfolio';
     if (path.startsWith('/sandbox')) return 'sandbox';
     if (path.startsWith('/news')) return 'news';

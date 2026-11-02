@@ -21,7 +21,8 @@
     "career": "职业模式",
     "fund": "基金经营",
     "quant": "量化实验室",
-    "macro": "宏观世界"
+    "macro": "宏观世界",
+    "multiasset": "债券与外汇"
   },
   "common": {
     "close": "关闭",
@@ -146,6 +147,11 @@
     "careerPromoted": "晋升成功：{rank} · +{xp} XP",
     "careerSalary": "职业薪资到账：{amount}（{rank}）",
     "careerEvaluation": "绩效评价：{grade} 级（{score} 分）",
+    "bondCoupons": "债券票息到账 {amount}",
+    "bondBought": "买入 {qty} 张 {name}，金额 {amount}",
+    "bondSold": "卖出 {qty} 张 {name}，已实现 {pnl}",
+    "fxBought": "买入 {units} {pair}，金额 {amount}",
+    "fxSold": "卖出 {units} {pair}，已实现 {pnl}",
     "certificateEarned": "获得证书：{names}",
     "reportGraded": "报告评分 {score}（{grade} 级），获得 {xp} XP",
     "fundCreated": "基金成立：{name}。客户资金已进入基金账户。",
@@ -5649,13 +5655,14 @@
         "b": "更细粒度的因子归因、基金策略参数优化与自动再平衡",
         "c": "更细粒度的全球宏观联动、经济事件冲击与实时数据",
         "d": "实时行情与更完整的真实市场数据",
-        "e": "债券、外汇等更多资产类别"
+        "e": "商品、加密货币等更多资产类别"
       },
       "p1e": "真实美股历史实验室（2008 / 2015–2026 / 2020 / 2022）",
       "p1f": "IndexedDB / localStorage 存档、主题与模拟边界说明",
       "p1g": "独立量化实验室：策略回测、参数网格优化、样本内外验证、逻辑回归选股与四类因子研究",
       "p1h": "基金量化策略计划：按信号生成再平衡建议、执行前风控校验，以及市场 / 板块 / 选股 / 现金 / 费用的收益归因",
-      "p1i": "宏观世界：政策利率、通胀、增长、失业、收益率曲线、信用利差、经济日历与全球市场联动"
+      "p1i": "宏观世界：政策利率、通胀、增长、失业、收益率曲线、信用利差、经济日历与全球市场联动",
+      "p1j": "债券与外汇：半年度票息贴现定价、票息与收益率曲线盯市，以及美元计价 FX 交易与日终重估"
     },
     "disclaimer": "本游戏使用虚构公司与虚拟资金。所有内容仅用于教学，不构成投资、法律或税务建议，也不代表任何正式金融资格。",
     "resetTitle": "重置学习进度？",
@@ -6754,6 +6761,58 @@
       "leverage": "杠杆敞口连续超过上限"
     }
   },
+  "multiasset": {
+    "eyebrow": "多资产交易",
+    "title": "债券与外汇",
+    "subtitle": "用宏观收益率曲线定价债券，用美元汇率定价外汇；与股票共用现金账户。",
+    "pill": "多资产",
+    "note": "债券价格为半年度票息贴现的简化模型；外汇报价为 1 单位外币的美元价格；所有价格由种子与交易日确定，仅用于教学。",
+    "lockedTitle": "债券与外汇尚未解锁",
+    "lockedText": "完成第 13 单元「宏观经济」后解锁。",
+    "lockedHint": "先理解利率、通胀与收益率曲线，再交易对利率敏感的债券与外汇。",
+    "goAcademy": "前往第 13 单元",
+    "bondValue": "债券市值",
+    "fxValue": "外汇市值",
+    "cash": "可用现金",
+    "bondUnrealized": "浮盈 {value}",
+    "fxUnrealized": "浮盈 {value}",
+    "cashSub": "与股票交易共用",
+    "bondTitle": "债券市场",
+    "bondSubtitle": "按当前宏观曲线定价；票息半年一次。",
+    "bond": "债券",
+    "qty": "数量",
+    "buyBond": "买入债券",
+    "bondNote": "每张面值 {face}；价格随票息、期限与到期收益率变化，票息按季度计提。",
+    "bondPositionsTitle": "债券持仓",
+    "bondPositionsSubtitle": "按当前收益率标记市值",
+    "noBondPositions": "尚无债券持仓。",
+    "duration": "期限",
+    "coupon": "票息",
+    "yield": "到期收益率",
+    "price": "价格",
+    "avgCost": "均价",
+    "value": "市值",
+    "pnl": "浮盈",
+    "sellAll": "全部卖出",
+    "rating": {
+      "gov": "政府",
+      "AA": "AA",
+      "A": "A",
+      "BBB": "BBB",
+      "BB": "BB"
+    },
+    "fxTitle": "外汇市场",
+    "fxSubtitle": "美元 / 外币报价，按宏观实际利率与本地周期波动。",
+    "pair": "货币对",
+    "units": "数量",
+    "buyFx": "买入外汇",
+    "fxNote": "报价为 1 单位外币兑美元；买入后以美元计价，日终按新汇率重新估值。",
+    "fxPositionsTitle": "外汇持仓",
+    "fxPositionsSubtitle": "按当前汇率标记美元市值",
+    "noFxPositions": "尚无外汇持仓。",
+    "rate": "汇率",
+    "change": "日变动"
+  },
   "macroPage": {
     "eyebrow": "宏观经济",
     "title": "宏观世界",
@@ -6826,6 +6885,31 @@
       "asia": "亚洲",
       "em": "新兴市场"
     }
+  },
+  "bond": {
+    "govIssuer": "政府",
+    "corpIssuer": "公司",
+    "muniIssuer": "市政",
+    "gov2": { "name": "2 年期国债" },
+    "gov5": { "name": "5 年期国债" },
+    "gov10": { "name": "10 年期国债" },
+    "gov30": { "name": "30 年期国债" },
+    "corpA5": { "name": "A 级公司债 5Y" },
+    "corpBBB10": { "name": "BBB 公司债 10Y" },
+    "corpHY5": { "name": "高收益债 5Y" },
+    "muni10": { "name": "市政债 10Y" },
+    "errorUnknown": "找不到该债券。",
+    "errorNoPosition": "没有该债券持仓。",
+    "errorInsufficient": "可卖债券数量不足。"
+  },
+  "fx": {
+    "EURUSD": { "name": "欧元 / 美元" },
+    "GBPUSD": { "name": "英镑 / 美元" },
+    "AUDUSD": { "name": "澳元 / 美元" },
+    "CADUSD": { "name": "加元 / 美元" },
+    "errorUnknown": "找不到该货币对。",
+    "errorNoPosition": "没有该外汇持仓。",
+    "errorInsufficient": "可卖外汇数量不足。"
   },
   "quant": {
     "eyebrow": "量化研究",

@@ -15,6 +15,7 @@ export const PHASE_SCOPE = {
     'settings.scope.p1g',
     'settings.scope.p1h',
     'settings.scope.p1i',
+    'settings.scope.p1j',
   ],
   planned: [
     'settings.scope.future.a',

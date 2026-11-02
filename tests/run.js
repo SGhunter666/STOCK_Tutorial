@@ -5,6 +5,7 @@ import './history.test.js';
 import './fund.test.js';
 import './quant.test.js';
 import './macro.test.js';
+import './assets.test.js';
 import './ui.test.js';
 
 runAll();

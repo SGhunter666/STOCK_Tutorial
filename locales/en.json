@@ -21,7 +21,8 @@
     "career": "Career",
     "fund": "Fund",
     "quant": "Quant Lab",
-    "macro": "Macro World"
+    "macro": "Macro World",
+    "multiasset": "Bonds & FX"
   },
   "common": {
     "close": "Close",
@@ -146,6 +147,11 @@
     "careerPromoted": "Promoted to {rank} · +{xp} XP",
     "careerSalary": "Career salary paid: {amount} ({rank})",
     "careerEvaluation": "Performance review: grade {grade} ({score} points)",
+    "bondCoupons": "Bond coupons received: {amount}",
+    "bondBought": "Bought {qty} {name} for {amount}",
+    "bondSold": "Sold {qty} {name}, realised {pnl}",
+    "fxBought": "Bought {units} {pair} for {amount}",
+    "fxSold": "Sold {units} {pair}, realised {pnl}",
     "certificateEarned": "Certificate earned: {names}",
     "reportGraded": "Report scored {score} (grade {grade}) and earned {xp} XP",
     "fundCreated": "Fund launched: {name}. Client capital is now in the fund account.",
@@ -5649,13 +5655,14 @@
         "b": "Finer factor attribution, fund strategy optimisation and automatic rebalancing",
         "c": "Finer global macro linkages, economic-event shocks and live data",
         "d": "Live quotes and broader real-market data",
-        "e": "Additional asset classes such as bonds and FX"
+        "e": "Additional asset classes such as commodities and crypto"
       },
       "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
       "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes",
       "p1g": "Standalone Quant Lab: strategy backtests, grid optimisation, in/out-of-sample checks, logistic stock selection and four factor rankings",
       "p1h": "Fund quant plans: signal-driven rebalance suggestions with pre-trade risk checks, plus market / sector / selection / cash / fee return attribution",
-      "p1i": "Macro World: policy rate, inflation, growth, unemployment, yield curve, credit spread, economic calendar and global market linkages"
+      "p1i": "Macro World: policy rate, inflation, growth, unemployment, yield curve, credit spread, economic calendar and global market linkages",
+      "p1j": "Bonds & FX: semi-annual coupon present-value pricing, coupon and yield marking, plus USD-quoted FX trading and daily revaluation"
     },
     "disclaimer": "This game uses fictional companies and virtual money. Everything is for education only, not investment, legal or tax advice, and it is not a formal financial qualification.",
     "resetTitle": "Reset learning progress?",
@@ -6754,6 +6761,58 @@
       "leverage": "Gross exposure exceeded the leverage cap for too many days"
     }
   },
+  "multiasset": {
+    "eyebrow": "Multi-asset desk",
+    "title": "Bonds & FX",
+    "subtitle": "Price bonds from the macro curve and FX in USD, using the same cash account as stocks.",
+    "pill": "Multi-asset",
+    "note": "Bond prices are simplified semi-annual present values; FX quotes are USD per one foreign unit. Everything is deterministic from the seed and trading day and is for teaching only.",
+    "lockedTitle": "Bonds & FX are locked",
+    "lockedText": "Complete Unit 13, Macroeconomics, to unlock them.",
+    "lockedHint": "Understand rates, inflation and the yield curve before trading rate-sensitive bonds and FX.",
+    "goAcademy": "Go to Unit 13",
+    "bondValue": "Bond value",
+    "fxValue": "FX value",
+    "cash": "Available cash",
+    "bondUnrealized": "Unrealised {value}",
+    "fxUnrealized": "Unrealised {value}",
+    "cashSub": "Shared with stock trading",
+    "bondTitle": "Bond market",
+    "bondSubtitle": "Priced from the current macro curve; coupons are semi-annual.",
+    "bond": "Bond",
+    "qty": "Quantity",
+    "buyBond": "Buy bond",
+    "bondNote": "Each bond has a face value of {face}; price moves with coupon, maturity and yield, and coupons accrue quarterly.",
+    "bondPositionsTitle": "Bond positions",
+    "bondPositionsSubtitle": "Marked to the current yield",
+    "noBondPositions": "No bond positions yet.",
+    "duration": "Maturity",
+    "coupon": "Coupon",
+    "yield": "Yield",
+    "price": "Price",
+    "avgCost": "Avg cost",
+    "value": "Value",
+    "pnl": "Unrealised",
+    "sellAll": "Sell all",
+    "rating": {
+      "gov": "Government",
+      "AA": "AA",
+      "A": "A",
+      "BBB": "BBB",
+      "BB": "BB"
+    },
+    "fxTitle": "FX market",
+    "fxSubtitle": "USD per foreign unit, driven by real rates and local cycles.",
+    "pair": "Pair",
+    "units": "Units",
+    "buyFx": "Buy FX",
+    "fxNote": "Quotes are USD per one foreign unit; positions are USD-valued and re-marked at each day close.",
+    "fxPositionsTitle": "FX positions",
+    "fxPositionsSubtitle": "Marked to current rates in USD",
+    "noFxPositions": "No FX positions yet.",
+    "rate": "Rate",
+    "change": "Daily change"
+  },
   "macroPage": {
     "eyebrow": "Macroeconomics",
     "title": "Macro World",
@@ -6826,6 +6885,31 @@
       "asia": "Asia",
       "em": "Emerging markets"
     }
+  },
+  "bond": {
+    "govIssuer": "Government",
+    "corpIssuer": "Corporate",
+    "muniIssuer": "Municipal",
+    "gov2": { "name": "2-year government" },
+    "gov5": { "name": "5-year government" },
+    "gov10": { "name": "10-year government" },
+    "gov30": { "name": "30-year government" },
+    "corpA5": { "name": "A-rated corporate 5Y" },
+    "corpBBB10": { "name": "BBB corporate 10Y" },
+    "corpHY5": { "name": "High-yield 5Y" },
+    "muni10": { "name": "Municipal 10Y" },
+    "errorUnknown": "That bond could not be found.",
+    "errorNoPosition": "There is no position in that bond.",
+    "errorInsufficient": "Not enough bonds available to sell."
+  },
+  "fx": {
+    "EURUSD": { "name": "Euro / US dollar" },
+    "GBPUSD": { "name": "British pound / US dollar" },
+    "AUDUSD": { "name": "Australian dollar / US dollar" },
+    "CADUSD": { "name": "Canadian dollar / US dollar" },
+    "errorUnknown": "That FX pair could not be found.",
+    "errorNoPosition": "There is no position in that pair.",
+    "errorInsufficient": "Not enough FX units available to sell."
   },
   "quant": {
     "eyebrow": "Quantitative research",

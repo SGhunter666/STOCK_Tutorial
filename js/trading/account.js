@@ -7,6 +7,9 @@
  * short positions have qty < 0 and costBasis = net proceeds received. This keeps
  * shorts on the same ledger as longs without mixing the two accounting rules.
  */
+import { bondValue } from '../assets/bonds.js';
+import { fxValue } from '../assets/fx.js';
+
 export const TRADE_LOG_LIMIT = 250;
 export const MAINTENANCE_LONG = 0.25;
 export const MAINTENANCE_SHORT = 0.30;
@@ -30,6 +33,10 @@ export function createAccount(initialCash = 10000) {
     futuresSeq: 1,
     futuresRealized: 0,
     futuresPnl: 0,
+    bonds: [],
+    bondRealized: 0,
+    fx: [],
+    fxRealized: 0,
     trades: [],
     tradeSeq: 1,
     dividends: [],
@@ -285,7 +292,8 @@ export function optionUnrealizedPnl(account) {
 }
 
 export function equity(account, quotes) {
-  return account.cash + marketValue(account, quotes) + optionValue(account) + (account.futuresPnl || 0);
+  return account.cash + marketValue(account, quotes) + optionValue(account)
+    + (account.futuresPnl || 0) + bondValue(account) + fxValue(account);
 }
 
 export function totalPnl(account, quotes) {

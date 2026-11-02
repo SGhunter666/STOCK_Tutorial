@@ -142,6 +142,10 @@ export function hydrateState(saved) {
     futuresSeq: Number.isFinite(state.account.futuresSeq) ? state.account.futuresSeq : 1,
     futuresRealized: Number.isFinite(state.account.futuresRealized) ? state.account.futuresRealized : 0,
     futuresPnl: Number.isFinite(state.account.futuresPnl) ? state.account.futuresPnl : 0,
+    bonds: Array.isArray(state.account.bonds) ? state.account.bonds : [],
+    bondRealized: Number.isFinite(state.account.bondRealized) ? state.account.bondRealized : 0,
+    fx: Array.isArray(state.account.fx) ? state.account.fx : [],
+    fxRealized: Number.isFinite(state.account.fxRealized) ? state.account.fxRealized : 0,
     initialCash: Number.isFinite(state.account.initialCash) ? state.account.initialCash : state.account.cash,
     tradeSeq: Number.isFinite(state.account.tradeSeq) ? state.account.tradeSeq : 1,
   };

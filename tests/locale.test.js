@@ -18,6 +18,8 @@ import {
 import {
   QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_MODES, QUANT_OBJECTIVES,
 } from '../js/quant/backtestEngine.js';
+import { BOND_DEFS } from '../js/assets/bonds.js';
+import { FX_PAIRS } from '../js/assets/fx.js';
 
 const zhResponse = await fetch('../locales/zh-CN.json');
 const enResponse = await fetch('../locales/en.json');
@@ -486,7 +488,7 @@ test('dashboard and academy views are localised', () => {
     'dashboard.practicePending', 'dashboard.quizPassed', 'dashboard.quizPending',
     'dashboard.resumeLesson', 'dashboard.goPractice', 'dashboard.openAcademy',
     'dashboard.stageCompleteEyebrow', 'dashboard.stageCompleteTitle', 'dashboard.stageCompleteText',
-    'settings.scope.p1g', 'settings.scope.p1h', 'settings.scope.p1i',
+    'settings.scope.p1g', 'settings.scope.p1h', 'settings.scope.p1i', 'settings.scope.p1j',
     'dashboard.certificateBadge', 'dashboard.stageUnits', 'dashboard.reviewAcademy',
     'dashboard.seeRoadmap', 'dashboard.certificateNote', 'dashboard.portfolioEyebrow',
     'dashboard.sinceStart', 'dashboard.cashLine', 'dashboard.positionsLine',
@@ -746,6 +748,41 @@ test('fund management UI, roles, strategies and events are localised', () => {
   ['created', 'subscription', 'redemption', 'redemptionRequest', 'dividend', 'managementFee',
     'performanceFee', 'payroll', 'payrollShort', 'candidate', 'closed', 'other']
     .forEach((event) => check(`fund.event.${event}`));
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
+suite('Multi-asset copy');
+
+test('bond and FX desks, positions, errors and toasts are localised', () => {
+  const { check, missing } = required();
+  [
+    'nav.multiasset',
+    'multiasset.eyebrow', 'multiasset.title', 'multiasset.subtitle', 'multiasset.pill',
+    'multiasset.note', 'multiasset.lockedTitle', 'multiasset.lockedText',
+    'multiasset.lockedHint', 'multiasset.goAcademy',
+    'multiasset.bondValue', 'multiasset.fxValue', 'multiasset.cash',
+    'multiasset.bondUnrealized', 'multiasset.fxUnrealized', 'multiasset.cashSub',
+    'multiasset.bondTitle', 'multiasset.bondSubtitle', 'multiasset.bond',
+    'multiasset.qty', 'multiasset.buyBond', 'multiasset.bondNote',
+    'multiasset.bondPositionsTitle', 'multiasset.bondPositionsSubtitle',
+    'multiasset.noBondPositions', 'multiasset.duration', 'multiasset.coupon',
+    'multiasset.yield', 'multiasset.price', 'multiasset.avgCost', 'multiasset.value',
+    'multiasset.pnl', 'multiasset.sellAll',
+    'multiasset.fxTitle', 'multiasset.fxSubtitle', 'multiasset.pair', 'multiasset.units',
+    'multiasset.buyFx', 'multiasset.fxNote', 'multiasset.fxPositionsTitle',
+    'multiasset.fxPositionsSubtitle', 'multiasset.noFxPositions', 'multiasset.rate',
+    'multiasset.change',
+    'toast.bondCoupons', 'toast.bondBought', 'toast.bondSold', 'toast.fxBought', 'toast.fxSold',
+  ].forEach((key) => check(key));
+  ['gov', 'AA', 'A', 'BBB', 'BB'].forEach((rating) => check(`multiasset.rating.${rating}`));
+  for (const bond of BOND_DEFS) {
+    check(bond.nameKey);
+    check(bond.issuerKey);
+  }
+  for (const pair of FX_PAIRS) check(pair.nameKey);
+  ['bond.errorUnknown', 'bond.errorNoPosition', 'bond.errorInsufficient',
+    'fx.errorUnknown', 'fx.errorNoPosition', 'fx.errorInsufficient']
+    .forEach((key) => check(key));
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 

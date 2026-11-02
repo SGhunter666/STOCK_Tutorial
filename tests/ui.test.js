@@ -14,6 +14,7 @@ import { createCareerView } from '../js/ui/views/career.js';
 import { createFundView } from '../js/ui/views/fund.js';
 import { createQuantView } from '../js/ui/views/quant.js';
 import { createMacroView } from '../js/ui/views/macro.js';
+import { createMultiAssetView } from '../js/ui/views/multiasset.js';
 import { setupFund, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
 import { refreshResearchTasks, acceptResearchTask } from '../js/education/career.js';
 
@@ -231,6 +232,27 @@ test('macro world locks, unlocks and renders the calendar and global markets', (
   assert(host.textContent.includes('macroPage.calendarTitle'), 'economic calendar renders');
   assert(host.textContent.includes('macroPage.globalTitle'), 'global markets render');
   assert(host.textContent.includes('macroPage.creditSpread'), 'credit spread stat renders');
+  view.destroy();
+  host.remove();
+});
+
+test('bonds and FX page locks then renders both markets', () => {
+  const lockedState = createGameState({ seed: 'ui-multi-locked' });
+  const locked = createMultiAssetView(makeCtx(lockedState).ctx);
+  const lockedHost = mountView(locked);
+  assert(lockedHost.textContent.includes('multiasset.lockedTitle'), 'locked card before Unit 13');
+  assert(!lockedHost.querySelector('[data-bond-buy]'), 'bond buy hidden while locked');
+  locked.destroy();
+  lockedHost.remove();
+
+  const state = createGameState({ seed: 'ui-multi' });
+  state.education.units.u13.completedAt = Date.now();
+  const view = createMultiAssetView(makeCtx(state).ctx);
+  const host = mountView(view);
+  assert(host.querySelector('[data-bond-buy]'), 'bond buy control renders');
+  assert(host.querySelector('[data-fx-buy]'), 'FX buy control renders');
+  assert(host.textContent.includes('multiasset.bondPositionsTitle'), 'bond positions card renders');
+  assert(host.textContent.includes('multiasset.fxPositionsTitle'), 'FX positions card renders');
   view.destroy();
   host.remove();
 });

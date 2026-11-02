@@ -58,6 +58,13 @@ import {
 import {
   normalizeFundPlanConfig, buildFundPlan, executeFundPlan,
 } from './fund/fundStrategy.js';
+import {
+  bondDef, buyBond, sellBond, markBonds, applyBondCoupons,
+} from './assets/bonds.js';
+import {
+  buyFx, sellFx, markFx, fxRates,
+} from './assets/fx.js';
+import { macroWorld } from './market/macro.js';
 import { getUnit } from './education/curriculum.js';
 import { getCompany } from './data/companies.js';
 import { normalizeQuantConfig } from './quant/backtestEngine.js';
@@ -76,6 +83,7 @@ import { createQuizView } from './ui/views/quiz.js';
 import { createPracticeView } from './ui/views/practice.js';
 import { createMarketView } from './ui/views/market.js';
 import { createMacroView } from './ui/views/macro.js';
+import { createMultiAssetView } from './ui/views/multiasset.js';
 import { createTradeView } from './ui/views/trading.js';
 import { createOptionsView } from './ui/views/options.js';
 import { createFuturesView } from './ui/views/futures.js';
@@ -1115,6 +1123,99 @@ const actions = {
     }), result.failures.length ? 'warning' : 'success', 5200);
     return result;
   },
+  buyBondAsset(bondId, qty) {
+    const state = store.get();
+    const bond = bondDef(bondId);
+    const macro = macroWorld(state.market.day, state.seed);
+    const result = buyBond(state.account, bond, macro, {
+      qty,
+      fee: state.settings.commission,
+      day: state.market.day,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.account = result.account; }, { type: 'bond:buy' });
+    scheduleSave();
+    toast(i18n.t('toast.bondBought', {
+      name: i18n.t(bond.nameKey),
+      qty: result.qty,
+      amount: money(result.qty * result.price, i18n.locale),
+    }), 'success', 4200);
+    return result;
+  },
+  sellBondAsset(bondId, qty) {
+    const state = store.get();
+    const macro = macroWorld(state.market.day, state.seed);
+    const result = sellBond(state.account, bondId, macro, {
+      qty,
+      fee: state.settings.commission,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    const account = {
+      ...result.account,
+      bondRealized: Math.round(((result.account.bondRealized || 0) + result.realized) * 100) / 100,
+    };
+    store.update((s) => { s.account = account; }, { type: 'bond:sell' });
+    scheduleSave();
+    toast(i18n.t('toast.bondSold', {
+      name: i18n.t(bondDef(bondId)?.nameKey || ''),
+      qty: result.qty,
+      pnl: money(result.realized, i18n.locale),
+    }), result.realized >= 0 ? 'success' : 'warning', 4200);
+    return result;
+  },
+  buyFxAsset(pairId, units) {
+    const state = store.get();
+    const macro = macroWorld(state.market.day, state.seed);
+    const rates = fxRates(state.market.day, state.seed, macro);
+    const result = buyFx(state.account, pairId, rates, {
+      units,
+      fee: state.settings.commission,
+      day: state.market.day,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.account = result.account; }, { type: 'fx:buy' });
+    scheduleSave();
+    toast(i18n.t('toast.fxBought', {
+      pair: result.pair.id,
+      units: result.units,
+      amount: money(result.units * result.rate, i18n.locale),
+    }), 'success', 4200);
+    return result;
+  },
+  sellFxAsset(pairId, units) {
+    const state = store.get();
+    const macro = macroWorld(state.market.day, state.seed);
+    const rates = fxRates(state.market.day, state.seed, macro);
+    const result = sellFx(state.account, pairId, rates, {
+      units,
+      fee: state.settings.commission,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    const account = {
+      ...result.account,
+      fxRealized: Math.round(((result.account.fxRealized || 0) + result.realized) * 100) / 100,
+    };
+    store.update((s) => { s.account = account; }, { type: 'fx:sell' });
+    scheduleSave();
+    toast(i18n.t('toast.fxSold', {
+      pair: pairId,
+      units: result.units,
+      pnl: money(result.realized, i18n.locale),
+    }), result.realized >= 0 ? 'success' : 'warning', 4200);
+    return result;
+  },
   getAppMode() {
     return appMode;
   },
@@ -1196,6 +1297,7 @@ function runSimulation(ticks) {
   let careerSalary = 0;
   let careerEvaluation = null;
   let careerCertificatesEarned = [];
+  let bondCoupons = 0;
   let fund = state.fund;
   let fundEvents = [];
   let fills = [];
@@ -1248,6 +1350,12 @@ function runSimulation(ticks) {
       const futuresSettled = settleFutures(account, state.market.quotes, Math.max(0, prevDay));
       account = futuresSettled.account;
       futuresSettlements = [...futuresSettlements, ...futuresSettled.settlements];
+      const macro = macroWorld(Math.max(0, prevDay), state.seed);
+      account = markBonds(account, macro);
+      const couponResult = applyBondCoupons(account, macro, Math.max(0, prevDay));
+      account = couponResult.account;
+      bondCoupons += couponResult.total;
+      account = markFx(account, fxRates(Math.max(0, prevDay), state.seed, macro));
       if (appMode === 'career') {
         const salary = applyCareerSalary(account, career, Math.max(0, prevDay));
         account = salary.account;
@@ -1356,6 +1464,9 @@ function runSimulation(ticks) {
       grade: careerEvaluation.grade,
       score: careerEvaluation.score,
     }), ['A', 'B'].includes(careerEvaluation.grade) ? 'success' : 'warning', 5200);
+  }
+  if (bondCoupons > 0) {
+    toast(i18n.t('toast.bondCoupons', { amount: money(bondCoupons, i18n.locale) }), 'success', 4200);
   }
   if (careerCertificatesEarned.length) {
     toast(i18n.t('toast.certificateEarned', {
@@ -1557,6 +1668,9 @@ function renderRoute(route) {
       break;
     case 'macro':
       view = createMacroView(ctx);
+      break;
+    case 'multiasset':
+      view = createMultiAssetView(ctx);
       break;
     case 'trade':
     case 'trading':

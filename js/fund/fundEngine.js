@@ -314,6 +314,8 @@ export function normalizeFund(fund, day = 0, seed = 'academy-2026') {
   account.equityHistory = Array.isArray(account.equityHistory) ? account.equityHistory : [];
   account.cash = Number.isFinite(Number(account.cash)) ? Number(account.cash) : aum;
   account.initialCash = Number.isFinite(Number(account.initialCash)) ? Number(account.initialCash) : aum;
+  account.bonds = Array.isArray(account.bonds) ? account.bonds : [];
+  account.fx = Array.isArray(account.fx) ? account.fx : [];
 
   const clients = (Array.isArray(fund.clients) ? fund.clients : [])
     .map((client, index) => normalizeClient(client, index, currentDay))
