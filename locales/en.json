@@ -20,7 +20,8 @@
     "sandbox": "Sandbox",
     "career": "Career",
     "fund": "Fund",
-    "quant": "Quant Lab"
+    "quant": "Quant Lab",
+    "macro": "Macro World"
   },
   "common": {
     "close": "Close",
@@ -5646,14 +5647,15 @@
       "future": {
         "a": "Deep learning, alternative data and richer multi-factor models",
         "b": "Finer factor attribution, fund strategy optimisation and automatic rebalancing",
-        "c": "Full macro economy and global market linkages",
+        "c": "Finer global macro linkages, economic-event shocks and live data",
         "d": "Live quotes and broader real-market data",
         "e": "Additional asset classes such as bonds and FX"
       },
       "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
       "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes",
       "p1g": "Standalone Quant Lab: strategy backtests, grid optimisation, in/out-of-sample checks, logistic stock selection and four factor rankings",
-      "p1h": "Fund quant plans: signal-driven rebalance suggestions with pre-trade risk checks, plus market / sector / selection / cash / fee return attribution"
+      "p1h": "Fund quant plans: signal-driven rebalance suggestions with pre-trade risk checks, plus market / sector / selection / cash / fee return attribution",
+      "p1i": "Macro World: policy rate, inflation, growth, unemployment, yield curve, credit spread, economic calendar and global market linkages"
     },
     "disclaimer": "This game uses fictional companies and virtual money. Everything is for education only, not investment, legal or tax advice, and it is not a formal financial qualification.",
     "resetTitle": "Reset learning progress?",
@@ -6750,6 +6752,79 @@
       "compliance": "Risk limits were breached without a compliance officer",
       "keyPerson": "A key person left the fund",
       "leverage": "Gross exposure exceeded the leverage cap for too many days"
+    }
+  },
+  "macroPage": {
+    "eyebrow": "Macroeconomics",
+    "title": "Macro World",
+    "subtitle": "Deterministic links between rates, inflation, growth, the economic calendar and global markets.",
+    "note": "All macro indicators and releases are teaching simulations generated deterministically from the market seed and trading day, not live data or forecasts.",
+    "lockedTitle": "Macro World is locked",
+    "lockedText": "Complete Unit 13, Macroeconomics, to unlock it.",
+    "lockedHint": "That unit covers rates, inflation, growth and cycles; finish it to open the full macro dashboard.",
+    "goAcademy": "Go to Unit 13",
+    "policyRate": "Policy rate",
+    "inflation": "Inflation",
+    "growth": "GDP growth",
+    "unemployment": "Unemployment",
+    "realRate": "Real rate",
+    "realRateSub": "Real rate {value}",
+    "confidence": "Consumer confidence",
+    "confidenceSub": "Confidence {value}",
+    "riskAppetiteSub": "Risk appetite {value} / 100",
+    "yieldCurve": "Yield curve",
+    "yieldSub": "2Y {two}% · 10Y {ten}%",
+    "creditSpread": "Credit spread",
+    "creditSub": "High yield over government debt",
+    "regimeTitle": "Cycle regime",
+    "riskAppetite": "Risk appetite {value}",
+    "riskAppetiteLabel": "Risk appetite",
+    "policyBias": "Policy bias",
+    "easy": "Easing",
+    "tight": "Tightening",
+    "neutralBias": "Neutral",
+    "regimeNote": "A negative real rate usually supports risk assets; an inverted curve and widening credit spreads usually warn of recession risk.",
+    "regime": {
+      "expansion": "Growth is above trend; earnings and risk appetite usually improve.",
+      "slowdown": "Growth is below trend; defensive assets and cash usually look better.",
+      "inflation": "Inflation is high, raising pressure on rates and valuations.",
+      "neutral": "Growth and inflation are near trend, so company earnings matter more."
+    },
+    "chartTitle": "Growth cycle (last 90 days)",
+    "chartSubtitle": "Deterministic macro growth path",
+    "chartNote": "The line shows only elapsed simulated dates and contains no forecasts.",
+    "calendarTitle": "Economic calendar",
+    "calendarSubtitle": "Recent and upcoming releases, surprises and market impact",
+    "date": "Date",
+    "eventLabel": "Event",
+    "forecast": "Forecast",
+    "actual": "Actual",
+    "surprise": "Surprise",
+    "impact": "Impact",
+    "status": "Status",
+    "released": "Released",
+    "upcoming": "Upcoming",
+    "calendarNote": "Impact is a teaching estimate of surprise × sensitivity; events repeat every 21 trading days.",
+    "calendarEmpty": "No economic events are available.",
+    "event": {
+      "cpi": "CPI inflation",
+      "payrolls": "Non-farm payrolls",
+      "gdp": "GDP growth",
+      "pmi": "PMI",
+      "centralBank": "Central bank decision"
+    },
+    "globalTitle": "Global market linkages",
+    "globalSubtitle": "Developed and emerging indices, coupling and daily moves",
+    "regionLabel": "Market",
+    "level": "Index",
+    "change": "Daily change",
+    "coupling": "Coupling",
+    "globalNote": "Non-US markets are driven by both the US index and local cycles; a higher coupling means they follow the US more closely.",
+    "region": {
+      "us": "United States",
+      "europe": "Europe",
+      "asia": "Asia",
+      "em": "Emerging markets"
     }
   },
   "quant": {

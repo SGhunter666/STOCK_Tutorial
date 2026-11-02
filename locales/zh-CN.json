@@ -20,7 +20,8 @@
     "sandbox": "沙盒模式",
     "career": "职业模式",
     "fund": "基金经营",
-    "quant": "量化实验室"
+    "quant": "量化实验室",
+    "macro": "宏观世界"
   },
   "common": {
     "close": "关闭",
@@ -5646,14 +5647,15 @@
       "future": {
         "a": "深度学习、另类数据与更复杂的多因子模型",
         "b": "更细粒度的因子归因、基金策略参数优化与自动再平衡",
-        "c": "完整宏观经济与全球市场联动",
+        "c": "更细粒度的全球宏观联动、经济事件冲击与实时数据",
         "d": "实时行情与更完整的真实市场数据",
         "e": "债券、外汇等更多资产类别"
       },
       "p1e": "真实美股历史实验室（2008 / 2015–2026 / 2020 / 2022）",
       "p1f": "IndexedDB / localStorage 存档、主题与模拟边界说明",
       "p1g": "独立量化实验室：策略回测、参数网格优化、样本内外验证、逻辑回归选股与四类因子研究",
-      "p1h": "基金量化策略计划：按信号生成再平衡建议、执行前风控校验，以及市场 / 板块 / 选股 / 现金 / 费用的收益归因"
+      "p1h": "基金量化策略计划：按信号生成再平衡建议、执行前风控校验，以及市场 / 板块 / 选股 / 现金 / 费用的收益归因",
+      "p1i": "宏观世界：政策利率、通胀、增长、失业、收益率曲线、信用利差、经济日历与全球市场联动"
     },
     "disclaimer": "本游戏使用虚构公司与虚拟资金。所有内容仅用于教学，不构成投资、法律或税务建议，也不代表任何正式金融资格。",
     "resetTitle": "重置学习进度？",
@@ -6750,6 +6752,79 @@
       "compliance": "未聘请合规官，风险连续触线",
       "keyPerson": "关键人员离职",
       "leverage": "杠杆敞口连续超过上限"
+    }
+  },
+  "macroPage": {
+    "eyebrow": "宏观经济",
+    "title": "宏观世界",
+    "subtitle": "利率、通胀、增长、经济日历与全球市场的确定性联动。",
+    "note": "所有宏观指标与经济事件均为教学模拟，由市场种子与交易日确定性生成，不是实时数据或预测。",
+    "lockedTitle": "宏观世界尚未解锁",
+    "lockedText": "完成第 13 单元「宏观经济」后解锁。",
+    "lockedHint": "课程会讲解利率、通胀、增长与周期；完成后可查看完整宏观仪表盘。",
+    "goAcademy": "前往第 13 单元",
+    "policyRate": "政策利率",
+    "inflation": "通胀",
+    "growth": "GDP 增长",
+    "unemployment": "失业率",
+    "realRate": "实际利率",
+    "realRateSub": "实际利率 {value}",
+    "confidence": "消费者信心",
+    "confidenceSub": "信心 {value}",
+    "riskAppetiteSub": "风险偏好 {value} / 100",
+    "yieldCurve": "收益率曲线",
+    "yieldSub": "2Y {two}% · 10Y {ten}%",
+    "creditSpread": "信用利差",
+    "creditSub": "高收益债相对国债",
+    "regimeTitle": "周期状态",
+    "riskAppetite": "风险偏好 {value}",
+    "riskAppetiteLabel": "风险偏好",
+    "policyBias": "政策倾向",
+    "easy": "偏宽松",
+    "tight": "偏紧缩",
+    "neutralBias": "中性",
+    "regimeNote": "实际利率为负通常利多风险资产；收益率曲线倒挂与信用利差走阔通常提示衰退风险。",
+    "regime": {
+      "expansion": "增长高于趋势，盈利与风险偏好通常改善。",
+      "slowdown": "增长低于趋势，防御性资产与现金通常更受青睐。",
+      "inflation": "通胀偏高，利率与估值压力上升。",
+      "neutral": "增长与通胀接近趋势，市场更依赖个体盈利。"
+    },
+    "chartTitle": "增长周期（近 90 日）",
+    "chartSubtitle": "确定性宏观增长路径",
+    "chartNote": "曲线只展示已发生的模拟日期，不包含未来预测。",
+    "calendarTitle": "经济日历",
+    "calendarSubtitle": "近期与即将公布的数据、预期差与市场影响",
+    "date": "日期",
+    "eventLabel": "事件",
+    "forecast": "预期",
+    "actual": "实际",
+    "surprise": "预期差",
+    "impact": "影响",
+    "status": "状态",
+    "released": "已公布",
+    "upcoming": "待公布",
+    "calendarNote": "影响为预期差 × 敏感系数的教学估算；事件按 21 个交易日循环。",
+    "calendarEmpty": "当前没有可显示的经济事件。",
+    "event": {
+      "cpi": "CPI 通胀",
+      "payrolls": "非农就业",
+      "gdp": "GDP 增长",
+      "pmi": "PMI 景气",
+      "centralBank": "央行议息"
+    },
+    "globalTitle": "全球市场联动",
+    "globalSubtitle": "发达与新兴市场指数、联动系数与当日变动",
+    "regionLabel": "市场",
+    "level": "指数",
+    "change": "日变动",
+    "coupling": "联动系数",
+    "globalNote": "非美市场由美国指数与本地周期共同驱动；联动系数越高，跟随美股越强。",
+    "region": {
+      "us": "美国",
+      "europe": "欧洲",
+      "asia": "亚洲",
+      "em": "新兴市场"
     }
   },
   "quant": {

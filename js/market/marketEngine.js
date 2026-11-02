@@ -8,6 +8,7 @@
 import { createRng } from '../core/rng.js';
 import { COMPANIES, SECTORS, getCompany } from '../data/companies.js';
 import { TICKS_PER_DAY } from './calendar.js';
+import { macroSnapshot } from './macro.js';
 
 export const HISTORY_DAYS = 90;
 const HISTORY_LIMIT = 220;
@@ -338,7 +339,11 @@ export class MarketEngine {
     const rng = this.rng;
 
     const cycle = Math.sin((st.day + st.tick / TICKS_PER_DAY) / 16) * 0.0005;
-    const marketRet = 0.00015 + cycle + rng.normal() * 0.0045;
+    const macro = macroSnapshot(st.day, st.seed);
+    const macroDrift = (macro.growth - 2.1) * 0.00004
+      - Math.max(0, macro.realRate - 1.5) * 0.00002
+      - Math.max(0, macro.inflation - 3) * 0.00001;
+    const marketRet = 0.00015 + cycle + macroDrift + rng.normal() * 0.0045;
     st.macroDrift = marketRet;
 
     const sectorRet = {};

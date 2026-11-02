@@ -13,6 +13,7 @@ import { createSandboxView } from '../js/ui/views/sandbox.js';
 import { createCareerView } from '../js/ui/views/career.js';
 import { createFundView } from '../js/ui/views/fund.js';
 import { createQuantView } from '../js/ui/views/quant.js';
+import { createMacroView } from '../js/ui/views/macro.js';
 import { setupFund, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
 import { refreshResearchTasks, acceptResearchTask } from '../js/education/career.js';
 
@@ -211,6 +212,27 @@ test('quant optimisation and ML modes render their own controls and results', ()
   assert(mlHost.querySelector('#quant-ml-chart'), 'selection curve renders');
   ml.destroy();
   mlHost.remove();
+});
+
+test('macro world locks, unlocks and renders the calendar and global markets', () => {
+  const lockedState = createGameState({ seed: 'ui-macro-locked' });
+  const locked = createMacroView(makeCtx(lockedState).ctx);
+  const lockedHost = mountView(locked);
+  assert(lockedHost.textContent.includes('macroPage.lockedTitle'), 'locked card before Unit 13');
+  assert(!lockedHost.querySelector('#macro-growth-chart'), 'chart hidden while locked');
+  locked.destroy();
+  lockedHost.remove();
+
+  const state = createGameState({ seed: 'ui-macro' });
+  state.education.units.u13.completedAt = Date.now();
+  const view = createMacroView(makeCtx(state).ctx);
+  const host = mountView(view);
+  assert(host.querySelector('#macro-growth-chart'), 'growth chart renders');
+  assert(host.textContent.includes('macroPage.calendarTitle'), 'economic calendar renders');
+  assert(host.textContent.includes('macroPage.globalTitle'), 'global markets render');
+  assert(host.textContent.includes('macroPage.creditSpread'), 'credit spread stat renders');
+  view.destroy();
+  host.remove();
 });
 
 test('challenge board and sandbox setup mount without errors', () => {

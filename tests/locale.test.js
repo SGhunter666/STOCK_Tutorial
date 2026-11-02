@@ -486,7 +486,7 @@ test('dashboard and academy views are localised', () => {
     'dashboard.practicePending', 'dashboard.quizPassed', 'dashboard.quizPending',
     'dashboard.resumeLesson', 'dashboard.goPractice', 'dashboard.openAcademy',
     'dashboard.stageCompleteEyebrow', 'dashboard.stageCompleteTitle', 'dashboard.stageCompleteText',
-    'settings.scope.p1g', 'settings.scope.p1h',
+    'settings.scope.p1g', 'settings.scope.p1h', 'settings.scope.p1i',
     'dashboard.certificateBadge', 'dashboard.stageUnits', 'dashboard.reviewAcademy',
     'dashboard.seeRoadmap', 'dashboard.certificateNote', 'dashboard.portfolioEyebrow',
     'dashboard.sinceStart', 'dashboard.cashLine', 'dashboard.positionsLine',
@@ -746,6 +746,35 @@ test('fund management UI, roles, strategies and events are localised', () => {
   ['created', 'subscription', 'redemption', 'redemptionRequest', 'dividend', 'managementFee',
     'performanceFee', 'payroll', 'payrollShort', 'candidate', 'closed', 'other']
     .forEach((event) => check(`fund.event.${event}`));
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
+suite('Macro world copy');
+
+test('macro dashboard, calendar, regimes and regions are localised', () => {
+  const { check, missing } = required();
+  [
+    'nav.macro',
+    'macroPage.eyebrow', 'macroPage.title', 'macroPage.subtitle', 'macroPage.note',
+    'macroPage.lockedTitle', 'macroPage.lockedText', 'macroPage.lockedHint', 'macroPage.goAcademy',
+    'macroPage.policyRate', 'macroPage.inflation', 'macroPage.growth', 'macroPage.unemployment',
+    'macroPage.realRate', 'macroPage.realRateSub', 'macroPage.confidence', 'macroPage.confidenceSub',
+    'macroPage.riskAppetiteSub', 'macroPage.yieldCurve', 'macroPage.yieldSub',
+    'macroPage.creditSpread', 'macroPage.creditSub', 'macroPage.regimeTitle',
+    'macroPage.riskAppetite', 'macroPage.riskAppetiteLabel', 'macroPage.policyBias',
+    'macroPage.easy', 'macroPage.tight', 'macroPage.neutralBias', 'macroPage.regimeNote',
+    'macroPage.chartTitle', 'macroPage.chartSubtitle', 'macroPage.chartNote',
+    'macroPage.calendarTitle', 'macroPage.calendarSubtitle', 'macroPage.date',
+    'macroPage.eventLabel', 'macroPage.forecast', 'macroPage.actual', 'macroPage.surprise',
+    'macroPage.impact', 'macroPage.status', 'macroPage.released', 'macroPage.upcoming',
+    'macroPage.calendarNote', 'macroPage.calendarEmpty',
+    'macroPage.globalTitle', 'macroPage.globalSubtitle', 'macroPage.regionLabel',
+    'macroPage.level', 'macroPage.change', 'macroPage.coupling', 'macroPage.globalNote',
+  ].forEach((key) => check(key));
+  ['expansion', 'slowdown', 'inflation', 'neutral'].forEach((regime) => check(`macroPage.regime.${regime}`));
+  ['cpi', 'payrolls', 'gdp', 'pmi', 'centralBank'].forEach((event) => check(`macroPage.event.${event}`));
+  ['us', 'europe', 'asia', 'em'].forEach((region) => check(`macroPage.region.${region}`));
+  ['expansion', 'slowdown', 'inflation', 'neutral'].forEach((regime) => check(`macro.regime.${regime}`));
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 

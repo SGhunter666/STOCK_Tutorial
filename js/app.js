@@ -75,6 +75,7 @@ import { createLessonView } from './ui/views/lesson.js';
 import { createQuizView } from './ui/views/quiz.js';
 import { createPracticeView } from './ui/views/practice.js';
 import { createMarketView } from './ui/views/market.js';
+import { createMacroView } from './ui/views/macro.js';
 import { createTradeView } from './ui/views/trading.js';
 import { createOptionsView } from './ui/views/options.js';
 import { createFuturesView } from './ui/views/futures.js';
@@ -1553,6 +1554,9 @@ function renderRoute(route) {
       break;
     case 'market':
       view = createMarketView(ctx);
+      break;
+    case 'macro':
+      view = createMacroView(ctx);
       break;
     case 'trade':
     case 'trading':
