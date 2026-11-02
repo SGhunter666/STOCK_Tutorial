@@ -154,6 +154,8 @@ test('fund view gates, launches and renders an active fund', () => {
   assert(activeHost.querySelector('#fund-nav-chart'), 'NAV chart renders');
   assert(activeHost.querySelector('[data-fund-buy]'), 'fund buy button renders');
   assert(activeHost.querySelector('[data-fund-ticker]'), 'fund ticker selector renders');
+  assert(activeHost.querySelector('[data-fund-plan-form]'), 'strategy plan form renders');
+  assert(activeHost.textContent.includes('fund.attr.title'), 'factor attribution card renders');
   assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 7, 'seven team roles render');
   active.destroy();
   activeHost.remove();

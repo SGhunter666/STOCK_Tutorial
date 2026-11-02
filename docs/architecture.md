@@ -264,6 +264,8 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 风险限制 | `FUND_MAX_DRAWDOWN = 40`、`FUND_MAX_UNPAID_DAYS = 10`、`FUND_MAX_RISK_DAYS = 15`、`FUND_KEY_PERSON_DAYS = 5`、`FUND_MAX_LEVERAGE_DAYS = 3` | 单票上限、现金 / 杠杆下限在交易时拒绝；回撤、连续风险触线、欠薪、关键人员离职、杠杆连续失控与客户全部赎回都会触发清盘 |
 | 清盘 | `advanceFundDay` 的 `closeReason` | `drawdown` / `liquidity` / `payroll` / `risk` / `compliance` / `keyPerson` / `leverage` / `redeemed`；清盘后基金变为 `closed`，不再交易或收费，但保留历史与统计，并可直接重新成立 |
 | 重开 | `setupFund` | 只拒绝 `active` 基金；`closed` 状态可重新成立，表单标题与按钮切换为「重新成立」 |
+| 策略计划 | `fund/fundStrategy.js` 的 `buildFundPlan` / `executeFundPlan` | 用 `strategyRegime` 在已解锁公司上生成目标前 N 名，按 NAV、现金缓冲与仓位上限给出买卖建议；执行仍调用 `fundBuy` / `fundSell`，逐笔报告失败 |
+| 收益归因 | `fundAttribution` | 市场（加权 Beta × 基准）+ 板块偏离（组合与基准板块权重差 × 板块收益）+ 现金拖累 + 费用，选股为残差；五项之和等于组合收益 |
 | 排行榜 | `fundLeaderboard(fund, state)` + `PEER_FUNDS` | 5 只确定性同类模拟基金作为基准，按累计收益排序；玩家基金标为 `is-player`，不生成随机排名 |
 | 界面 | `ui/views/fund.js` + `#/fund` + 导航项 | 未解锁显示职业条件；未成立 / 已清盘显示创建或重新成立表单（含基准、门槛、杠杆）；成立后显示净值卡、净值曲线、风险条（含杠杆敞口）、交易区、客户（含预期收益）、团队、运营（含成本与基准）、排行榜、研究观点与事件日志 |
 | 存档 | `gameState.js` 的 `fund` 字段与 `normalizeFund` | 旧存档自动补 `benchmarkId / hurdleRate / leverage / operating / keyPerson` 等默认值；损坏的 `status` / `account` / 数值会被钳制回安全态，避免 NaN 进入存档 |

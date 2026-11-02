@@ -12,12 +12,15 @@ import { esc } from '../dom.js';
 import { formatMarketDate } from '../../market/calendar.js';
 import { unlockedCompanies } from '../../market/marketAccess.js';
 import { positionRows } from '../../trading/account.js';
+import { sectorLabel } from '../labels.js';
 import {
   FUND_STRATEGIES, FUND_RISK_PROFILES, FUND_ROLES, FUND_RANK_REQUIREMENT,
   FUND_AUM_OPTIONS, FUND_BENCHMARKS, FUND_HURDLE_OPTIONS, FUND_FEE_INTERVAL,
   FUND_MAX_DRAWDOWN, FUND_MAX_UNPAID_DAYS, FUND_MAX_RISK_DAYS,
   FUND_MAX_LEVERAGE_DAYS, fundMetrics, fundLeaderboard, fundUnlocked,
 } from '../../fund/fundEngine.js';
+import { fundAttribution } from '../../fund/fundStrategy.js';
+import { QUANT_STRATEGIES } from '../../quant/backtestEngine.js';
 
 export function createFundView(ctx) {
   const { i18n, store, actions } = ctx;
@@ -486,6 +489,132 @@ export function createFundView(ctx) {
     });
   }
 
+  function strategyPlanCard(state) {
+    const config = state.fund.quantPlan;
+    const strategy = QUANT_STRATEGIES[config.strategyId] || QUANT_STRATEGIES.smaCross;
+    const plan = config.plan;
+    const tradeRows = plan?.trades || [];
+    return card({
+      className: 'fund-strategy-plan',
+      title: t('fund.plan.title'),
+      subtitle: t('fund.plan.subtitle'),
+      actions: `<span class="pill ${config.enabled ? 'pill--ok' : ''}">${t(config.enabled ? 'fund.plan.enabled' : 'fund.plan.disabled')}</span>`,
+      body: `
+        <form data-fund-plan-form>
+          <div class="fund-form">
+            <label class="field">
+              <span class="field-label">${t('fund.plan.enableLabel')}</span>
+              <select class="input input--select" name="enabled">
+                <option value="false" ${config.enabled ? '' : 'selected'}>${t('fund.plan.off')}</option>
+                <option value="true" ${config.enabled ? 'selected' : ''}>${t('fund.plan.on')}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">${t('fund.plan.strategyLabel')}</span>
+              <select class="input input--select" name="strategyId">
+                ${Object.values(QUANT_STRATEGIES).map((entry) => `<option value="${entry.id}" ${entry.id === config.strategyId ? 'selected' : ''}>${t(entry.nameKey)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">${t('fund.plan.topNLabel')}</span>
+              <input class="input" type="number" name="topN" min="2" max="10" step="1" value="${config.topN}" inputmode="numeric">
+            </label>
+            <label class="field">
+              <span class="field-label">${t('fund.plan.intervalLabel')}</span>
+              <input class="input" type="number" name="rebalanceDays" min="5" max="60" step="1" value="${config.rebalanceDays}" inputmode="numeric">
+            </label>
+            <label class="field">
+              <span class="field-label">${t('fund.plan.cashBufferLabel')}</span>
+              <input class="input" type="number" name="cashBuffer" min="0" max="50" step="1" value="${num(config.cashBuffer * 100, i18n.locale, 0)}" inputmode="numeric">
+            </label>
+            ${strategy.params.map((definition) => `
+              <label class="field">
+                <span class="field-label">${t(definition.labelKey)}</span>
+                <input class="input" type="number" data-plan-param="${definition.id}" min="${definition.min}" max="${definition.max}" step="${definition.step}" value="${config.params[definition.id] ?? definition.default}" inputmode="decimal">
+              </label>`).join('')}
+          </div>
+          <div class="button-row">
+            <button class="btn btn--primary btn--sm" type="submit">${icon('sparkle', { size: 14 })} ${t('fund.plan.generate')}</button>
+          </div>
+          <p class="chart-note muted">${t(plan ? 'fund.plan.strategyHint' : 'fund.plan.hint', {
+            days: config.rebalanceDays,
+            top: config.topN,
+          })}</p>
+        </form>
+        ${plan
+          ? `<div class="fund-plan-preview">
+              <div class="fund-plan-meta">
+                <span>${t('fund.plan.generated', { day: formatMarketDate(plan.day, i18n.locale) })}</span>
+                <span>${t('fund.plan.nav', { value: money(plan.nav, i18n.locale) })}</span>
+                <span>${t('fund.plan.cashAfter', { value: money(plan.expectedCash, i18n.locale) })}</span>
+              </div>
+              ${tradeRows.length
+                ? `<div class="table-wrap"><table class="table table--compact">
+                    <thead><tr><th>${t('fund.plan.side')}</th><th>${t('fund.plan.ticker')}</th><th class="num">${t('fund.plan.qty')}</th><th class="num">${t('fund.plan.price')}</th><th>${t('fund.plan.reason')}</th></tr></thead>
+                    <tbody>${tradeRows.map((trade) => `
+                      <tr>
+                        <td><span class="side-tag side-tag--${trade.side}">${t(`trade.${trade.side}`)}</span></td>
+                        <td class="mono">${trade.ticker}</td>
+                        <td class="num">${num(trade.qty, i18n.locale, 0)}</td>
+                        <td class="num">${money(trade.price, i18n.locale)}</td>
+                        <td class="muted">${t(`fund.plan.reasonKey.${trade.reason}`)}</td>
+                      </tr>`).join('')}</tbody>
+                  </table></div>
+                  <div class="button-row">
+                    <button class="btn btn--primary btn--sm" type="button" data-fund-apply-plan>${icon('check', { size: 14 })} ${t('fund.plan.apply')}</button>
+                  </div>`
+                : `<p class="muted">${t('fund.plan.aligned')}</p>`}
+            </div>`
+          : `<p class="muted">${t('fund.plan.noPlan')}</p>`}`,
+    });
+  }
+
+  function attributionCard(state) {
+    const attribution = fundAttribution(state.fund, state);
+    if (!attribution) return '';
+    const rows = [
+      ['market', attribution.contributions.market],
+      ['sector', attribution.contributions.sector],
+      ['cash', attribution.contributions.cash],
+      ['fees', attribution.contributions.fees],
+      ['selection', attribution.contributions.selection],
+    ];
+    return card({
+      className: 'fund-attribution',
+      title: t('fund.attr.title'),
+      subtitle: t('fund.attr.subtitle', { beta: num(attribution.beta, i18n.locale, 2) }),
+      body: `
+        <div class="fund-plan-meta">
+          <span>${t('fund.attr.total', { value: pct(attribution.totalReturn, i18n.locale, 2) })}</span>
+          <span>${t('fund.attr.benchmark', { value: pct(attribution.benchmark, i18n.locale, 2) })}</span>
+          <span>${t('fund.attr.cashWeight', { value: pct(attribution.cashWeight, i18n.locale, 1, false) })}</span>
+        </div>
+        <div class="table-wrap"><table class="table table--compact">
+          <thead><tr><th>${t('fund.attr.component')}</th><th class="num">${t('fund.attr.contribution')}</th></tr></thead>
+          <tbody>
+            ${rows.map(([key, value]) => `
+              <tr>
+                <td>${t(`fund.attr.${key}`)}</td>
+                <td class="num ${value >= 0 ? 'up' : 'down'}">${pct(value, i18n.locale, 2)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table></div>
+        <p class="fund-subtitle">${t('fund.attr.sectorTitle')}</p>
+        <div class="table-wrap"><table class="table table--compact">
+          <thead><tr><th>${t('fund.attr.sector')}</th><th class="num">${t('fund.attr.portfolioWeight')}</th><th class="num">${t('fund.attr.benchmarkWeight')}</th><th class="num">${t('fund.attr.sectorReturn')}</th><th class="num">${t('fund.attr.contribution')}</th></tr></thead>
+          <tbody>${attribution.sectorRows.map((row) => `
+            <tr>
+              <td>${sectorLabel(ctx, row.sector)}</td>
+              <td class="num">${pct(row.portfolioWeight, i18n.locale, 1, false)}</td>
+              <td class="num">${pct(row.benchmarkWeight, i18n.locale, 1, false)}</td>
+              <td class="num ${row.returnPct >= 0 ? 'up' : 'down'}">${pct(row.returnPct, i18n.locale, 1)}</td>
+              <td class="num ${row.contribution >= 0 ? 'up' : 'down'}">${pct(row.contribution, i18n.locale, 2)}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>
+        <p class="chart-note muted">${t('fund.attr.note')}</p>`,
+    });
+  }
+
   function leaderboardCard(metrics, state) {
     const peers = fundLeaderboard(state.fund, state.market.day);
     const player = {
@@ -641,6 +770,10 @@ export function createFundView(ctx) {
       </div>
       ${tradingCard(metrics, state)}
       <div class="fund-split">
+        ${strategyPlanCard(state)}
+        ${attributionCard(state)}
+      </div>
+      <div class="fund-split">
         ${clientsCard(metrics, state)}
         ${teamCard(state)}
       </div>
@@ -778,8 +911,30 @@ export function createFundView(ctx) {
       if (event.target.closest('[data-fund-withdraw]')) {
         actions.fundWithdrawCompanyCash();
       }
+      if (event.target.closest('[data-fund-apply-plan]')) {
+        actions.fundApplyPlan();
+      }
     });
     root.addEventListener('submit', (event) => {
+      if (event.target.matches('[data-fund-plan-form]')) {
+        event.preventDefault();
+        const form = event.target;
+        const data = new FormData(form);
+        const params = {};
+        form.querySelectorAll('[data-plan-param]').forEach((input) => {
+          params[input.dataset.planParam] = Number(input.value);
+        });
+        actions.fundSetStrategy({
+          enabled: data.get('enabled') === 'true',
+          strategyId: data.get('strategyId'),
+          params,
+          topN: Number(data.get('topN')),
+          rebalanceDays: Number(data.get('rebalanceDays')),
+          cashBuffer: Number(data.get('cashBuffer')) / 100,
+        });
+        actions.fundGeneratePlan();
+        return;
+      }
       if (!event.target.matches('[data-fund-form]')) return;
       event.preventDefault();
       const data = new FormData(event.target);

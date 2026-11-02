@@ -55,6 +55,9 @@ import {
   hireEmployee, fireEmployee, acceptClient, settleRedemption,
   advanceFundDay, withdrawCompanyCash,
 } from './fund/fundEngine.js';
+import {
+  normalizeFundPlanConfig, buildFundPlan, executeFundPlan,
+} from './fund/fundStrategy.js';
 import { getUnit } from './education/curriculum.js';
 import { getCompany } from './data/companies.js';
 import { normalizeQuantConfig } from './quant/backtestEngine.js';
@@ -1048,6 +1051,67 @@ const actions = {
     }, { type: 'fund:withdraw' });
     scheduleSave();
     toast(i18n.t('toast.fundCashWithdrawn', { amount: money(result.amount, i18n.locale) }), 'success', 4200);
+    return result;
+  },
+  fundSetStrategy(input) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    if (!state.fund || state.fund.status !== 'active') {
+      return { ok: false, error: 'fund.errorNotActive' };
+    }
+    const next = normalizeFundPlanConfig({
+      ...state.fund.quantPlan,
+      ...input,
+      plan: null,
+      lastPlanDay: null,
+    });
+    state.fund = { ...state.fund, quantPlan: next };
+    store.update(() => {}, { type: 'fund:strategy' });
+    scheduleSave();
+    return { ok: true, config: next };
+  },
+  fundGeneratePlan() {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    const result = buildFundPlan(state.fund, state, state.fund?.quantPlan);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    state.fund = {
+      ...state.fund,
+      quantPlan: {
+        ...result.config,
+        plan: result.plan,
+        lastPlanDay: state.market.day,
+      },
+    };
+    store.update(() => {}, { type: 'fund:plan' });
+    scheduleSave();
+    return result;
+  },
+  fundApplyPlan() {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    const plan = state.fund?.quantPlan?.plan;
+    const result = executeFundPlan(state.fund, state.market.quotes, plan, {
+      day: state.market.day,
+      tick: state.market.tick,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    state.fund = {
+      ...result.fund,
+      quantPlan: { ...state.fund.quantPlan, plan: null, lastPlanDay: state.market.day },
+    };
+    store.update(() => {}, { type: 'fund:plan-executed' });
+    scheduleSave();
+    toast(i18n.t('toast.fundPlanApplied', {
+      applied: result.applied.length,
+      failed: result.failures.length,
+    }), result.failures.length ? 'warning' : 'success', 5200);
     return result;
   },
   getAppMode() {

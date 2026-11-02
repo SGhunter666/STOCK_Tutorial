@@ -181,7 +181,7 @@ function rsiAt(closes, index, period) {
 
 function signalAt(strategyId, params, candles, index) {
   const closes = candles.map((candle) => candle.c);
-  if (strategyId === 'buyHold') return index === 0 ? 'buy' : null;
+  if (strategyId === 'buyHold') return 'buy';
   if (strategyId === 'smaCross') {
     const fast = sma(closes.slice(0, index + 1), params.fast);
     const slow = sma(closes.slice(0, index + 1), params.slow);
@@ -220,6 +220,56 @@ function signalAt(strategyId, params, candles, index) {
     return null;
   }
   return null;
+}
+
+/** Latest crossover / threshold signal on the final bar, for plan previews. */
+export function latestStrategySignal(strategyId, params, candles) {
+  if (!Array.isArray(candles) || candles.length < 2) return null;
+  return signalAt(strategyId, normalizeParams(strategyId, params || {}), candles, candles.length - 1);
+}
+
+/**
+ * Current regime rather than a one-bar crossover: useful for portfolio
+ * construction, where the fund needs a sustained bias.
+ */
+export function strategyRegime(strategyId, params, candles) {
+  if (!Array.isArray(candles) || candles.length < 2) return 'hold';
+  const normalized = normalizeParams(strategyId, params || {});
+  const closes = candles.map((candle) => candle.c);
+  const last = closes.length - 1;
+  if (strategyId === 'buyHold') return 'buy';
+  if (strategyId === 'smaCross') {
+    const fast = sma(closes, normalized.fast);
+    const slow = sma(closes, normalized.slow);
+    if (fast == null || slow == null) return 'hold';
+    return fast > slow ? 'buy' : fast < slow ? 'sell' : 'hold';
+  }
+  if (strategyId === 'rsiReversion') {
+    const value = rsiAt(closes, last, Math.round(normalized.rsiPeriod));
+    if (value == null) return 'hold';
+    if (value < normalized.rsiEntry) return 'buy';
+    if (value > normalized.rsiExit) return 'sell';
+    return 'hold';
+  }
+  if (strategyId === 'momentum') {
+    const lookback = Math.round(normalized.lookback);
+    if (last < lookback || !closes[last - lookback]) return 'hold';
+    const move = (closes[last] / closes[last - lookback] - 1) * 100;
+    if (move > normalized.threshold) return 'buy';
+    if (move < -normalized.threshold) return 'sell';
+    return 'hold';
+  }
+  if (strategyId === 'breakout') {
+    const lookback = Math.round(normalized.lookback);
+    if (last < lookback) return 'hold';
+    const prior = candles.slice(last - lookback, last);
+    const high = Math.max(...prior.map((candle) => candle.h));
+    const low = Math.min(...prior.map((candle) => candle.l));
+    if (closes[last] > high) return 'buy';
+    if (closes[last] < low) return 'sell';
+    return 'hold';
+  }
+  return 'hold';
 }
 
 function equityMetrics(curve, initialCash, trades, bars) {

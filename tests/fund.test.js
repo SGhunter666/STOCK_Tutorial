@@ -16,6 +16,9 @@ import {
   FUND_MAX_DRAWDOWN, FUND_MAX_UNPAID_DAYS, FUND_KEY_PERSON_DAYS, FUND_MAX_LEVERAGE_DAYS,
   FUND_COMPLIANCE_DAYS,
 } from '../js/fund/fundEngine.js';
+import {
+  normalizeFundPlanConfig, buildFundPlan, executeFundPlan, fundAttribution,
+} from '../js/fund/fundStrategy.js';
 
 const STOCK = COMPANIES.find((company) => !company.isEtf).ticker;
 
@@ -390,6 +393,52 @@ test('a closed fund can be launched again', () => {
   assert(result.ok, 'closed funds can be relaunched');
   assertEqual(result.fund.status, 'active');
   assertEqual(result.fund.name, 'Second Chance');
+});
+
+test('fund strategy plans normalise, build and execute through normal risk checks', () => {
+  const config = normalizeFundPlanConfig({
+    strategyId: 'moon',
+    topN: 99,
+    rebalanceDays: 1,
+    cashBuffer: 2,
+  });
+  assertEqual(config.strategyId, 'smaCross', 'unknown plan strategy falls back');
+  assertEqual(config.topN, 10, 'top-N clamps');
+  assertEqual(config.rebalanceDays, 5, 'rebalance interval clamps');
+  assertEqual(config.cashBuffer, 0.5, 'cash buffer clamps');
+
+  const state = makeState();
+  const fund = launch(state);
+  const built = buildFundPlan(fund, state, {
+    enabled: true,
+    strategyId: 'buyHold',
+    topN: 3,
+    cashBuffer: 0.1,
+  });
+  assert(built.ok, 'plan builds');
+  assertEqual(built.plan.candidates.length, 3, 'top three candidates selected');
+  assert(built.plan.trades.every((trade) => trade.side === 'buy'), 'empty fund only buys');
+  assert(built.plan.expectedCash >= 0, 'plan keeps cash non-negative');
+  const executed = executeFundPlan(fund, state.market.quotes, built.plan, { day: 0 });
+  assert(executed.ok, 'plan executes');
+  assert(executed.applied.length > 0, 'some plan trades filled');
+  assert(executed.fund.account.positions && Object.keys(executed.fund.account.positions).length > 0, 'positions created');
+  assertEqual(executeFundPlan(fund, state.market.quotes, { trades: [] }, {}).error, 'fund.plan.errorEmpty');
+});
+
+test('fund attribution components reconcile to the total return', () => {
+  const state = makeState();
+  const fund = launch(state);
+  const leveraged = { ...fund, managementFees: 100, performanceFees: 50 };
+  const attribution = fundAttribution(leveraged, state);
+  assert(attribution, 'attribution computes');
+  const sum = Object.values(attribution.contributions).reduce((total, value) => total + value, 0);
+  assertClose(sum, attribution.totalReturn, 0.25, 'factor contributions reconcile to total return');
+  assertClose(attribution.contributions.fees, -0.015, 0.006, 'fees are a negative drag');
+  assert(attribution.sectorRows.length > 0, 'sector exposure rows exist');
+  for (const key of ['market', 'sector', 'cash', 'fees', 'selection']) {
+    assert(Number.isFinite(attribution.contributions[key]), `${key} contribution is finite`);
+  }
 });
 
 test('leaderboard is deterministic and includes every peer fund', () => {

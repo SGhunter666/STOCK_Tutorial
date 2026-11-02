@@ -9,6 +9,7 @@ import { ensureUnitProgress } from '../education/lessonEngine.js';
 import { normalizeCareer } from '../education/career.js';
 import { createFundState, normalizeFund } from '../fund/fundEngine.js';
 import { DEFAULT_QUANT_CONFIG, normalizeQuantConfig } from '../quant/backtestEngine.js';
+import { normalizeFundPlanConfig } from '../fund/fundStrategy.js';
 
 export const SAVE_VERSION = 2;
 export const DEFAULT_CASH = 10000;
@@ -102,6 +103,7 @@ export function hydrateState(saved) {
   state.challenges.failed = Array.isArray(state.challenges.failed) ? state.challenges.failed : [];
   state.career = normalizeCareer(state.career, state.market.day);
   state.fund = normalizeFund(state.fund, state.market.day, state.seed);
+  state.fund.quantPlan = normalizeFundPlanConfig(state.fund.quantPlan);
   state.quant = normalizeQuantConfig(state.quant);
   state.education = {
     units: isPlainObject(state.education.units) ? state.education.units : {},
