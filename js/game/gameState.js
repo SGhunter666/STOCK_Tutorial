@@ -28,6 +28,8 @@ export function createGameState({ locale = 'en', seed = DEFAULT_SEED, initialCas
       layout: 'beginner',
       reducedMotion: false,
       theme: 'dark',
+      liveFeedUrl: '',
+      liveFeedInterval: 60,
     },
     market: engine.serialize(),
     account: { ...createAccount(initialCash), equityHistory: [{ day: -1, equity: initialCash }] },
@@ -93,7 +95,12 @@ export function hydrateState(saved) {
     layout: state.settings.layout === 'advanced' ? 'advanced' : 'beginner',
     reducedMotion: Boolean(state.settings.reducedMotion),
     theme: state.settings.theme === 'light' ? 'light' : 'dark',
+    liveFeedUrl: typeof state.settings.liveFeedUrl === 'string'
+      ? state.settings.liveFeedUrl.slice(0, 300) : '',
+    liveFeedInterval: [15, 30, 60].includes(Number(state.settings.liveFeedInterval))
+      ? Number(state.settings.liveFeedInterval) : 60,
   };
+  state.market.intraday = isPlainObject(state.market.intraday) ? state.market.intraday : {};
   state.orders = Array.isArray(state.orders) ? state.orders : [];
   state.orderSeq = Number.isFinite(state.orderSeq) ? state.orderSeq : (state.orders.length + 1);
   state.historyRuns = isPlainObject(state.historyRuns) ? state.historyRuns : {};

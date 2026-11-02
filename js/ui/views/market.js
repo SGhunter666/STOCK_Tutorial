@@ -5,7 +5,8 @@ import { money, pct, moneyCompact } from '../../core/format.js';
 import { pageHead, card } from '../kit.js';
 import { icon } from '../icons.js';
 import { drawSparkline, LineChart } from '../chart.js';
-import { COMPANIES, SECTORS } from '../../data/companies.js';
+import { COMPANIES, SECTORS, getCompany } from '../../data/companies.js';
+import { fetchLiveFeed } from '../../market/liveFeed.js';
 import { unitProgress } from '../../education/lessonEngine.js';
 import { getUnit } from '../../education/curriculum.js';
 import {
@@ -25,6 +26,10 @@ export function createMarketView(ctx) {
   let indexChart = null;
   let sparkCanvases = [];
   let tickCounter = 0;
+  let liveFeed = { status: 'idle', data: null, error: null };
+  let liveFeedKey = '';
+  let liveFeedTimer = null;
+  let liveFeedSeq = 0;
 
   function practiceBanner(state) {
     const unit = getUnit('u1');
@@ -162,6 +167,107 @@ export function createMarketView(ctx) {
     });
   }
 
+  function liveTime(timestamp) {
+    try {
+      return new Intl.DateTimeFormat(i18n.locale, {
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+      }).format(new Date(timestamp));
+    } catch {
+      return '—';
+    }
+  }
+
+  function liveFeedBody(state) {
+    const configured = Boolean(state.settings.liveFeedUrl);
+    const status = liveFeed.status;
+    const feed = liveFeed.data;
+    if (!configured) {
+      return `<p class="muted">${t('market.liveSetup')}</p>
+        <div class="button-row">
+          <button class="btn btn--ghost btn--sm" type="button" data-go="/settings">${icon('settings', { size: 14 })} ${t('market.liveSettings')}</button>
+        </div>
+        <p class="chart-note muted">${t('market.liveNote')}</p>`;
+    }
+    const statusText = status === 'loading' ? t('market.liveStatusLoading')
+      : status === 'error' ? t(liveFeed.error || 'liveFeed.errorFetch')
+        : status === 'ready' ? t('market.liveStatusReady') : t('market.liveStatusIdle');
+    return `
+      <div class="fund-plan-meta">
+        <span>${statusText}</span>
+        ${feed ? `<span>${t('market.liveUpdated', { time: liveTime(feed.updatedAt) })}</span>` : ''}
+        ${feed ? `<span>${t('market.liveCount', { count: feed.quotes.length })}</span>` : ''}
+      </div>
+      ${feed && feed.quotes.length
+    ? `<div class="table-wrap"><table class="table table--compact">
+          <thead><tr><th>${t('market.liveTicker')}</th><th class="num">${t('market.liveLast')}</th><th class="num">${t('market.liveChange')}</th></tr></thead>
+          <tbody>${feed.quotes.slice(0, 10).map((row) => {
+    const company = getCompany(row.ticker);
+    return `<tr>
+              <td><strong class="mono">${row.ticker}</strong>${company ? ` · ${companyName(ctx, row.ticker)}` : ''}</td>
+              <td class="num">${money(row.last, i18n.locale, 2)}</td>
+              <td class="num ${row.changePct === null ? '' : row.changePct >= 0 ? 'up' : 'down'}">${row.changePct === null ? '—' : pct(row.changePct, i18n.locale, 2)}</td>
+            </tr>`;
+  }).join('')}</tbody>
+        </table></div>`
+    : ''}
+      <div class="button-row">
+        <button class="btn btn--ghost btn--sm" type="button" data-live-feed-refresh ${status === 'loading' ? 'disabled' : ''}>${icon('download', { size: 14 })} ${t('market.liveRefresh')}</button>
+        <button class="btn btn--ghost btn--sm" type="button" data-go="/settings">${icon('settings', { size: 14 })} ${t('market.liveSettings')}</button>
+      </div>
+      <p class="chart-note muted">${t('market.liveNote')}</p>`;
+  }
+
+  function liveFeedCard(state) {
+    return card({
+      className: 'market-live-feed',
+      title: t('market.liveTitle'),
+      subtitle: t('market.liveSubtitle'),
+      actions: `<span class="pill">${t('market.livePill')}</span>`,
+      body: `<div id="live-feed-body">${liveFeedBody(state)}</div>`,
+    });
+  }
+
+  function updateLiveFeedBody(state) {
+    const node = container?.querySelector('#live-feed-body');
+    if (!node) return;
+    node.innerHTML = liveFeedBody(state);
+    node.querySelector('[data-live-feed-refresh]')?.addEventListener('click', () => refreshLiveFeed());
+    node.querySelector('[data-go]')?.addEventListener('click', (event) => {
+      router.go(event.currentTarget.dataset.go);
+    });
+  }
+
+  async function refreshLiveFeed() {
+    const state = store.get();
+    const url = state.settings.liveFeedUrl;
+    if (!url || liveFeed.status === 'loading') return;
+    const sequence = liveFeedSeq + 1;
+    liveFeedSeq = sequence;
+    liveFeed = { status: 'loading', data: liveFeed.data, error: null };
+    updateLiveFeedBody(state);
+    const result = await fetchLiveFeed(url);
+    if (sequence !== liveFeedSeq) return;
+    liveFeed = result.ok
+      ? { status: 'ready', data: result, error: null }
+      : { status: 'error', data: liveFeed.data, error: result.error };
+    updateLiveFeedBody(store.get());
+  }
+
+  function ensureLivePolling(state) {
+    const url = state.settings.liveFeedUrl || '';
+    const interval = state.settings.liveFeedInterval || 60;
+    const key = `${url}|${interval}`;
+    if (key === liveFeedKey) return;
+    liveFeedKey = key;
+    liveFeedSeq += 1;
+    if (liveFeedTimer) clearInterval(liveFeedTimer);
+    liveFeedTimer = null;
+    liveFeed = { status: 'idle', data: null, error: null };
+    if (!url) return;
+    refreshLiveFeed();
+    liveFeedTimer = setInterval(refreshLiveFeed, interval * 1000);
+  }
+
   function template(state) {
     return `
       <div class="market-page">
@@ -173,6 +279,7 @@ export function createMarketView(ctx) {
         })}
         ${practiceBanner(state)}
         ${indexCard(state)}
+        ${liveFeedCard(state)}
         ${segmentsSection(state)}
         ${filters()}
         ${marketTable(state)}
@@ -305,6 +412,7 @@ export function createMarketView(ctx) {
     container.querySelectorAll('[data-go]').forEach((button) => {
       button.addEventListener('click', () => router.go(button.dataset.go));
     });
+    container.querySelector('[data-live-feed-refresh]')?.addEventListener('click', () => refreshLiveFeed());
   }
 
   function mount(node) {
@@ -331,6 +439,7 @@ export function createMarketView(ctx) {
     drawIndexChart(state);
     drawSparks(state);
     applyFilters();
+    ensureLivePolling(state);
   }
 
   function onTick(state) {
@@ -374,6 +483,9 @@ export function createMarketView(ctx) {
     if (indexChart) indexChart.destroy();
     indexChart = null;
     sparkCanvases = [];
+    liveFeedSeq += 1;
+    if (liveFeedTimer) clearInterval(liveFeedTimer);
+    liveFeedTimer = null;
   }
 
   return { mount, render, onTick, destroy };

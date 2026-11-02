@@ -17,6 +17,7 @@ export const QUANT_FACTOR_OPTIONS = [
   { id: 'newsTrend', nameKey: 'quant.factor.newsTrend', descKey: 'quant.factor.newsTrendDesc' },
   { id: 'volume', nameKey: 'quant.factor.volume', descKey: 'quant.factor.volumeDesc' },
   { id: 'flow', nameKey: 'quant.factor.flow', descKey: 'quant.factor.flowDesc' },
+  { id: 'analyst', nameKey: 'quant.factor.analyst', descKey: 'quant.factor.analystDesc' },
 ];
 
 export const QUANT_MODES = [
@@ -33,7 +34,7 @@ export const QUANT_OBJECTIVES = [
   { id: 'calmar', nameKey: 'quant.objective.calmar' },
 ];
 
-export const ML_FACTORS = ['momentum', 'lowVol', 'trend', 'news', 'newsTrend', 'volume', 'flow'];
+export const ML_FACTORS = ['momentum', 'lowVol', 'trend', 'news', 'newsTrend', 'analyst', 'volume', 'flow'];
 export const ML_MODELS = [
   { id: 'logistic', nameKey: 'quant.ml.modelLogistic' },
   { id: 'mlp', nameKey: 'quant.ml.modelMlp' },
@@ -454,6 +455,23 @@ export function runBacktest({
   };
 }
 
+function intradayMoneyFlow(state, ticker) {
+  const bars = (state.market?.intraday?.[ticker] || [])
+    .filter((bar) => bar.d === state.market?.day);
+  if (bars.length < 2) return null;
+  let net = 0;
+  let total = 0;
+  for (let index = 1; index < bars.length; index += 1) {
+    const volume = Number(bars[index].v) || 0;
+    if (!volume) continue;
+    total += volume;
+    const change = bars[index].c - bars[index - 1].c;
+    if (change > 0) net += volume;
+    else if (change < 0) net -= volume;
+  }
+  return total > 0 ? (net / total) * 100 : 0;
+}
+
 function moneyFlow(closes, volumes, endIndex, lookback) {
   if (endIndex < 1 || !volumes.length) return null;
   const start = Math.max(1, endIndex - lookback + 1);
@@ -521,10 +539,16 @@ function factorMetric(state, company, lookback, factor) {
     return { metric: change, score: change };
   }
   if (factor === 'flow') {
+    const live = intradayMoneyFlow(state, company.ticker);
+    if (live != null) return { metric: live, score: live };
     const volumes = candles.map((candle) => Number(candle.v) || 0);
     const flow = moneyFlow(closes, volumes, closes.length - 1, lookback);
     if (flow == null) return null;
     return { metric: flow, score: flow };
+  }
+  if (factor === 'analyst') {
+    const value = analystRevision(state, company.ticker, state.market?.day ?? 0, lookback);
+    return { metric: value, score: value };
   }
   return null;
 }
@@ -540,6 +564,20 @@ function newsImpactBetween(state, ticker, fromDay, toDay) {
 
 function newsSentiment(state, ticker, day, lookback = ML_NEWS_WINDOW) {
   return newsImpactBetween(state, ticker, day - lookback, day);
+}
+
+const ANALYST_TEMPLATES = new Set(['upgrade', 'downgrade']);
+
+/** Net analyst revision impact over the window, in percentage points. */
+function analystRevision(state, ticker, day, lookback = ML_NEWS_WINDOW) {
+  const news = state.market?.news || [];
+  const value = news
+    .filter((entry) => entry.ticker === ticker
+      && ANALYST_TEMPLATES.has(entry.template)
+      && Number.isFinite(entry.day)
+      && entry.day <= day && entry.day >= day - lookback)
+    .reduce((sum, entry) => sum + (Number(entry.pct) || 0), 0);
+  return Math.round(value * 100) / 100;
 }
 
 /** Compares recent news sentiment with the prior window to capture attention shifts. */
@@ -896,6 +934,7 @@ export function buildMlPanel(state, { lookback = 30, horizon = 10 } = {}) {
       const features = ML_FACTORS.map((factor) => {
         if (factor === 'news') return newsSentiment(state, entry.company.ticker, marketDay, window);
         if (factor === 'newsTrend') return newsSentimentTrend(state, entry.company.ticker, marketDay, window);
+        if (factor === 'analyst') return analystRevision(state, entry.company.ticker, marketDay, window);
         return mlFactorValue(entry.closes, date, factor, window, entry.volumes);
       });
       if (features.some((value) => value == null || !Number.isFinite(value))) continue;

@@ -176,6 +176,7 @@ export class MarketEngine {
     const rng = createRng(seed);
     const history = {};
     const quotes = {};
+    const intraday = {};
     let baseCap = 0;
     let currentCap = 0;
 
@@ -247,6 +248,7 @@ export class MarketEngine {
       tick: 0,
       quotes,
       history,
+      intraday,
       etfDivisors,
       index: {
         baseCap,
@@ -345,6 +347,7 @@ export class MarketEngine {
   tick() {
     const st = this.state;
     const rng = this.rng;
+    if (!st.intraday || typeof st.intraday !== 'object') st.intraday = {};
 
     const cycle = Math.sin((st.day + st.tick / TICKS_PER_DAY) / 16) * 0.0005;
     const macro = macroSnapshot(st.day, st.seed);
@@ -357,6 +360,12 @@ export class MarketEngine {
     const sectorRet = {};
     for (const sector of SECTORS) {
       sectorRet[sector] = rng.normal() * 0.003;
+    }
+
+    const tickStart = {};
+    for (const company of COMPANIES) {
+      const quote = st.quotes[company.ticker];
+      tickStart[company.ticker] = { last: quote.last, volume: quote.volume };
     }
 
     for (const company of COMPANIES) {
@@ -381,6 +390,24 @@ export class MarketEngine {
       q.low = Math.min(q.low, q.last);
       q.volume += Math.round(etf.avgVolume * rng.range(0.05, 0.2));
       this._refreshQuoteDerived(etf);
+    }
+
+    for (const company of COMPANIES) {
+      const quote = st.quotes[company.ticker];
+      const start = tickStart[company.ticker];
+      if (!start) continue;
+      if (!Array.isArray(st.intraday[company.ticker])) st.intraday[company.ticker] = [];
+      const bars = st.intraday[company.ticker];
+      bars.push({
+        d: st.day,
+        t: st.tick,
+        o: start.last,
+        h: Math.max(start.last, quote.last),
+        l: Math.min(start.last, quote.last),
+        c: quote.last,
+        v: Math.max(0, quote.volume - start.volume),
+      });
+      if (bars.length > TICKS_PER_DAY * 2) bars.splice(0, bars.length - TICKS_PER_DAY * 2);
     }
 
     this._recomputeIndex();

@@ -20,6 +20,7 @@ import {
   FUND_MAX_LEVERAGE_DAYS, fundMetrics, fundLeaderboard, fundUnlocked,
 } from '../../fund/fundEngine.js';
 import { fundAttribution, researchFundPlan } from '../../fund/fundStrategy.js';
+import { FUND_OPTIMIZER_METHODS, optimizeFundPortfolio } from '../../fund/optimizer.js';
 import { QUANT_STRATEGIES } from '../../quant/backtestEngine.js';
 
 export function createFundView(ctx) {
@@ -32,6 +33,12 @@ export function createFundView(ctx) {
   let tradeQty = 10;
   let planResearch = null;
   let planResearchDay = null;
+  let optimizerMethod = 'minVariance';
+  let optimizerLookback = 60;
+  let optimizerMaxWeight = 25;
+  let optimizerCashBuffer = 10;
+  let optimizerResult = null;
+  let optimizerDay = null;
 
   function fmtPercent(value, digits = 2) {
     return `${num(value, i18n.locale, digits)}%`;
@@ -683,6 +690,82 @@ export function createFundView(ctx) {
     });
   }
 
+  function optimizerBody(result) {
+    if (!result) return `<p class="muted">${t('fund.optimizer.empty')}</p>`;
+    if (!result.ok) return `<p class="muted">${t(result.error || 'fund.optimizer.empty')}</p>`;
+    const method = FUND_OPTIMIZER_METHODS.find((entry) => entry.id === result.method)
+      || FUND_OPTIMIZER_METHODS[0];
+    return `
+      <div class="fund-plan-meta">
+        <span>${t('fund.optimizer.methodLabel')}: ${t(method.nameKey)}</span>
+        <span>${t('fund.optimizer.expectedReturn', { value: pct(result.expectedReturnPct, i18n.locale, 2) })}</span>
+        <span>${t('fund.optimizer.expectedVol', { value: pct(result.expectedVolatilityPct, i18n.locale, 2, false) })}</span>
+        <span>${t('fund.optimizer.equalVol', { value: pct(result.equalWeightVolatilityPct, i18n.locale, 2, false) })}</span>
+        <span>${t('fund.optimizer.cashWeight', { value: pct(result.cashWeightPct, i18n.locale, 1, false) })}</span>
+      </div>
+      <p class="fund-subtitle">${t('fund.optimizer.tableTitle', { count: result.universe })}</p>
+      <div class="table-wrap"><table class="table table--compact">
+        <thead><tr>
+          <th>${t('fund.optimizer.ticker')}</th>
+          <th>${t('fund.optimizer.sector')}</th>
+          <th class="num">${t('fund.optimizer.weight')}</th>
+          <th class="num">${t('fund.optimizer.assetReturn')}</th>
+          <th class="num">${t('fund.optimizer.assetVol')}</th>
+        </tr></thead>
+        <tbody>${result.weights.slice(0, 14).map((row) => `
+          <tr>
+            <td class="mono">${row.ticker}</td>
+            <td class="muted">${sectorLabel(ctx, row.sector)}</td>
+            <td class="num">${pct(row.weightPct, i18n.locale, 1, false)}</td>
+            <td class="num ${row.expectedReturnPct >= 0 ? 'up' : 'down'}">${pct(row.expectedReturnPct, i18n.locale, 2)}</td>
+            <td class="num">${pct(row.volatilityPct, i18n.locale, 2, false)}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="button-row">
+        <button class="btn btn--primary btn--sm" type="button" data-fund-apply-optimizer>${icon('check', { size: 14 })} ${t('fund.optimizer.apply')}</button>
+      </div>
+      <p class="chart-note muted">${t('fund.optimizer.applyNote')}</p>
+      <p class="chart-note muted">${t('fund.optimizer.disclaimer')}</p>`;
+  }
+
+  function optimizerCard(state) {
+    const method = FUND_OPTIMIZER_METHODS.find((entry) => entry.id === optimizerMethod)
+      || FUND_OPTIMIZER_METHODS[0];
+    return card({
+      className: 'fund-optimizer',
+      title: t('fund.optimizer.title'),
+      subtitle: t('fund.optimizer.subtitle'),
+      actions: `<span class="pill">${t('fund.optimizer.pill')}</span>`,
+      body: `
+        <div class="fund-form">
+          <label class="field">
+            <span class="field-label">${t('fund.optimizer.methodLabel')}</span>
+            <select class="input input--select" data-optimizer-method>
+              ${FUND_OPTIMIZER_METHODS.map((entry) => `<option value="${entry.id}" ${entry.id === optimizerMethod ? 'selected' : ''}>${t(entry.nameKey)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">${t('fund.optimizer.lookbackLabel')}</span>
+            <input class="input" type="number" data-optimizer-lookback min="20" max="250" step="10" value="${optimizerLookback}" inputmode="numeric">
+          </label>
+          <label class="field">
+            <span class="field-label">${t('fund.optimizer.maxWeightLabel')}</span>
+            <input class="input" type="number" data-optimizer-max-weight min="5" max="50" step="1" value="${optimizerMaxWeight}" inputmode="numeric">
+          </label>
+          <label class="field">
+            <span class="field-label">${t('fund.optimizer.cashBufferLabel')}</span>
+            <input class="input" type="number" data-optimizer-cash-buffer min="5" max="50" step="1" value="${optimizerCashBuffer}" inputmode="numeric">
+          </label>
+        </div>
+        <div class="button-row">
+          <button class="btn btn--primary btn--sm" type="button" data-fund-optimize>${icon('sparkle', { size: 14 })} ${t('fund.optimizer.run')}</button>
+        </div>
+        <p class="chart-note muted">${t(method.descKey)}</p>
+        <p class="chart-note muted">${t('fund.optimizer.note')}</p>
+        ${optimizerBody(optimizerResult)}`,
+    });
+  }
+
   function attributionCard(state) {
     const attribution = fundAttribution(state.fund, state);
     if (!attribution) return '';
@@ -725,6 +808,27 @@ export function createFundView(ctx) {
               <td class="num ${row.contribution >= 0 ? 'up' : 'down'}">${pct(row.contribution, i18n.locale, 2)}</td>
             </tr>`).join('')}</tbody>
         </table></div>
+        <p class="fund-subtitle">${t('fund.attr.exposureTitle')}</p>
+        <div class="fund-plan-meta">
+          <span>${t('fund.attr.betaExposure', { value: num(attribution.exposures.beta, i18n.locale, 2) })}</span>
+          <span>${t('fund.attr.momentumExposure', { value: pct(attribution.exposures.momentumPct, i18n.locale, 1) })}</span>
+          <span>${t('fund.attr.volExposure', { value: pct(attribution.exposures.volatilityPct, i18n.locale, 1, false) })}</span>
+          <span>${t('fund.attr.peExposure', { value: attribution.exposures.pe > 0 ? `${num(attribution.exposures.pe, i18n.locale, 1)}×` : '—' })}</span>
+        </div>
+        ${attribution.positions.length
+    ? `<p class="fund-subtitle">${t('fund.attr.positionsTitle')}</p>
+          <div class="table-wrap"><table class="table table--compact">
+            <thead><tr><th>${t('fund.attr.positionTicker')}</th><th class="num">${t('fund.attr.positionWeight')}</th><th class="num">${t('fund.attr.positionReturn')}</th><th class="num">${t('fund.attr.positionContribution')}</th></tr></thead>
+            <tbody>${attribution.positions.map((row) => `
+              <tr>
+                <td class="mono">${row.ticker}</td>
+                <td class="num">${pct(row.weightPct, i18n.locale, 1, false)}</td>
+                <td class="num ${row.returnPct >= 0 ? 'up' : 'down'}">${pct(row.returnPct, i18n.locale, 1)}</td>
+                <td class="num ${row.contributionPct >= 0 ? 'up' : 'down'}">${pct(row.contributionPct, i18n.locale, 2)}</td>
+              </tr>`).join('')}</tbody>
+          </table></div>
+          <p class="chart-note muted">${t('fund.attr.positionsNote', { value: pct(attribution.investedWeightPct, i18n.locale, 1, false) })}</p>`
+    : ''}
         <p class="chart-note muted">${t('fund.attr.note')}</p>`,
     });
   }
@@ -888,6 +992,7 @@ export function createFundView(ctx) {
         ${attributionCard(state)}
       </div>
       ${planResearchCard(state)}
+      ${optimizerCard(state)}
       <div class="fund-split">
         ${clientsCard(metrics, state)}
         ${teamCard(state)}
@@ -1044,6 +1149,27 @@ export function createFundView(ctx) {
           planResearchDay = null;
           actions.fundApplyResearch(best);
         }
+        return;
+      }
+      if (event.target.closest('[data-fund-optimize]')) {
+        const state = store.get();
+        optimizerResult = optimizeFundPortfolio(state, {
+          method: optimizerMethod,
+          lookback: optimizerLookback,
+          maxWeight: optimizerMaxWeight / 100,
+          cashBuffer: optimizerCashBuffer / 100,
+        });
+        optimizerDay = state.market.day;
+        render(state);
+        return;
+      }
+      if (event.target.closest('[data-fund-apply-optimizer]')) {
+        if (optimizerResult?.ok) {
+          const weights = optimizerResult.weights;
+          optimizerResult = null;
+          optimizerDay = null;
+          actions.fundApplyOptimizer(weights);
+        }
       }
     });
     root.addEventListener('submit', (event) => {
@@ -1057,6 +1183,8 @@ export function createFundView(ctx) {
         });
         planResearch = null;
         planResearchDay = null;
+        optimizerResult = null;
+        optimizerDay = null;
         actions.fundSetStrategy({
           enabled: data.get('enabled') === 'true',
           strategyId: data.get('strategyId'),
@@ -1088,6 +1216,34 @@ export function createFundView(ctx) {
       if (event.target.matches('[data-fund-ticker]')) {
         selectedTicker = event.target.value;
         patchNumbers(store.get());
+        return;
+      }
+      if (event.target.matches('[data-optimizer-method]')) {
+        optimizerMethod = event.target.value;
+        optimizerResult = null;
+        optimizerDay = null;
+        render(store.get());
+        return;
+      }
+      if (event.target.matches('[data-optimizer-lookback]')) {
+        optimizerLookback = Math.max(20, Math.min(250, Math.round(Number(event.target.value) || 60)));
+        optimizerResult = null;
+        optimizerDay = null;
+        render(store.get());
+        return;
+      }
+      if (event.target.matches('[data-optimizer-max-weight]')) {
+        optimizerMaxWeight = Math.max(5, Math.min(50, Math.round(Number(event.target.value) || 25)));
+        optimizerResult = null;
+        optimizerDay = null;
+        render(store.get());
+        return;
+      }
+      if (event.target.matches('[data-optimizer-cash-buffer]')) {
+        optimizerCashBuffer = Math.max(5, Math.min(50, Math.round(Number(event.target.value) || 10)));
+        optimizerResult = null;
+        optimizerDay = null;
+        render(store.get());
       }
     });
     root.addEventListener('input', (event) => {
@@ -1103,6 +1259,10 @@ export function createFundView(ctx) {
     if (planResearchDay !== null && planResearchDay !== state.market.day) {
       planResearch = null;
       planResearchDay = null;
+    }
+    if (optimizerDay !== null && optimizerDay !== state.market.day) {
+      optimizerResult = null;
+      optimizerDay = null;
     }
     container.innerHTML = template(state);
     if (chart) {

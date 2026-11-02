@@ -4,6 +4,7 @@
 import { pageHead, card, segmented } from '../kit.js';
 import { icon } from '../icons.js';
 import { confirmModal } from '../components.js';
+import { esc } from '../dom.js';
 import { PHASE_SCOPE } from './roadmap.js';
 
 export function createSettingsView(ctx) {
@@ -92,6 +93,30 @@ export function createSettingsView(ctx) {
               </div>`,
           })}
           ${card({
+            title: t('settings.liveTitle'),
+            subtitle: t('settings.liveSubtitle'),
+            body: `
+              <div class="fund-form">
+                <label class="field">
+                  <span class="field-label">${t('settings.liveUrlLabel')}</span>
+                  <input class="input" id="live-feed-url" type="url" maxlength="300"
+                    value="${esc(state.settings.liveFeedUrl || '')}"
+                    placeholder="${t('settings.liveUrlPlaceholder')}">
+                </label>
+                <label class="field">
+                  <span class="field-label">${t('settings.liveIntervalLabel')}</span>
+                  <select class="input input--select" id="live-feed-interval">
+                    ${[15, 30, 60].map((value) => `<option value="${value}" ${value === state.settings.liveFeedInterval ? 'selected' : ''}>${t('settings.liveIntervalOption', { seconds: value })}</option>`).join('')}
+                  </select>
+                </label>
+              </div>
+              <div class="button-row">
+                <button class="btn btn--primary btn--sm" type="button" data-live-feed-save>${icon('check', { size: 14 })} ${t('settings.liveSave')}</button>
+              </div>
+              <p class="muted">${t('settings.liveHint')}</p>
+              <p class="chart-note muted">${t('settings.liveSchema')}</p>`,
+          })}
+          ${card({
             className: 'settings-wide',
             title: t('settings.dataTitle'),
             subtitle: t('settings.dataSubtitle'),
@@ -175,6 +200,12 @@ export function createSettingsView(ctx) {
     });
     container.querySelector('#reduced-motion')?.addEventListener('change', (event) => {
       actions.setReducedMotion(event.target.checked);
+    });
+    container.querySelector('[data-live-feed-save]')?.addEventListener('click', () => {
+      actions.setLiveFeedConfig({
+        url: container.querySelector('#live-feed-url')?.value || '',
+        interval: Number(container.querySelector('#live-feed-interval')?.value || 60),
+      });
     });
     container.querySelector('[data-action="save"]')?.addEventListener('click', async () => {
       await actions.saveNow();

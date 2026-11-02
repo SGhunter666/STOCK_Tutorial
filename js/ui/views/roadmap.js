@@ -16,6 +16,7 @@ export const PHASE_SCOPE = {
     'settings.scope.p1h',
     'settings.scope.p1i',
     'settings.scope.p1j',
+    'settings.scope.p1k',
   ],
   planned: [
     'settings.scope.future.a',
@@ -94,6 +95,13 @@ const PHASES = [
     titleKey: 'roadmap.p10.title',
     textKey: 'roadmap.p10.text',
     items: ['roadmap.p10.i1', 'roadmap.p10.i2', 'roadmap.p10.i3', 'roadmap.p10.i4'],
+  },
+  {
+    id: 11,
+    status: 'shipped',
+    titleKey: 'roadmap.p11.title',
+    textKey: 'roadmap.p11.text',
+    items: ['roadmap.p11.i1', 'roadmap.p11.i2', 'roadmap.p11.i3', 'roadmap.p11.i4'],
   },
 ];
 

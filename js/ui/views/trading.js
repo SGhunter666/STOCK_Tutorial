@@ -17,7 +17,7 @@ import {
 } from '../../trading/account.js';
 import { estimateOrder, ORDER_STATUS } from '../../trading/orderEngine.js';
 import { buildOrderBook, estimateMarketFill } from '../../market/orderBook.js';
-import { formatMarketDate } from '../../market/calendar.js';
+import { formatMarketDate, sessionClock, TICKS_PER_DAY } from '../../market/calendar.js';
 import { nextDividendDay, dividendPerShare } from '../../market/dividends.js';
 import { indicatorSnapshot } from '../../market/indicators.js';
 import { financialsFor } from '../../data/financials.js';
@@ -41,6 +41,7 @@ export function createTradeView(ctx, { ticker }) {
   let root;
   let container;
   let chart = null;
+  let chartMode = 'daily';
 
   function draft() {
     if (!drafts.has(symbol)) {
@@ -158,15 +159,39 @@ export function createTradeView(ctx, { ticker }) {
     const position = positionOf(state.account, symbol);
     const advanced = layout() === 'advanced';
     const days = advanced ? 90 : 45;
+    const intraday = chartMode === 'intraday';
     return card({
-      title: t('trade.chartTitle'),
-      subtitle: t('trade.chartSubtitle'),
-      actions: `<span class="pill">${t('trade.chartRange', { days })}</span>`,
+      title: t(intraday ? 'trade.chartTitleIntraday' : 'trade.chartTitle'),
+      subtitle: t(intraday ? 'trade.chartSubtitleIntraday' : 'trade.chartSubtitle', { days }),
+      actions: segmented({
+        options: [
+          { value: 'daily', label: t('trade.chartDaily') },
+          { value: 'intraday', label: t('trade.chartIntraday') },
+        ],
+        active: chartMode,
+        attr: 'chart-mode',
+      }),
       body: `
         <div class="chart-wrap"><canvas id="price-chart" style="height:${advanced ? 300 : 250}px"></canvas></div>
         ${position.qty !== 0 ? `<p class="chart-note">${t('trade.avgCostLine', { cost: money(position.avgCost, i18n.locale), qty: num(Math.abs(position.qty), i18n.locale, 0) })}</p>` : ''}
-        <p class="chart-note muted">${t('trade.candleNote')}</p>`,
+        <p class="chart-note muted">${intraday ? t('trade.intradayNote') : t('trade.candleNote')}</p>`,
     });
+  }
+
+  function intradayCandles(state) {
+    const bars = (state.market.intraday?.[symbol] || [])
+      .filter((bar) => bar.d === state.market.day);
+    if (bars.length) return bars.slice(-TICKS_PER_DAY);
+    const quote = state.market.quotes[symbol];
+    return [{
+      d: state.market.day,
+      t: state.market.tick,
+      o: quote.open,
+      h: quote.high,
+      l: quote.low,
+      c: quote.last,
+      v: quote.volume,
+    }];
   }
 
   function ticketCard(state) {
@@ -586,18 +611,30 @@ export function createTradeView(ctx, { ticker }) {
     if (!chart) return;
     const quote = state.market.quotes[symbol];
     const advanced = layout() === 'advanced';
+    const position = positionOf(state.account, symbol);
+    const markers = position.qty !== 0
+      ? [{
+        value: position.avgCost,
+        label: position.side === 'short' ? t('trade.shortMarker') : t('trade.avgCostMarker'),
+        color: position.side === 'short' ? 'rgba(244,114,182,0.9)' : 'rgba(245,183,80,0.85)',
+      }]
+      : [];
+    if (chartMode === 'intraday') {
+      const bars = intradayCandles(state);
+      chart.setData({
+        candles: bars,
+        markers,
+        labels: bars.length
+          ? [sessionClock(bars[0].t ?? 0), sessionClock(bars[bars.length - 1].t ?? 0)]
+          : [],
+      });
+      return;
+    }
     const history = state.market.history[symbol].slice(-(advanced ? 90 : 45));
     const candles = [...history, { o: quote.open, h: quote.high, l: quote.low, c: quote.last, v: quote.volume }];
-    const position = positionOf(state.account, symbol);
     chart.setData({
       candles,
-      markers: position.qty !== 0
-        ? [{
-          value: position.avgCost,
-          label: position.side === 'short' ? t('trade.shortMarker') : t('trade.avgCostMarker'),
-          color: position.side === 'short' ? 'rgba(244,114,182,0.9)' : 'rgba(245,183,80,0.85)',
-        }]
-        : [],
+      markers,
       labels: [
         formatMarketDate(history[0].d, i18n.locale),
         t('common.today'),
@@ -646,6 +683,12 @@ export function createTradeView(ctx, { ticker }) {
   }
 
   function bind(state) {
+    container.querySelectorAll('[data-chart-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        chartMode = button.dataset.chartMode === 'intraday' ? 'intraday' : 'daily';
+        render(store.get());
+      });
+    });
     container.querySelector('#symbol-select')?.addEventListener('change', (event) => {
       router.go(`/trade/${event.target.value}`);
     });

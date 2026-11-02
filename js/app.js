@@ -58,6 +58,7 @@ import {
 import {
   normalizeFundPlanConfig, buildFundPlan, executeFundPlan, autoRebalanceFund,
 } from './fund/fundStrategy.js';
+import { buildFundWeightPlan } from './fund/optimizer.js';
 import {
   bondDef, buyBond, sellBond, markBonds, applyBondCoupons,
 } from './assets/bonds.js';
@@ -452,6 +453,17 @@ const actions = {
     document.documentElement.dataset.theme = value;
     store.update(() => {}, { type: 'settings' });
     scheduleSave();
+  },
+  setLiveFeedConfig(input = {}) {
+    const state = store.get();
+    const url = typeof input.url === 'string' ? input.url.trim().slice(0, 300) : '';
+    const interval = [15, 30, 60].includes(Number(input.interval)) ? Number(input.interval) : 60;
+    state.settings.liveFeedUrl = url;
+    state.settings.liveFeedInterval = interval;
+    store.update(() => {}, { type: 'settings' });
+    scheduleSave();
+    toast(i18n.t('toast.liveFeedSaved'), 'success', 3200);
+    return { ok: true, url, interval };
   },
   inspectTicker(ticker) {
     if (!isCompanyUnlocked(store.get(), ticker)) return;
@@ -1102,6 +1114,30 @@ const actions = {
     scheduleSave();
     toast(i18n.t('toast.fundResearchApplied'), 'success', 3600);
     return { ok: true, config: next };
+  },
+  fundApplyOptimizer(weights) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    if (!state.fund || state.fund.status !== 'active') {
+      return { ok: false, error: 'fund.errorNotActive' };
+    }
+    const result = buildFundWeightPlan(state.fund, state, weights);
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    state.fund = {
+      ...state.fund,
+      quantPlan: {
+        ...state.fund.quantPlan,
+        plan: result.plan,
+        lastPlanDay: state.market.day,
+      },
+    };
+    store.update(() => {}, { type: 'fund:optimizer-plan' });
+    scheduleSave();
+    toast(i18n.t('toast.fundOptimizerPlan', { count: result.plan.trades.length }), 'success', 4200);
+    return result;
   },
   fundGeneratePlan() {
     if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };

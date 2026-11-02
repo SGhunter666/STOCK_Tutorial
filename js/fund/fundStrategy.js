@@ -3,9 +3,10 @@
  * trades generated from the Quant Lab regimes; executing it still goes through
  * the same cash, position and leverage checks as manual fund trades.
  */
-import { COMPANIES, getCompany } from '../data/companies.js';
+import { COMPANIES, getCompany, fundamentalsFor } from '../data/companies.js';
 import { positionRows } from '../trading/account.js';
 import { unlockedCompanies } from '../market/marketAccess.js';
+import { annualizedVolatility } from '../market/indicators.js';
 import { fundBuy, fundSell, fundMetrics } from './fundEngine.js';
 import { QUANT_STRATEGIES, strategyRegime } from '../quant/backtestEngine.js';
 
@@ -544,18 +545,68 @@ export function fundAttribution(fund, state) {
     ? -((fund.managementFees || 0) + (fund.performanceFees || 0)) / fund.initialAum * 100
     : 0;
   const selection = metrics.totalReturn - market - sector - cash - fees;
+  const positionRowsDetail = rows.map((row) => {
+    const company = getCompany(row.ticker);
+    const quote = quotes[row.ticker];
+    const candles = state.market?.history?.[row.ticker] || [];
+    const trivia = company && quote ? fundamentalsFor(company, quote.last) : null;
+    const weight = row.value / nav;
+    return {
+      ticker: row.ticker,
+      sector: company?.sector || '',
+      weightPct: weight * 100,
+      returnPct: row.pnlPct,
+      contributionPct: weight * row.pnlPct,
+      beta: company?.beta ?? 1,
+      momentumPct: momentum20(candles),
+      volatilityPct: annualizedVolatility(candles.slice(-61).map((candle) => candle.c)) || 0,
+      pe: trivia?.pe ?? null,
+    };
+  });
+  const invested = positionRowsDetail.reduce((sum, row) => sum + row.weightPct, 0);
+  const weighted = (key, filter = () => true) => {
+    const usable = positionRowsDetail.filter((row) => filter(row) && Number.isFinite(row[key]));
+    const totalWeight = usable.reduce((sum, row) => sum + row.weightPct, 0);
+    return totalWeight > 0
+      ? usable.reduce((sum, row) => sum + row.weightPct * row[key], 0) / totalWeight : 0;
+  };
+  const exposures = {
+    beta: weighted('beta'),
+    momentumPct: weighted('momentumPct'),
+    volatilityPct: weighted('volatilityPct'),
+    pe: weighted('pe', (row) => row.pe !== null && row.pe > 0),
+  };
   return {
     totalReturn: metrics.totalReturn,
     benchmark,
     alpha: metrics.alpha,
     beta,
     cashWeight: cashWeight * 100,
+    investedWeightPct: Math.round(invested * 10) / 10,
     contributions: {
       market: Math.round(market * 100) / 100,
       sector: Math.round(sector * 100) / 100,
       cash: Math.round(cash * 100) / 100,
       fees: Math.round(fees * 100) / 100,
       selection: Math.round(selection * 100) / 100,
+    },
+    positions: positionRowsDetail
+      .sort((a, b) => Math.abs(b.contributionPct) - Math.abs(a.contributionPct))
+      .slice(0, 10)
+      .map((row) => ({
+        ...row,
+        weightPct: Math.round(row.weightPct * 10) / 10,
+        returnPct: Math.round(row.returnPct * 10) / 10,
+        contributionPct: Math.round(row.contributionPct * 100) / 100,
+        momentumPct: Math.round(row.momentumPct * 10) / 10,
+        volatilityPct: Math.round(row.volatilityPct * 10) / 10,
+        pe: row.pe === null ? null : Math.round(row.pe * 10) / 10,
+      })),
+    exposures: {
+      beta: Math.round(exposures.beta * 100) / 100,
+      momentumPct: Math.round(exposures.momentumPct * 10) / 10,
+      volatilityPct: Math.round(exposures.volatilityPct * 10) / 10,
+      pe: Math.round(exposures.pe * 10) / 10,
     },
     sectorRows: sectorDetail.slice(0, 8).map((row) => ({
       ...row,

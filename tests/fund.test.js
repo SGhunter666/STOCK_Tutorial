@@ -499,7 +499,9 @@ test('fund plan research optimises sizing out of sample without mutating the fun
 test('fund attribution components reconcile to the total return', () => {
   const state = makeState();
   const fund = launch(state);
-  const leveraged = { ...fund, managementFees: 100, performanceFees: 50 };
+  const bought = fundBuy(fund, state.market.quotes, { ticker: STOCK, qty: 10 });
+  assert(bought.ok, `fund position should open: ${bought.error}`);
+  const leveraged = { ...bought.fund, managementFees: 100, performanceFees: 50 };
   const attribution = fundAttribution(leveraged, state);
   assert(attribution, 'attribution computes');
   const sum = Object.values(attribution.contributions).reduce((total, value) => total + value, 0);
@@ -508,6 +510,14 @@ test('fund attribution components reconcile to the total return', () => {
   assert(attribution.sectorRows.length > 0, 'sector exposure rows exist');
   for (const key of ['market', 'sector', 'cash', 'fees', 'selection']) {
     assert(Number.isFinite(attribution.contributions[key]), `${key} contribution is finite`);
+  }
+  assert(Array.isArray(attribution.positions), 'holding contributions are returned');
+  assert(attribution.positions.length >= 1, 'the open position appears in the contribution table');
+  assert(attribution.positions.every((row) => Number.isFinite(row.contributionPct)), 'holding contributions are numeric');
+  assert(attribution.positions.every((row) => Number.isFinite(row.weightPct) && row.weightPct >= 0), 'holding weights are numeric');
+  assert(attribution.investedWeightPct >= 0, 'invested weight is reported');
+  for (const key of ['beta', 'momentumPct', 'volatilityPct', 'pe']) {
+    assert(Number.isFinite(attribution.exposures[key]), `${key} exposure is finite`);
   }
 });
 

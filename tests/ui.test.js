@@ -14,6 +14,8 @@ import { createCareerView } from '../js/ui/views/career.js';
 import { createFundView } from '../js/ui/views/fund.js';
 import { createQuantView } from '../js/ui/views/quant.js';
 import { createMacroView } from '../js/ui/views/macro.js';
+import { createMarketView } from '../js/ui/views/market.js';
+import { createSettingsView } from '../js/ui/views/settings.js';
 import { createMultiAssetView } from '../js/ui/views/multiasset.js';
 import { setupFund, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
 import { refreshResearchTasks, acceptResearchTask } from '../js/education/career.js';
@@ -66,6 +68,10 @@ test('trading view renders an ETF profile and holdings instead of financials', (
   assert(text.includes('trade.etfExpenseRatio'), 'expense ratio row is rendered');
   assert(text.includes('trade.etfHoldings'), 'holdings card replaces corporate financials');
   assert(!text.includes('trade.financialsTitle'), 'ETF does not show the company financials card');
+  assert(host.querySelector('[data-chart-mode="intraday"]'), 'intraday chart toggle renders');
+  host.querySelector('[data-chart-mode="intraday"]').click();
+  assert(host.textContent.includes('trade.chartTitleIntraday'), 'intraday chart title renders after switching');
+  assert(host.querySelector('#price-chart'), 'intraday candlestick chart still mounts');
   view.destroy();
   host.remove();
 });
@@ -160,6 +166,12 @@ test('fund view gates, launches and renders an active fund', () => {
   assert(activeHost.querySelector('[name="autoRebalance"]'), 'auto rebalance control renders');
   assert(activeHost.querySelector('[data-fund-research]'), 'sizing research button renders');
   assert(activeHost.textContent.includes('fund.research.title'), 'sizing research card renders');
+  assert(activeHost.querySelector('[data-fund-optimize]'), 'portfolio optimiser button renders');
+  assert(activeHost.textContent.includes('fund.optimizer.title'), 'portfolio optimiser card renders');
+  activeHost.querySelector('[data-fund-optimize]').click();
+  assert(activeHost.textContent.includes('fund.optimizer.tableTitle'), 'optimiser result table renders');
+  assert(activeHost.querySelector('[data-fund-apply-optimizer]'), 'optimiser plan button renders');
+  assert(activeHost.textContent.includes('fund.attr.exposureTitle'), 'holding exposure section renders');
   assert(activeHost.textContent.includes('fund.attr.title'), 'factor attribution card renders');
   assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 7, 'seven team roles render');
   active.destroy();
@@ -261,6 +273,33 @@ test('quant regression mode renders factor premia and rank IC', () => {
   assert(host.querySelector('#quant-regression-table'), 'factor regression table renders');
   assert(host.textContent.includes('quant.reg.tableTitle'), 'regression factor table title renders');
   assert(host.textContent.includes('quant.factor.flow'), 'money-flow factor appears in the regression');
+  view.destroy();
+  host.remove();
+});
+
+test('market view exposes the optional live data channel and settings path', () => {
+  const state = createGameState({ seed: 'ui-market-live' });
+  const { ctx } = makeCtx(state);
+  const view = createMarketView(ctx);
+  const host = mountView(view);
+  assert(host.textContent.includes('market.liveTitle'), 'live data card renders');
+  assert(host.textContent.includes('market.liveSetup'), 'unconfigured feed explains setup');
+  assert(host.querySelector('[data-go="/settings"]'), 'settings link renders');
+  assert(host.querySelector('[data-live-feed-refresh]') === null, 'refresh is hidden before a URL is configured');
+  view.destroy();
+  host.remove();
+});
+
+test('settings view includes the live data controls', () => {
+  const state = createGameState({ seed: 'ui-settings-live' });
+  const { ctx } = makeCtx(state);
+  ctx.actions.getSaveInfo = () => ({ lastSavedAt: null, storage: 'indexeddb' });
+  const view = createSettingsView(ctx);
+  const host = mountView(view);
+  assert(host.querySelector('#live-feed-url'), 'live feed URL input renders');
+  assert(host.querySelector('#live-feed-interval'), 'live feed interval selector renders');
+  assert(host.querySelector('[data-live-feed-save]'), 'live feed save button renders');
+  assert(host.textContent.includes('settings.liveTitle'), 'live feed card title renders');
   view.destroy();
   host.remove();
 });
