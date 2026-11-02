@@ -1085,6 +1085,24 @@ const actions = {
     scheduleSave();
     return { ok: true, config: next };
   },
+  fundApplyResearch(config) {
+    if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
+    const state = store.get();
+    if (!state.fund || state.fund.status !== 'active') {
+      return { ok: false, error: 'fund.errorNotActive' };
+    }
+    const source = config && typeof config === 'object' ? config : {};
+    const input = { ...state.fund.quantPlan, plan: null, lastPlanDay: null };
+    if (Number.isFinite(source.topN)) input.topN = source.topN;
+    if (Number.isFinite(source.cashBuffer)) input.cashBuffer = source.cashBuffer;
+    if (Number.isFinite(source.rebalanceDays)) input.rebalanceDays = source.rebalanceDays;
+    const next = normalizeFundPlanConfig(input);
+    state.fund = { ...state.fund, quantPlan: next };
+    store.update(() => {}, { type: 'fund:research' });
+    scheduleSave();
+    toast(i18n.t('toast.fundResearchApplied'), 'success', 3600);
+    return { ok: true, config: next };
+  },
   fundGeneratePlan() {
     if (appMode !== 'career') return { ok: false, error: 'fund.errorCareerOnly' };
     const state = store.get();

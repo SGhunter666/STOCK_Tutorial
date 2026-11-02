@@ -626,6 +626,8 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'roadmap.p8.i4',
     'roadmap.p9.title', 'roadmap.p9.text', 'roadmap.p9.i1', 'roadmap.p9.i2', 'roadmap.p9.i3',
     'roadmap.p9.i4',
+    'roadmap.p10.title', 'roadmap.p10.text', 'roadmap.p10.i1', 'roadmap.p10.i2',
+    'roadmap.p10.i3', 'roadmap.p10.i4',
     'locked.eyebrow', 'locked.subtitle', 'locked.options.title', 'locked.options.text',
     'locked.options.i1', 'locked.options.i2', 'locked.options.i3', 'locked.options.i4',
     'locked.challenges.title', 'locked.challenges.text', 'locked.challenges.i1',
@@ -681,7 +683,7 @@ test('fund management UI, roles, strategies and events are localised', () => {
     'fund.errorNotActive', 'fund.errorPositionCap', 'fund.errorCashFloor', 'fund.errorNoNav',
     'fund.errorUnknownRole', 'fund.errorRoleFilled', 'fund.errorCannotAfford',
     'fund.errorNoEmployee', 'fund.errorNoCandidate', 'fund.errorNoRedemption',
-    'fund.errorRedemptionCash', 'fund.errorNoCompanyCash',
+    'fund.errorRedemptionCash', 'fund.errorNoCompanyCash', 'fund.errorResearchHistory',
     'fund.stats.aum', 'fund.stats.aumSub', 'fund.stats.navPerUnit', 'fund.stats.navSub',
     'fund.stats.totalReturn', 'fund.stats.vsBenchmark', 'fund.stats.drawdown',
     'fund.stats.drawdownSub', 'fund.stats.cashRatio', 'fund.stats.cashSub',
@@ -723,6 +725,16 @@ test('fund management UI, roles, strategies and events are localised', () => {
     'fund.plan.qty', 'fund.plan.price', 'fund.plan.reason', 'fund.plan.apply',
     'fund.plan.aligned', 'fund.plan.noPlan', 'fund.plan.errorEmpty',
     'fund.plan.reasonKey.rebalance', 'fund.plan.reasonKey.signalBuy', 'fund.plan.reasonKey.momentum',
+    'fund.research.title', 'fund.research.subtitle', 'fund.research.run',
+    'fund.research.combo', 'fund.research.note', 'fund.research.empty',
+    'fund.research.window', 'fund.research.split', 'fund.research.overfitWarning',
+    'fund.research.overfitClear', 'fund.research.bestTitle', 'fund.research.best',
+    'fund.research.baseline', 'fund.research.config', 'fund.research.intervalShort',
+    'fund.research.inReturn', 'fund.research.inSharpe', 'fund.research.outReturn',
+    'fund.research.outSharpe', 'fund.research.outDrawdown', 'fund.research.score',
+    'fund.research.topN', 'fund.research.cash', 'fund.research.interval',
+    'fund.research.candidatesTitle', 'fund.research.candidatesSubtitle',
+    'fund.research.apply', 'fund.research.applyNote', 'fund.research.disclaimer',
     'fund.attr.title', 'fund.attr.subtitle', 'fund.attr.total', 'fund.attr.benchmark',
     'fund.attr.cashWeight', 'fund.attr.component', 'fund.attr.contribution',
     'fund.attr.market', 'fund.attr.sector', 'fund.attr.cash', 'fund.attr.fees',
@@ -734,7 +746,7 @@ test('fund management UI, roles, strategies and events are localised', () => {
     'toast.fundCreated', 'toast.fundHired', 'toast.fundFired', 'toast.fundClientJoined',
     'toast.fundRedemptionPaid', 'toast.fundCashWithdrawn', 'toast.fundRedemptionRequest',
     'toast.fundPayrollShort', 'toast.fundClosed', 'toast.fundPlanApplied',
-    'toast.fundAutoRebalance',
+    'toast.fundAutoRebalance', 'toast.fundResearchApplied',
   ].forEach((key) => check(key));
   for (const strategy of Object.values(FUND_STRATEGIES)) {
     check(strategy.nameKey);
@@ -849,10 +861,15 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
     'quant.lockedTitle', 'quant.lockedText', 'quant.lockedHint', 'quant.goAcademy',
     'quant.configTitle', 'quant.configSubtitle', 'quant.tickerLabel', 'quant.strategyLabel',
     'quant.cashLabel', 'quant.commissionLabel', 'quant.factorLabel', 'quant.factorLookbackLabel',
-    'quant.run', 'quant.runOptimize', 'quant.runMl', 'quant.resultTitle',
-    'quant.objectiveLabel', 'quant.splitLabel',
+    'quant.run', 'quant.runOptimize', 'quant.runRegression', 'quant.runMl',
+    'quant.resultTitle', 'quant.objectiveLabel', 'quant.splitLabel',
     'quant.error.history', 'quant.error.optimizeHistory', 'quant.error.mlData',
-    'quant.error.strategy',
+    'quant.error.regression', 'quant.error.strategy',
+    'quant.reg.lookbackLabel', 'quant.reg.horizonLabel', 'quant.reg.configSubtitle',
+    'quant.reg.note', 'quant.reg.resultTitle', 'quant.reg.samples', 'quant.reg.dates',
+    'quant.reg.r2', 'quant.reg.intercept', 'quant.reg.lookback', 'quant.reg.horizon',
+    'quant.reg.tableTitle', 'quant.reg.tableSubtitle', 'quant.reg.factor',
+    'quant.reg.coefficient', 'quant.reg.ic', 'quant.reg.disclaimer',
     'quant.opt.resultTitle', 'quant.opt.inSampleReturn', 'quant.opt.inSharpe',
     'quant.opt.outSampleReturn', 'quant.opt.outSharpe', 'quant.opt.outDrawdown',
     'quant.opt.split', 'quant.opt.baseline', 'quant.opt.pickCount',
@@ -868,7 +885,8 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
     'quant.ml.avgExcess', 'quant.ml.overfitWarning', 'quant.ml.overfitClear',
     'quant.ml.modelTitle', 'quant.ml.modelSubtitle', 'quant.ml.intercept',
     'quant.ml.modelLabel', 'quant.ml.modelType', 'quant.ml.modelLogistic',
-    'quant.ml.modelMlp', 'quant.ml.hiddenUnits', 'quant.ml.epochs',
+    'quant.ml.modelMlp', 'quant.ml.modelDeep', 'quant.ml.hiddenUnits',
+    'quant.ml.hiddenLayer1', 'quant.ml.hiddenLayer2', 'quant.ml.epochs',
     'quant.ml.featureImportance', 'quant.ml.autoTuneLabel', 'quant.ml.autoTuneOff',
     'quant.ml.autoTuneOn', 'quant.ml.tuningBest', 'quant.ml.tuningValidation',
     'quant.ml.tuningCandidates', 'quant.ml.tuningNote',
@@ -904,7 +922,7 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
   }
   for (const objective of QUANT_OBJECTIVES) check(objective.nameKey);
   ['ticker', 'sector', 'metric', 'note', 'empty', 'news', 'newsDesc',
-    'newsTrend', 'newsTrendDesc', 'volume', 'volumeDesc']
+    'newsTrend', 'newsTrendDesc', 'volume', 'volumeDesc', 'flow', 'flowDesc']
     .forEach((key) => check(`quant.factor.${key}`));
   for (const model of ML_MODELS) check(model.nameKey);
   assertEqual(missing.length, 0, missing.join('\n'));

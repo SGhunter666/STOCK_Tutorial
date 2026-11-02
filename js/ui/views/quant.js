@@ -16,7 +16,8 @@ import { isUnitComplete } from '../../education/lessonEngine.js';
 import {
   QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_CASH_OPTIONS, QUANT_MIN_BARS,
   QUANT_MODES, QUANT_OBJECTIVES, ML_FACTORS, ML_MODELS,
-  normalizeQuantConfig, runBacktest, factorResearch, optimizeStrategy, mlStockSelection,
+  normalizeQuantConfig, runBacktest, factorResearch, factorRegression,
+  optimizeStrategy, mlStockSelection,
 } from '../../quant/backtestEngine.js';
 
 export function createQuantView(ctx) {
@@ -32,6 +33,8 @@ export function createQuantView(ctx) {
   let cachedOptimizeKey = '';
   let cachedMl = null;
   let cachedMlKey = '';
+  let cachedRegression = null;
+  let cachedRegressionKey = '';
   let cachedFactor = null;
   let cachedFactorKey = '';
 
@@ -144,6 +147,10 @@ export function createQuantView(ctx) {
             ${QUANT_OBJECTIVES.map((objective) => `<option value="${objective.id}" ${objective.id === config.objective ? 'selected' : ''}>${t(objective.nameKey)}</option>`).join('')}
           </select>`)}
         ${field(t('quant.splitLabel'), `<input class="input" type="number" name="splitPct" min="50" max="90" step="1" value="${config.splitPct}" inputmode="numeric">`)}`;
+    } else if (mode === 'regression') {
+      fields = `
+        ${field(t('quant.reg.lookbackLabel'), `<input class="input" type="number" name="mlLookback" min="20" max="50" step="1" value="${config.mlLookback}" inputmode="numeric">`)}
+        ${field(t('quant.reg.horizonLabel'), `<input class="input" type="number" name="mlHorizon" min="5" max="30" step="1" value="${config.mlHorizon}" inputmode="numeric">`)}`;
     } else {
       fields = `
         ${field(t('quant.ml.lookbackLabel'), `<input class="input" type="number" name="mlLookback" min="20" max="50" step="1" value="${config.mlLookback}" inputmode="numeric">`)}
@@ -154,24 +161,25 @@ export function createQuantView(ctx) {
           <select class="input input--select" name="mlModel">
             ${ML_MODELS.map((model) => `<option value="${model.id}" ${model.id === config.mlModel ? 'selected' : ''}>${t(model.nameKey)}</option>`).join('')}
           </select>`)}
-        ${config.mlModel === 'mlp' ? field(t('quant.ml.autoTuneLabel'), `
+        ${config.mlModel !== 'logistic' ? field(t('quant.ml.autoTuneLabel'), `
           <select class="input input--select" name="mlAutoTune">
             <option value="false" ${config.mlAutoTune ? '' : 'selected'}>${t('quant.ml.autoTuneOff')}</option>
             <option value="true" ${config.mlAutoTune ? 'selected' : ''}>${t('quant.ml.autoTuneOn')}</option>
           </select>`) : ''}`;
     }
-    const runKey = mode === 'optimize' ? 'quant.runOptimize' : mode === 'ml' ? 'quant.runMl' : 'quant.run';
+    const runKey = mode === 'optimize' ? 'quant.runOptimize' : mode === 'ml' ? 'quant.runMl'
+      : mode === 'regression' ? 'quant.runRegression' : 'quant.run';
     return card({
       className: 'quant-config',
       title: t('quant.configTitle'),
-      subtitle: mode === 'ml' ? t('quant.ml.configSubtitle') : t('quant.configSubtitle'),
+      subtitle: mode === 'ml' ? t('quant.ml.configSubtitle') : mode === 'regression' ? t('quant.reg.configSubtitle') : t('quant.configSubtitle'),
       body: `
         <form data-quant-form>
           <div class="quant-form">${fields}</div>
           <div class="button-row">
             <button class="btn btn--primary" type="submit">${icon('play', { size: 15 })} ${t(runKey)}</button>
           </div>
-          <p class="field-hint">${mode === 'optimize' ? t('quant.opt.gridNote') : mode === 'ml' ? t('quant.ml.configNote') : t(strategy.descKey)}</p>
+          <p class="field-hint">${mode === 'optimize' ? t('quant.opt.gridNote') : mode === 'ml' ? t('quant.ml.configNote') : mode === 'regression' ? t('quant.reg.note') : t(strategy.descKey)}</p>
         </form>`,
     });
   }
@@ -364,6 +372,46 @@ export function createQuantView(ctx) {
       </div>`;
   }
 
+  function regressionBody(state) {
+    const config = draft(state);
+    const key = `${config.mlLookback}:${config.mlHorizon}:${state.market.day}:${runToken}`;
+    if (key !== cachedRegressionKey) {
+      cachedRegression = factorRegression(state, {
+        lookback: config.mlLookback,
+        horizon: config.mlHorizon,
+      });
+      cachedRegressionKey = key;
+    }
+    const result = cachedRegression;
+    if (!result.ok) {
+      return card({
+        className: 'quant-result',
+        title: t('quant.reg.resultTitle'),
+        body: `<p class="muted">${t(result.error)}</p>`,
+      });
+    }
+    return `
+      <div class="stat-grid">
+        ${statCard({ label: t('quant.reg.samples'), value: num(result.samples, i18n.locale, 0), sub: t('quant.reg.dates', { count: result.dates }), iconName: 'market' })}
+        ${statCard({ label: t('quant.reg.r2'), value: num(result.r2, i18n.locale, 3), sub: t('quant.reg.intercept', { value: num(result.intercept, i18n.locale, 3) }), iconName: 'sparkle' })}
+        ${statCard({ label: t('quant.reg.lookback'), value: num(result.lookback, i18n.locale, 0), sub: t('quant.reg.horizon', { value: result.horizon }), iconName: 'roadmap' })}
+      </div>
+      ${card({
+    title: t('quant.reg.tableTitle'),
+    subtitle: t('quant.reg.tableSubtitle'),
+    body: `<div class="table-wrap"><table class="table table--compact" id="quant-regression-table">
+      <thead><tr><th>${t('quant.reg.factor')}</th><th class="num">${t('quant.reg.coefficient')}</th><th class="num">${t('quant.reg.ic')}</th></tr></thead>
+      <tbody>${result.factors.map((factor) => `
+        <tr>
+          <td>${t(`quant.factor.${factor.id}`)}</td>
+          <td class="num ${factor.coefficient >= 0 ? 'up' : 'down'}">${num(factor.coefficient, i18n.locale, 3)}</td>
+          <td class="num ${factor.ic >= 0 ? 'up' : 'down'}">${num(factor.ic, i18n.locale, 3)}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>
+    <p class="chart-note muted">${t('quant.reg.disclaimer')}</p>`,
+  })}`;
+  }
+
   function mlBody(state) {
     const config = draft(state);
     const key = `${config.mlLookback}:${config.mlHorizon}:${config.mlTopN}:${config.mlTestPct}:${config.mlModel}:${config.mlAutoTune}:${state.market.day}:${runToken}`;
@@ -403,8 +451,18 @@ export function createQuantView(ctx) {
       train: result.trainSamples, test: result.testSamples,
     }),
     body: `${keyValueList([
-      [t('quant.ml.modelType'), t(result.model.type === 'mlp' ? 'quant.ml.modelMlp' : 'quant.ml.modelLogistic')],
-      ...(result.model.type === 'mlp' ? [
+      [t('quant.ml.modelType'), t(result.model.type === 'deep' ? 'quant.ml.modelDeep' : result.model.type === 'mlp' ? 'quant.ml.modelMlp' : 'quant.ml.modelLogistic')],
+      ...(result.model.type === 'deep' ? [
+        [t('quant.ml.hiddenLayer1'), String(result.model.hidden1)],
+        [t('quant.ml.hiddenLayer2'), String(result.model.hidden2)],
+        [t('quant.ml.epochs'), String(result.model.epochs)],
+        [t('quant.ml.autoTuneLabel'), t(config.mlAutoTune ? 'quant.ml.autoTuneOn' : 'quant.ml.autoTuneOff')],
+        ...(result.tuning ? [
+          [t('quant.ml.tuningBest'), `${result.tuning.best.hidden1} / ${result.tuning.best.hidden2} / ${result.tuning.best.epochs}`],
+          [t('quant.ml.tuningValidation'), pct(result.tuning.best.validationAccuracy * 100, i18n.locale, 1, false)],
+          [t('quant.ml.tuningCandidates'), String(result.tuning.gridSize)],
+        ] : []),
+      ] : result.model.type === 'mlp' ? [
         [t('quant.ml.hiddenUnits'), String(result.model.hidden)],
         [t('quant.ml.epochs'), String(result.model.epochs)],
         [t('quant.ml.autoTuneLabel'), t(config.mlAutoTune ? 'quant.ml.autoTuneOn' : 'quant.ml.autoTuneOff')],
@@ -416,7 +474,8 @@ export function createQuantView(ctx) {
       ] : [[t('quant.ml.intercept'), num(result.model.intercept, i18n.locale, 3)]]),
       ...ML_FACTORS.map((factor) => [
         t(`quant.factor.${factor}`),
-        num(result.model.type === 'mlp' ? result.model.featureImportance[factor] : result.model.coefficients[factor], i18n.locale, 3),
+        num(result.model.type === 'logistic'
+          ? result.model.coefficients[factor] : result.model.featureImportance[factor], i18n.locale, 3),
       ]),
       [t('quant.ml.splitDate'), formatMarketDate(result.splitDate, i18n.locale)],
     ])}
@@ -502,7 +561,7 @@ export function createQuantView(ctx) {
         ${!unlocked
     ? lockedCard(state)
     : `${modeBar(config)}${configCard(state)}
-        ${config.mode === 'backtest' ? backtestBody(state) : config.mode === 'optimize' ? optimizeBody(state) : mlBody(state)}
+        ${config.mode === 'backtest' ? backtestBody(state) : config.mode === 'optimize' ? optimizeBody(state) : config.mode === 'regression' ? regressionBody(state) : mlBody(state)}
         ${config.mode === 'backtest' ? factorCard(state) : ''}`}
         <p class="chart-note muted">${t('quant.note')}</p>
       </div>`;
@@ -556,7 +615,7 @@ export function createQuantView(ctx) {
     if (value('mlTestPct')) config.mlTestPct = Number(value('mlTestPct'));
     if (value('mlModel')) config.mlModel = value('mlModel');
     if (value('mlAutoTune') !== undefined) config.mlAutoTune = value('mlAutoTune') === 'true';
-    if (config.mlModel !== 'mlp') config.mlAutoTune = false;
+    if (config.mlModel === 'logistic') config.mlAutoTune = false;
     form.querySelectorAll('[data-param]').forEach((input) => {
       config.params[input.dataset.param] = Number(input.value);
     });

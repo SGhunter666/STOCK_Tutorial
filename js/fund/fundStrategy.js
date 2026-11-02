@@ -261,6 +261,219 @@ export function autoRebalanceFund(fund, state, day = 0) {
   };
 }
 
+export const FUND_PLAN_RESEARCH_GRID = {
+  topN: [3, 4, 5, 6, 8],
+  cashBuffer: [0.1, 0.15, 0.2, 0.3],
+  rebalanceDays: [10, 15, 21, 30, 40],
+};
+
+function strategyWarmup(strategyId, params) {
+  if (strategyId === 'smaCross') return Math.max(params.fast, params.slow) + 1;
+  if (strategyId === 'rsiReversion') return Math.round(params.rsiPeriod) + 1;
+  if (strategyId === 'momentum' || strategyId === 'breakout') return Math.round(params.lookback) + 1;
+  return 2;
+}
+
+function researchSeries(state) {
+  const series = COMPANIES
+    .filter((company) => !company.isEtf)
+    .map((company) => {
+      const candles = state.market?.history?.[company.ticker] || [];
+      return { ticker: company.ticker, sector: company.sector, candles };
+    })
+    .filter((entry) => entry.candles.length >= 40);
+  if (!series.length) return null;
+  const length = Math.min(...series.map((entry) => entry.candles.length));
+  if (length < 40) return null;
+  return series.map((entry) => ({
+    ...entry,
+    candles: entry.candles.slice(-length),
+    closes: entry.candles.slice(-length).map((candle) => candle.c),
+  }));
+}
+
+function buildSignalRows(series, strategyId, params, start, end) {
+  const rows = [];
+  for (let index = start; index <= end; index += 1) {
+    rows[index] = series
+      .map((entry) => {
+        const candles = entry.candles.slice(0, index + 1);
+        return {
+          ticker: entry.ticker,
+          sector: entry.sector,
+          regime: strategyRegime(strategyId, params, candles),
+          momentum: momentum20(candles),
+        };
+      })
+      .filter((row) => row.regime !== 'sell')
+      .sort((a, b) => {
+        if (a.regime !== b.regime) return a.regime === 'buy' ? -1 : 1;
+        return b.momentum - a.momentum;
+      });
+  }
+  return rows;
+}
+
+function portfolioMetrics(curve, initialCash) {
+  const values = curve.length ? curve : [initialCash];
+  const finalEquity = values[values.length - 1];
+  const totalReturnPct = initialCash > 0 ? (finalEquity / initialCash - 1) * 100 : 0;
+  const bars = Math.max(1, values.length - 1);
+  const years = Math.max(1 / 252, bars / 252);
+  const cagrPct = initialCash > 0 && finalEquity > 0
+    ? ((Math.pow(finalEquity / initialCash, 1 / years) - 1) * 100)
+    : -100;
+  let peak = values[0];
+  let worst = 0;
+  for (const value of values) {
+    peak = Math.max(peak, value);
+    if (peak > 0) worst = Math.min(worst, (value - peak) / peak);
+  }
+  const dailyReturns = [];
+  for (let index = 1; index < values.length; index += 1) {
+    if (values[index - 1] > 0) {
+      dailyReturns.push((values[index] - values[index - 1]) / values[index - 1]);
+    }
+  }
+  const mean = dailyReturns.length
+    ? dailyReturns.reduce((sum, value) => sum + value, 0) / dailyReturns.length : 0;
+  const variance = dailyReturns.length > 1
+    ? dailyReturns.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / dailyReturns.length
+    : 0;
+  const std = Math.sqrt(variance);
+  return {
+    finalEquity,
+    totalReturnPct,
+    cagrPct,
+    maxDrawdownPct: Math.abs(worst * 100),
+    volatilityPct: std * Math.sqrt(252) * 100,
+    sharpe: std > 0 ? (mean / std) * Math.sqrt(252) : 0,
+    bars,
+  };
+}
+
+function portfolioScore(metrics, objective) {
+  if (!metrics) return -Infinity;
+  if (objective === 'totalReturn') return metrics.totalReturnPct;
+  if (objective === 'cagr') return metrics.cagrPct;
+  if (objective === 'calmar') return metrics.totalReturnPct / Math.max(1, metrics.maxDrawdownPct);
+  return metrics.sharpe;
+}
+
+function simulateFundConfig(series, signalRows, start, end, config, initialCash = 100000) {
+  const byTicker = new Map(series.map((entry) => [entry.ticker, entry]));
+  let cash = initialCash;
+  let holdings = new Map();
+  let nextRebalance = start;
+  const curve = [];
+  const cashTarget = Math.min(0.5, Math.max(config.cashBuffer, 0.12));
+
+  function rebalance(index, initial) {
+    const total = cash + [...holdings.values()].reduce((sum, value) => sum + value, 0);
+    const selected = (signalRows[index] || []).slice(0, config.topN);
+    const perPosition = selected.length
+      ? Math.min(0.25, (1 - cashTarget) / selected.length) * total : 0;
+    const nextCash = total - perPosition * selected.length;
+    const nextHoldings = new Map(selected.map((row) => [row.ticker, perPosition]));
+    if (!initial) {
+      let turnoverSum = 0;
+      const tickers = new Set([...holdings.keys(), ...nextHoldings.keys()]);
+      for (const ticker of tickers) {
+        turnoverSum += Math.abs((nextHoldings.get(ticker) || 0) - (holdings.get(ticker) || 0));
+      }
+      const cost = (turnoverSum / Math.max(1, total * 2)) * 0.001 * total;
+      cash = Math.max(0, nextCash - cost);
+    } else {
+      cash = nextCash;
+    }
+    holdings = nextHoldings;
+    nextRebalance = index + config.rebalanceDays;
+  }
+
+  for (let index = start; index <= end; index += 1) {
+    if (index === start) {
+      rebalance(index, true);
+    } else {
+      for (const [ticker, value] of holdings) {
+        const entry = byTicker.get(ticker);
+        const previous = entry?.closes?.[index - 1];
+        const current = entry?.closes?.[index];
+        if (previous > 0 && current > 0) holdings.set(ticker, value * (current / previous));
+      }
+      if (index >= nextRebalance) rebalance(index, false);
+    }
+    curve.push(cash + [...holdings.values()].reduce((sum, value) => sum + value, 0));
+  }
+  return portfolioMetrics(curve, initialCash);
+}
+
+/**
+ * Historical research for fund plan sizing. Signals use completed bars and the
+ * portfolio is marked close-to-close, with a small turnover cost. The fund
+ * itself is never mutated; the caller decides whether to apply the best config.
+ */
+export function researchFundPlan(state, config = {}, {
+  splitPct = 70,
+  objective = 'sharpe',
+  initialCash = 100000,
+} = {}) {
+  const cfg = normalizeFundPlanConfig(config);
+  const series = researchSeries(state);
+  if (!series) return { ok: false, error: 'fund.errorResearchHistory' };
+  const warmup = strategyWarmup(cfg.strategyId, cfg.params);
+  const end = series[0].candles.length - 2;
+  const start = Math.max(2, warmup);
+  if (end - start < 20) return { ok: false, error: 'fund.errorResearchHistory' };
+  const split = Math.round(clamp(splitPct, 50, 90, 70));
+  const splitIndex = Math.max(
+    start + 10,
+    Math.min(end - 10, start + Math.floor((end - start) * split / 100)),
+  );
+  const signalRows = buildSignalRows(series, cfg.strategyId, cfg.params, start, end);
+  const grid = [];
+  for (const topN of FUND_PLAN_RESEARCH_GRID.topN) {
+    for (const cashBuffer of FUND_PLAN_RESEARCH_GRID.cashBuffer) {
+      for (const rebalanceDays of FUND_PLAN_RESEARCH_GRID.rebalanceDays) {
+        grid.push({ topN, cashBuffer, rebalanceDays });
+      }
+    }
+  }
+  const candidates = grid.map((candidate) => {
+    const metrics = simulateFundConfig(series, signalRows, start, splitIndex, candidate, initialCash);
+    return {
+      config: candidate,
+      inSample: metrics,
+      score: portfolioScore(metrics, objective),
+    };
+  }).sort((a, b) => b.score - a.score);
+  if (!candidates.length) return { ok: false, error: 'fund.errorResearchHistory' };
+  const best = candidates[0];
+  const outSample = simulateFundConfig(series, signalRows, splitIndex, end, best.config, initialCash);
+  const baselineOut = simulateFundConfig(series, signalRows, splitIndex, end, {
+    topN: cfg.topN,
+    cashBuffer: cfg.cashBuffer,
+    rebalanceDays: cfg.rebalanceDays,
+  }, initialCash);
+  const overfitRisk = Boolean(outSample.totalReturnPct < 0
+    || outSample.sharpe < best.inSample.sharpe * 0.3
+    || (best.inSample.totalReturnPct > 5 && outSample.totalReturnPct < best.inSample.totalReturnPct * 0.3));
+  return {
+    ok: true,
+    strategyId: cfg.strategyId,
+    params: cfg.params,
+    objective,
+    splitPct: Math.round((splitIndex - start) / (end - start) * 100),
+    comboCount: grid.length,
+    best,
+    candidates: candidates.slice(0, 8),
+    outSample,
+    baselineOut,
+    overfitRisk,
+    startDay: series[0].candles[start]?.d,
+    endDay: series[0].candles[end]?.d,
+  };
+}
+
 function sectorReturn(state, sector, lookback) {
   const companies = COMPANIES.filter((company) => !company.isEtf && company.sector === sector);
   const returns = [];

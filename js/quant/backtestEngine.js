@@ -16,11 +16,13 @@ export const QUANT_FACTOR_OPTIONS = [
   { id: 'news', nameKey: 'quant.factor.news', descKey: 'quant.factor.newsDesc' },
   { id: 'newsTrend', nameKey: 'quant.factor.newsTrend', descKey: 'quant.factor.newsTrendDesc' },
   { id: 'volume', nameKey: 'quant.factor.volume', descKey: 'quant.factor.volumeDesc' },
+  { id: 'flow', nameKey: 'quant.factor.flow', descKey: 'quant.factor.flowDesc' },
 ];
 
 export const QUANT_MODES = [
   { id: 'backtest', nameKey: 'quant.mode.backtest', descKey: 'quant.mode.backtestDesc' },
   { id: 'optimize', nameKey: 'quant.mode.optimize', descKey: 'quant.mode.optimizeDesc' },
+  { id: 'regression', nameKey: 'quant.mode.regression', descKey: 'quant.mode.regressionDesc' },
   { id: 'ml', nameKey: 'quant.mode.ml', descKey: 'quant.mode.mlDesc' },
 ];
 
@@ -31,10 +33,11 @@ export const QUANT_OBJECTIVES = [
   { id: 'calmar', nameKey: 'quant.objective.calmar' },
 ];
 
-export const ML_FACTORS = ['momentum', 'lowVol', 'trend', 'news', 'newsTrend', 'volume'];
+export const ML_FACTORS = ['momentum', 'lowVol', 'trend', 'news', 'newsTrend', 'volume', 'flow'];
 export const ML_MODELS = [
   { id: 'logistic', nameKey: 'quant.ml.modelLogistic' },
   { id: 'mlp', nameKey: 'quant.ml.modelMlp' },
+  { id: 'deep', nameKey: 'quant.ml.modelDeep' },
 ];
 export const ML_NEWS_WINDOW = 20;
 export const ML_MIN_SAMPLES = 120;
@@ -45,6 +48,16 @@ export const ML_TUNING_GRID = [
   { hidden: 6, epochs: 120 },
   { hidden: 8, epochs: 80 },
   { hidden: 8, epochs: 120 },
+];
+export const DEEP_TUNING_GRID = [
+  { hidden1: 4, hidden2: 3, epochs: 80 },
+  { hidden1: 4, hidden2: 4, epochs: 80 },
+  { hidden1: 6, hidden2: 3, epochs: 80 },
+  { hidden1: 6, hidden2: 4, epochs: 80 },
+  { hidden1: 6, hidden2: 3, epochs: 120 },
+  { hidden1: 6, hidden2: 4, epochs: 120 },
+  { hidden1: 8, hidden2: 4, epochs: 120 },
+  { hidden1: 8, hidden2: 6, epochs: 120 },
 ];
 
 const param = (id, labelKey, def, min, max, step = 1) => ({
@@ -441,10 +454,27 @@ export function runBacktest({
   };
 }
 
+function moneyFlow(closes, volumes, endIndex, lookback) {
+  if (endIndex < 1 || !volumes.length) return null;
+  const start = Math.max(1, endIndex - lookback + 1);
+  let net = 0;
+  let total = 0;
+  for (let index = start; index <= endIndex; index += 1) {
+    const volume = Number(volumes[index]) || 0;
+    if (!volume) continue;
+    total += volume;
+    const change = closes[index] - closes[index - 1];
+    if (change > 0) net += volume;
+    else if (change < 0) net -= volume;
+  }
+  return total > 0 ? (net / total) * 100 : 0;
+}
+
 function factorMetric(state, company, lookback, factor) {
   const history = state.market?.history?.[company.ticker] || [];
   const quote = state.market?.quotes?.[company.ticker];
-  const closes = history.map((candle) => candle.c).filter((value) => Number.isFinite(value));
+  const candles = history.filter((candle) => Number.isFinite(candle.c));
+  const closes = candles.map((candle) => candle.c);
   const price = quote && Number.isFinite(quote.last) ? quote.last : closes[closes.length - 1];
   if (!price || closes.length < 2) return null;
   if (factor === 'momentum') {
@@ -479,7 +509,7 @@ function factorMetric(state, company, lookback, factor) {
     return { metric: trend, score: trend };
   }
   if (factor === 'volume') {
-    const volumes = history.map((candle) => Number(candle.v) || 0);
+    const volumes = candles.map((candle) => Number(candle.v) || 0);
     if (volumes.length < 10) return null;
     const recent = volumes.slice(-5);
     const baseline = volumes.slice(-(lookback + 1), -5);
@@ -489,6 +519,12 @@ function factorMetric(state, company, lookback, factor) {
     if (!baseAverage || !recentAverage) return null;
     const change = (recentAverage / baseAverage - 1) * 100;
     return { metric: change, score: change };
+  }
+  if (factor === 'flow') {
+    const volumes = candles.map((candle) => Number(candle.v) || 0);
+    const flow = moneyFlow(closes, volumes, closes.length - 1, lookback);
+    if (flow == null) return null;
+    return { metric: flow, score: flow };
   }
   return null;
 }
@@ -538,6 +574,126 @@ export function factorResearch(state, { factor = 'momentum', lookback = 60 } = {
     lookback: window,
     rows,
     count: rows.length,
+  };
+}
+
+function rank(values) {
+  const sorted = values.map((value, index) => ({ value, index }))
+    .sort((a, b) => a.value - b.value);
+  const ranks = Array(values.length).fill(0);
+  sorted.forEach((entry, position) => { ranks[entry.index] = position + 1; });
+  return ranks;
+}
+
+function rankCorrelation(left, right) {
+  if (left.length < 3 || left.length !== right.length) return 0;
+  const leftRanks = rank(left);
+  const rightRanks = rank(right);
+  const leftMean = leftRanks.reduce((sum, value) => sum + value, 0) / leftRanks.length;
+  const rightMean = rightRanks.reduce((sum, value) => sum + value, 0) / rightRanks.length;
+  let covariance = 0;
+  let leftVariance = 0;
+  let rightVariance = 0;
+  for (let index = 0; index < leftRanks.length; index += 1) {
+    const leftDiff = leftRanks[index] - leftMean;
+    const rightDiff = rightRanks[index] - rightMean;
+    covariance += leftDiff * rightDiff;
+    leftVariance += leftDiff ** 2;
+    rightVariance += rightDiff ** 2;
+  }
+  return leftVariance > 0 && rightVariance > 0
+    ? covariance / Math.sqrt(leftVariance * rightVariance) : 0;
+}
+
+function solveLinearSystem(matrix, vector) {
+  const size = vector.length;
+  const rows = matrix.map((row, index) => [...row, vector[index]]);
+  for (let column = 0; column < size; column += 1) {
+    let pivot = column;
+    for (let row = column + 1; row < size; row += 1) {
+      if (Math.abs(rows[row][column]) > Math.abs(rows[pivot][column])) pivot = row;
+    }
+    if (Math.abs(rows[pivot][column]) < 1e-12) return null;
+    [rows[column], rows[pivot]] = [rows[pivot], rows[column]];
+    const divisor = rows[column][column];
+    for (let cursor = column; cursor <= size; cursor += 1) rows[column][cursor] /= divisor;
+    for (let row = 0; row < size; row += 1) {
+      if (row === column) continue;
+      const factor = rows[row][column];
+      if (!factor) continue;
+      for (let cursor = column; cursor <= size; cursor += 1) {
+        rows[row][cursor] -= factor * rows[column][cursor];
+      }
+    }
+  }
+  return rows.map((row) => row[size]);
+}
+
+/**
+ * Pooled cross-sectional OLS with an intercept. Features from buildMlPanel are
+ * already standardised per date, so each coefficient is the average forward
+ * return associated with a one-standard-deviation move in that factor.
+ */
+export function factorRegression(state, { lookback = 30, horizon = 10 } = {}) {
+  const panel = buildMlPanel(state, { lookback, horizon });
+  if (!panel.ok) return panel;
+  const featureCount = ML_FACTORS.length;
+  const size = featureCount + 1;
+  const xtx = Array.from({ length: size }, () => Array(size).fill(0));
+  const xty = Array(size).fill(0);
+  let sumY = 0;
+  let sumY2 = 0;
+  for (const sample of panel.samples) {
+    const row = [1, ...sample.features];
+    for (let left = 0; left < size; left += 1) {
+      xty[left] += row[left] * sample.forwardReturn;
+      for (let right = 0; right < size; right += 1) {
+        xtx[left][right] += row[left] * row[right];
+      }
+    }
+    sumY += sample.forwardReturn;
+    sumY2 += sample.forwardReturn ** 2;
+  }
+  // A tiny ridge keeps factor columns with no variation (for example news
+  // before the first headline) solvable without changing the fitted values.
+  const ridge = Math.max(1e-9, panel.samples.length * 1e-9);
+  for (let index = 1; index < size; index += 1) xtx[index][index] += ridge;
+  const coefficients = solveLinearSystem(xtx, xty);
+  if (!coefficients) return { ok: false, error: 'quant.error.regression' };
+  let residualSum = 0;
+  for (const sample of panel.samples) {
+    const row = [1, ...sample.features];
+    const fitted = row.reduce((sum, value, index) => sum + value * coefficients[index], 0);
+    residualSum += (sample.forwardReturn - fitted) ** 2;
+  }
+  const meanY = sumY / Math.max(1, panel.samples.length);
+  const totalSum = Math.max(1e-9, sumY2 - panel.samples.length * meanY ** 2);
+  const r2 = 1 - residualSum / totalSum;
+  const factors = ML_FACTORS.map((factor, index) => {
+    let icSum = 0;
+    let count = 0;
+    for (const group of panel.groups) {
+      if (group.rows.length < 3) continue;
+      const featureValues = group.rows.map((row) => row.features[index]);
+      const returns = group.rows.map((row) => row.forwardReturn);
+      icSum += rankCorrelation(featureValues, returns);
+      count += 1;
+    }
+    return {
+      id: factor,
+      coefficient: Math.round(coefficients[index + 1] * 1000) / 1000,
+      ic: Math.round((icSum / Math.max(1, count)) * 1000) / 1000,
+    };
+  });
+  return {
+    ok: true,
+    lookback: panel.lookback,
+    horizon: panel.horizon,
+    samples: panel.samples.length,
+    dates: panel.groups.length,
+    intercept: Math.round(coefficients[0] * 1000) / 1000,
+    r2: Math.round(r2 * 1000) / 1000,
+    factors,
   };
 }
 
@@ -684,6 +840,9 @@ function mlFactorValue(closes, index, factor, lookback, volumes = []) {
     const baseAverage = baseline.reduce((sum, value) => sum + value, 0) / baseline.length;
     if (!recentAverage || !baseAverage) return null;
     return (recentAverage / baseAverage - 1) * 100;
+  }
+  if (factor === 'flow') {
+    return moneyFlow(closes, volumes, index, lookback);
   }
   return null;
 }
@@ -891,6 +1050,153 @@ export function tuneMlpHyperparameters(fitSamples, validationSamples, grid = ML_
   };
 }
 
+export function trainDeepMlpModel(samples, {
+  hidden1 = 6, hidden2 = 4, epochs = 120, learningRate = 0.05, l2 = 0.001,
+} = {}) {
+  const featureCount = ML_FACTORS.length;
+  const firstUnits = Math.max(2, Math.min(12, Math.round(hidden1)));
+  const secondUnits = Math.max(2, Math.min(10, Math.round(hidden2)));
+  const w1 = Array.from({ length: firstUnits }, (_, unit) => (
+    Array.from({ length: featureCount }, (_, feature) => (
+      Math.sin((unit + 1) * (feature + 3) * 0.6) * 0.35
+    ))
+  ));
+  const b1 = Array.from({ length: firstUnits }, (_, unit) => Math.sin(unit + 2) * 0.08);
+  const w2 = Array.from({ length: secondUnits }, (_, unit) => (
+    Array.from({ length: firstUnits }, (_, first) => (
+      Math.cos((unit + 1) * (first + 2) * 0.5) * 0.3
+    ))
+  ));
+  const b2 = Array.from({ length: secondUnits }, (_, unit) => Math.cos(unit + 1) * 0.08);
+  const w3 = Array.from({ length: secondUnits }, (_, unit) => Math.sin(unit + 2) * 0.3);
+  let b3 = 0;
+  const forward = (features) => {
+    const first = w1.map((row, unit) => Math.tanh(
+      row.reduce((sum, weight, index) => sum + weight * features[index], b1[unit]),
+    ));
+    const second = w2.map((row, unit) => Math.tanh(
+      row.reduce((sum, weight, index) => sum + weight * first[index], b2[unit]),
+    ));
+    const output = second.reduce((sum, activation, unit) => sum + activation * w3[unit], b3);
+    return { first, second, probability: sigmoid(output) };
+  };
+  for (let epoch = 0; epoch < epochs; epoch += 1) {
+    const gw1 = Array.from({ length: firstUnits }, () => Array(featureCount).fill(0));
+    const gb1 = Array(firstUnits).fill(0);
+    const gw2 = Array.from({ length: secondUnits }, () => Array(firstUnits).fill(0));
+    const gb2 = Array(secondUnits).fill(0);
+    const gw3 = Array(secondUnits).fill(0);
+    let gb3 = 0;
+    for (const sample of samples) {
+      const { first, second, probability } = forward(sample.features);
+      const deltaOut = probability - sample.label;
+      for (let unit = 0; unit < secondUnits; unit += 1) {
+        gw3[unit] += deltaOut * second[unit];
+      }
+      gb3 += deltaOut;
+      const deltaSecond = second.map((value, unit) => (
+        deltaOut * w3[unit] * (1 - value ** 2)
+      ));
+      for (let unit = 0; unit < secondUnits; unit += 1) {
+        gb2[unit] += deltaSecond[unit];
+        for (let firstUnit = 0; firstUnit < firstUnits; firstUnit += 1) {
+          gw2[unit][firstUnit] += deltaSecond[unit] * first[firstUnit];
+        }
+      }
+      const deltaFirst = first.map((value, firstUnit) => (
+        deltaSecond.reduce((sum, delta, unit) => sum + delta * w2[unit][firstUnit], 0)
+        * (1 - value ** 2)
+      ));
+      for (let firstUnit = 0; firstUnit < firstUnits; firstUnit += 1) {
+        gb1[firstUnit] += deltaFirst[firstUnit];
+        for (let feature = 0; feature < featureCount; feature += 1) {
+          gw1[firstUnit][feature] += deltaFirst[firstUnit] * sample.features[feature];
+        }
+      }
+    }
+    const scale = 1 / Math.max(1, samples.length);
+    b3 -= learningRate * gb3 * scale;
+    for (let unit = 0; unit < secondUnits; unit += 1) {
+      w3[unit] -= learningRate * (gw3[unit] * scale + l2 * w3[unit]);
+      b2[unit] -= learningRate * gb2[unit] * scale;
+      for (let firstUnit = 0; firstUnit < firstUnits; firstUnit += 1) {
+        w2[unit][firstUnit] -= learningRate
+          * (gw2[unit][firstUnit] * scale + l2 * w2[unit][firstUnit]);
+      }
+    }
+    for (let firstUnit = 0; firstUnit < firstUnits; firstUnit += 1) {
+      b1[firstUnit] -= learningRate * gb1[firstUnit] * scale;
+      for (let feature = 0; feature < featureCount; feature += 1) {
+        w1[firstUnit][feature] -= learningRate
+          * (gw1[firstUnit][feature] * scale + l2 * w1[firstUnit][feature]);
+      }
+    }
+  }
+  let correct = 0;
+  for (const sample of samples) {
+    if ((forward(sample.features).probability >= 0.5) === (sample.label === 1)) correct += 1;
+  }
+  const featureImportance = Object.fromEntries(ML_FACTORS.map((factor, feature) => [
+    factor,
+    Math.round(w1.reduce((sum, row) => sum + Math.abs(row[feature]), 0) * 1000) / 1000,
+  ]));
+  return {
+    type: 'deep',
+    hidden1: firstUnits,
+    hidden2: secondUnits,
+    epochs,
+    w1,
+    b1,
+    w2,
+    b2,
+    w3,
+    b3,
+    featureImportance,
+    accuracy: samples.length ? correct / samples.length : 0,
+    samples: samples.length,
+  };
+}
+
+function predictDeepMlp(model, features) {
+  const first = model.w1.map((row, unit) => Math.tanh(
+    row.reduce((sum, weight, index) => sum + weight * features[index], model.b1[unit]),
+  ));
+  const second = model.w2.map((row, unit) => Math.tanh(
+    row.reduce((sum, weight, index) => sum + weight * first[index], model.b2[unit]),
+  ));
+  return sigmoid(second.reduce((sum, activation, unit) => sum + activation * model.w3[unit], model.b3));
+}
+
+export function tuneDeepMlpHyperparameters(fitSamples, validationSamples, grid = DEEP_TUNING_GRID) {
+  if (!fitSamples?.length || !validationSamples?.length) return null;
+  const candidates = grid.map((config) => {
+    const model = trainDeepMlpModel(fitSamples, config);
+    let correct = 0;
+    for (const sample of validationSamples) {
+      if ((predictDeepMlp(model, sample.features) >= 0.5) === (sample.label === 1)) correct += 1;
+    }
+    return {
+      hidden1: config.hidden1,
+      hidden2: config.hidden2,
+      epochs: config.epochs,
+      accuracy: model.accuracy,
+      validationAccuracy: correct / validationSamples.length,
+    };
+  });
+  candidates.sort((a, b) => (
+    b.validationAccuracy - a.validationAccuracy
+    || b.accuracy - a.accuracy
+    || a.hidden1 - b.hidden1
+    || a.hidden2 - b.hidden2
+    || a.epochs - b.epochs
+  ));
+  return {
+    gridSize: grid.length,
+    best: candidates[0],
+    candidates,
+  };
+}
+
 export function trainLogisticModel(samples, { iterations = 160, learningRate = 0.08, l2 = 0.02 } = {}) {
   const featureCount = ML_FACTORS.length;
   const weights = Array(featureCount + 1).fill(0);
@@ -948,27 +1254,40 @@ export function mlStockSelection(state, {
   const normalizedModel = ML_MODELS.some((entry) => entry.id === modelType) ? modelType : 'mlp';
   let model = null;
   let tuning = null;
-  if (normalizedModel === 'mlp' && autoTune) {
+  if ((normalizedModel === 'mlp' || normalizedModel === 'deep') && autoTune) {
     const trainDates = [...new Set(trainSamples.map((sample) => sample.date))].sort((a, b) => a - b);
     const validationDates = new Set(trainDates.slice(Math.floor(trainDates.length * 0.7)));
     const fitSamples = trainSamples.filter((sample) => !validationDates.has(sample.date));
     const validationSamples = trainSamples.filter((sample) => validationDates.has(sample.date));
-    tuning = tuneMlpHyperparameters(fitSamples, validationSamples);
-    if (tuning) {
-      model = trainMlpModel(trainSamples, {
-        hidden: tuning.best.hidden,
-        epochs: tuning.best.epochs,
-      });
+    if (normalizedModel === 'deep') {
+      tuning = tuneDeepMlpHyperparameters(fitSamples, validationSamples);
+      if (tuning) {
+        model = trainDeepMlpModel(trainSamples, {
+          hidden1: tuning.best.hidden1,
+          hidden2: tuning.best.hidden2,
+          epochs: tuning.best.epochs,
+        });
+      }
+    } else {
+      tuning = tuneMlpHyperparameters(fitSamples, validationSamples);
+      if (tuning) {
+        model = trainMlpModel(trainSamples, {
+          hidden: tuning.best.hidden,
+          epochs: tuning.best.epochs,
+        });
+      }
     }
   }
   if (!model) {
-    model = normalizedModel === 'mlp'
-      ? trainMlpModel(trainSamples)
-      : trainLogisticModel(trainSamples);
+    if (normalizedModel === 'deep') model = trainDeepMlpModel(trainSamples);
+    else if (normalizedModel === 'mlp') model = trainMlpModel(trainSamples);
+    else model = trainLogisticModel(trainSamples);
   }
-  const predict = normalizedModel === 'mlp'
-    ? (features) => predictMlp(model, features)
-    : (features) => predictProbability(model.weights, features);
+  const predict = normalizedModel === 'deep'
+    ? (features) => predictDeepMlp(model, features)
+    : normalizedModel === 'mlp'
+      ? (features) => predictMlp(model, features)
+      : (features) => predictProbability(model.weights, features);
   let testCorrect = 0;
   for (const sample of testSamples) {
     if ((predict(sample.features) >= 0.5) === (sample.label === 1)) testCorrect += 1;

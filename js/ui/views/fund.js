@@ -19,7 +19,7 @@ import {
   FUND_MAX_DRAWDOWN, FUND_MAX_UNPAID_DAYS, FUND_MAX_RISK_DAYS,
   FUND_MAX_LEVERAGE_DAYS, fundMetrics, fundLeaderboard, fundUnlocked,
 } from '../../fund/fundEngine.js';
-import { fundAttribution } from '../../fund/fundStrategy.js';
+import { fundAttribution, researchFundPlan } from '../../fund/fundStrategy.js';
 import { QUANT_STRATEGIES } from '../../quant/backtestEngine.js';
 
 export function createFundView(ctx) {
@@ -30,6 +30,8 @@ export function createFundView(ctx) {
   let chart;
   let selectedTicker = '';
   let tradeQty = 10;
+  let planResearch = null;
+  let planResearchDay = null;
 
   function fmtPercent(value, digits = 2) {
     return `${num(value, i18n.locale, digits)}%`;
@@ -578,6 +580,109 @@ export function createFundView(ctx) {
     });
   }
 
+  function researchRow(label, inMetrics, outMetrics, highlight = false) {
+    const metric = (value) => (Number.isFinite(value) ? value : null);
+    const inReturn = metric(inMetrics?.totalReturnPct);
+    const outReturn = metric(outMetrics?.totalReturnPct);
+    return `
+      <tr class="${highlight ? 'is-player' : ''}">
+        <td>${label}</td>
+        <td class="num ${inReturn !== null && inReturn >= 0 ? 'up' : inReturn !== null ? 'down' : ''}">${inReturn === null ? '—' : pct(inReturn, i18n.locale, 2)}</td>
+        <td class="num">${inMetrics && Number.isFinite(inMetrics.sharpe) ? num(inMetrics.sharpe, i18n.locale, 2) : '—'}</td>
+        <td class="num ${outReturn !== null && outReturn >= 0 ? 'up' : outReturn !== null ? 'down' : ''}">${outReturn === null ? '—' : pct(outReturn, i18n.locale, 2)}</td>
+        <td class="num">${outMetrics && Number.isFinite(outMetrics.sharpe) ? num(outMetrics.sharpe, i18n.locale, 2) : '—'}</td>
+        <td class="num">${outMetrics && Number.isFinite(outMetrics.maxDrawdownPct) ? pct(outMetrics.maxDrawdownPct, i18n.locale, 2, false) : '—'}</td>
+      </tr>`;
+  }
+
+  function researchBody(state, result) {
+    if (!result) return `<p class="muted">${t('fund.research.empty')}</p>`;
+    if (!result.ok) return `<p class="muted">${t(result.error || 'fund.research.empty')}</p>`;
+    const best = result.best;
+    const config = best.config;
+    const strategy = QUANT_STRATEGIES[state.fund.quantPlan.strategyId]
+      || QUANT_STRATEGIES.smaCross;
+    return `
+      <div class="fund-plan-meta">
+        <span>${t('fund.research.window', {
+          start: formatMarketDate(result.startDay, i18n.locale),
+          end: formatMarketDate(result.endDay, i18n.locale),
+        })}</span>
+        <span>${t('fund.research.split', { value: result.splitPct })}</span>
+        <span class="${result.overfitRisk ? 'down' : 'up'}">${t(result.overfitRisk ? 'fund.research.overfitWarning' : 'fund.research.overfitClear')}</span>
+      </div>
+      <p class="fund-subtitle">${t('fund.research.bestTitle', { strategy: t(strategy.nameKey) })}</p>
+      <div class="table-wrap"><table class="table table--compact">
+        <thead><tr>
+          <th>${t('fund.research.config')}</th>
+          <th class="num">${t('fund.research.inReturn')}</th>
+          <th class="num">${t('fund.research.inSharpe')}</th>
+          <th class="num">${t('fund.research.outReturn')}</th>
+          <th class="num">${t('fund.research.outSharpe')}</th>
+          <th class="num">${t('fund.research.outDrawdown')}</th>
+        </tr></thead>
+        <tbody>
+          ${researchRow(
+    `${config.topN} · ${num(config.cashBuffer * 100, i18n.locale, 0)}% · ${t('fund.research.intervalShort', { days: config.rebalanceDays })}`,
+    best.inSample,
+    result.outSample,
+    true,
+  )}
+          ${researchRow(t('fund.research.baseline'), null, result.baselineOut)}
+        </tbody>
+      </table></div>
+      <p class="fund-subtitle">${t('fund.research.candidatesTitle')}</p>
+      <p class="muted">${t('fund.research.candidatesSubtitle', { count: result.comboCount, shown: result.candidates.length })}</p>
+      <div class="table-wrap"><table class="table table--compact">
+        <thead><tr>
+          <th>#</th>
+          <th class="num">${t('fund.research.topN')}</th>
+          <th class="num">${t('fund.research.cash')}</th>
+          <th class="num">${t('fund.research.interval')}</th>
+          <th class="num">${t('fund.research.inReturn')}</th>
+          <th class="num">${t('fund.research.inSharpe')}</th>
+          <th class="num">${t('fund.research.score')}</th>
+        </tr></thead>
+        <tbody>${result.candidates.map((candidate, index) => `
+          <tr>
+            <td class="num">${index + 1}</td>
+            <td class="num">${candidate.config.topN}</td>
+            <td class="num">${num(candidate.config.cashBuffer * 100, i18n.locale, 0)}%</td>
+            <td class="num">${candidate.config.rebalanceDays}</td>
+            <td class="num ${candidate.inSample.totalReturnPct >= 0 ? 'up' : 'down'}">${pct(candidate.inSample.totalReturnPct, i18n.locale, 2)}</td>
+            <td class="num">${num(candidate.inSample.sharpe, i18n.locale, 2)}</td>
+            <td class="num">${num(candidate.score, i18n.locale, 2)}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="button-row">
+        <button class="btn btn--primary btn--sm" type="button" data-fund-apply-research>${icon('check', { size: 14 })} ${t('fund.research.apply')}</button>
+      </div>
+      <p class="chart-note muted">${t('fund.research.applyNote')}</p>
+      <p class="chart-note muted">${t('fund.research.disclaimer')}</p>`;
+  }
+
+  function planResearchCard(state) {
+    const config = state.fund.quantPlan;
+    const strategy = QUANT_STRATEGIES[config.strategyId] || QUANT_STRATEGIES.smaCross;
+    return card({
+      className: 'fund-research',
+      title: t('fund.research.title'),
+      subtitle: t('fund.research.subtitle'),
+      body: `
+        <div class="button-row">
+          <button class="btn btn--primary btn--sm" type="button" data-fund-research>${icon('sparkle', { size: 14 })} ${t('fund.research.run')}</button>
+          <span class="pill">${t('fund.research.combo', { count: 100 })}</span>
+        </div>
+        <p class="chart-note muted">${t('fund.research.note', {
+          strategy: t(strategy.nameKey),
+          top: config.topN,
+          days: config.rebalanceDays,
+          cash: num(config.cashBuffer * 100, i18n.locale, 0),
+        })}</p>
+        ${researchBody(state, planResearch)}`,
+    });
+  }
+
   function attributionCard(state) {
     const attribution = fundAttribution(state.fund, state);
     if (!attribution) return '';
@@ -782,6 +887,7 @@ export function createFundView(ctx) {
         ${strategyPlanCard(state)}
         ${attributionCard(state)}
       </div>
+      ${planResearchCard(state)}
       <div class="fund-split">
         ${clientsCard(metrics, state)}
         ${teamCard(state)}
@@ -922,6 +1028,22 @@ export function createFundView(ctx) {
       }
       if (event.target.closest('[data-fund-apply-plan]')) {
         actions.fundApplyPlan();
+        return;
+      }
+      if (event.target.closest('[data-fund-research]')) {
+        const state = store.get();
+        planResearch = researchFundPlan(state, state.fund?.quantPlan || {});
+        planResearchDay = state.market.day;
+        render(state);
+        return;
+      }
+      if (event.target.closest('[data-fund-apply-research]')) {
+        if (planResearch?.ok) {
+          const best = planResearch.best.config;
+          planResearch = null;
+          planResearchDay = null;
+          actions.fundApplyResearch(best);
+        }
       }
     });
     root.addEventListener('submit', (event) => {
@@ -933,6 +1055,8 @@ export function createFundView(ctx) {
         form.querySelectorAll('[data-plan-param]').forEach((input) => {
           params[input.dataset.planParam] = Number(input.value);
         });
+        planResearch = null;
+        planResearchDay = null;
         actions.fundSetStrategy({
           enabled: data.get('enabled') === 'true',
           strategyId: data.get('strategyId'),
@@ -976,6 +1100,10 @@ export function createFundView(ctx) {
 
   function render(state) {
     if (!container) return;
+    if (planResearchDay !== null && planResearchDay !== state.market.day) {
+      planResearch = null;
+      planResearchDay = null;
+    }
     container.innerHTML = template(state);
     if (chart) {
       chart.destroy();

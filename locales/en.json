@@ -165,6 +165,7 @@
     "fundRedemptionPaid": "Redemption paid: {amount}.",
     "fundCashWithdrawn": "Withdrew {amount} from the management company to your personal account.",
     "fundPlanApplied": "{applied} plan trade(s) filled · {failed} failed",
+    "fundResearchApplied": "Best sizing from research applied; regenerate the plan.",
     "fundAutoRebalance": "Fund auto rebalance: {applied} filled · {failed} failed",
     "fundRedemptionRequest": "{name} requested a redemption. Keep enough cash ready before the deadline.",
     "fundPayrollShort": "Payroll is short by {amount}. Repeated misses will close the fund.",
@@ -5656,14 +5657,14 @@
       "p1c": "Interactive demos, practice tasks, quizzes, XP, achievements and unlocks",
       "p1d": "Sandbox with a separate save, six Challenge goals and fund management with clients, staff and fees",
       "future": {
-        "a": "Automatic fund-strategy parameter optimisation and finer factor attribution",
+        "a": "Live alternative datasets: analyst revisions and real-time money flow",
         "b": "Live quotes, intraday data and broader real-market data",
-        "c": "Live alternative datasets, full multi-factor regressions and deeper network architectures"
+        "c": "Finer factor attribution and a portfolio optimiser"
       },
       "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
       "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes",
-      "p1g": "Standalone Quant Lab: strategy backtests, grid optimisation, in/out-of-sample checks, logistic / MLP selection, automatic hyperparameter search, plus momentum / low-vol / trend / value / news / sentiment-change / volume factors",
-      "p1h": "Fund quant plans: rebalance suggestions, scheduled automatic execution, pre-trade risk checks, plus market / sector / selection / cash / fee return attribution",
+      "p1g": "Standalone Quant Lab: strategy backtests, grid optimisation, in/out-of-sample checks, multi-factor regression (premia / Rank IC / R²), logistic / MLP / two-hidden-layer selection with automatic hyperparameter search, plus momentum / low-vol / trend / value / news / sentiment-change / volume / money-flow factors",
+      "p1h": "Fund quant plans: rebalance suggestions, scheduled automatic execution, pre-trade risk checks, 100-set sizing research with in/out-of-sample validation and one-click apply, plus market / sector / selection / cash / fee return attribution",
       "p1i": "Macro World: policy rate, inflation, growth, unemployment, yield curve, credit spread, economic calendar, event shocks and global market linkages",
       "p1j": "Multi-asset: bond coupon present-value pricing and yield marking, USD-quoted FX, commodity pricing and fractional crypto trading with unified daily revaluation"
     },
@@ -5675,10 +5676,10 @@
   "roadmap": {
     "eyebrow": "Roadmap",
     "title": "Development Roadmap",
-    "subtitle": "Phases 1–9 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
+    "subtitle": "Phases 1–10 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
     "statusShipped": "Shipped",
     "statusPlanned": "Planned",
-    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management with auto rebalancing, a Macro World with event shocks, bonds / FX / commodities / crypto and a Quant Lab with parameter optimisation, logistic / MLP selection, auto tuning and alternative-data factors; live quotes, live alternative data and deeper networks remain unimplemented.",
+    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management with auto rebalancing, a Macro World with event shocks, bonds / FX / commodities / crypto and a Quant Lab with parameter optimisation, multi-factor regression, logistic / MLP / two-hidden-layer networks, auto tuning and alternative-data factors; live quotes, live alternative data and finer portfolio attribution remain unimplemented.",
     "p1": {
       "title": "Phase 1 · Teaching foundation",
       "text": "A complete learning and trading loop for Stage 1, starting from zero.",
@@ -5749,6 +5750,14 @@
       "i2": "Fund auto rebalancing: execute the strategy plan at day close on a schedule while keeping manual execution and risk checks",
       "i3": "Calendar event shocks: CPI / payrolls / GDP / PMI / central-bank surprises transmit to simulated prices by beta",
       "i4": "Automatic ML hyperparameter search plus news-sentiment-change and volume-attention factors"
+    },
+    "p10": {
+      "title": "Phase 10 · Strategy research and deeper models",
+      "text": "Push fund plans and quant research into verifiable parameter selection, factor premia and deeper models.",
+      "i1": "Fund sizing research: a 100-set holdings / cash / interval grid, in-sample selection, out-of-sample validation and one-click apply",
+      "i2": "Multi-factor regression: pooled cross-sectional OLS, factor premia, Rank IC and R²",
+      "i3": "Two-hidden-layer networks with their own auto-tuning, in-sample validation and feature importance",
+      "i4": "Money-flow factor: volume accumulated by price direction to measure net buying pressure"
     }
   },
   "locked": {
@@ -6527,6 +6536,7 @@
     "errorNoRedemption": "That client has no pending redemption.",
     "errorRedemptionCash": "The fund account lacks the cash to settle this redemption.",
     "errorNoCompanyCash": "The management company has no cash to withdraw.",
+    "errorResearchHistory": "Not enough history to run the strategy sizing research.",
     "stats": {
       "aum": "Fund AUM",
       "aumSub": "{count} client(s)",
@@ -6695,6 +6705,37 @@
       "aligned": "Current holdings already match the target portfolio.",
       "noPlan": "Adjust the configuration and generate a rebalance plan.",
       "errorEmpty": "There is no executable plan right now."
+    },
+    "research": {
+      "title": "Strategy sizing research",
+      "subtitle": "Test how target holdings, cash buffer and rebalance interval hold up on history",
+      "run": "Run sizing research",
+      "combo": "{count} configurations",
+      "note": "Signals use the current strategy \"{strategy}\" and parameters; targets {top} holdings, {cash}% cash and a {days}-day interval. Research never changes the fund.",
+      "empty": "Run the research to compare sizing and rebalance settings in and out of sample.",
+      "window": "Sample {start} → {end}",
+      "split": "In-sample {value}%",
+      "overfitWarning": "Out-of-sample results weaken sharply; overfitting is likely",
+      "overfitClear": "Out-of-sample results look relatively stable",
+      "bestTitle": "Best sizing · {strategy}",
+      "best": "Best configuration",
+      "baseline": "Current configuration (OOS)",
+      "config": "Configuration",
+      "intervalShort": "{days} days",
+      "inReturn": "In-sample return",
+      "inSharpe": "In-sample Sharpe",
+      "outReturn": "Out-of-sample return",
+      "outSharpe": "Out-of-sample Sharpe",
+      "outDrawdown": "Out-of-sample drawdown",
+      "score": "Objective",
+      "topN": "Holdings",
+      "cash": "Cash buffer",
+      "interval": "Interval (days)",
+      "candidatesTitle": "Candidate configurations",
+      "candidatesSubtitle": "{count} configurations searched · top {shown} shown",
+      "apply": "Apply best sizing",
+      "applyNote": "Applying only updates target holdings, cash buffer and rebalance interval, and clears the old plan; strategy and parameters stay unchanged.",
+      "disclaimer": "The research uses one historical sample and simplified costs; out-of-sample results describe this history only and are not forecasts."
     },
     "attr": {
       "title": "Return attribution",
@@ -6987,8 +7028,10 @@
       "backtestDesc": "Run one strategy on the full sample and inspect metrics and trades.",
       "optimize": "Optimise",
       "optimizeDesc": "Search a parameter grid for the best in-sample result, then test it out of sample for overfitting.",
+      "regression": "Factor regression",
+      "regressionDesc": "Estimate factor premia, Rank IC and explanatory power (R²) with a pooled cross-sectional regression.",
       "ml": "ML selection",
-      "mlDesc": "Train cross-sectional models on momentum, low-vol, trend, news sentiment and volume factors, optionally search network architectures, then test an out-of-sample stock portfolio."
+      "mlDesc": "Train cross-sectional models on momentum, low-vol, trend, news sentiment, sentiment change, volume and money-flow factors, optionally search network architectures, then test an out-of-sample stock portfolio."
     },
     "objectiveLabel": "Objective",
     "splitLabel": "In-sample share (%)",
@@ -7000,6 +7043,7 @@
     },
     "run": "Run backtest",
     "runOptimize": "Run optimisation",
+    "runRegression": "Estimate factor premia",
     "runMl": "Train and select",
     "resultTitle": "Backtest result",
     "opt": {
@@ -7028,9 +7072,28 @@
       "disclaimer": "Grid search itself raises the chance of overfitting; OOS results describe this sample only and do not guarantee future performance.",
       "gridNote": "The optimiser searches the built-in grid and picks the best in-sample set for the chosen objective; focus on the OOS result."
     },
+    "reg": {
+      "lookbackLabel": "Feature window (trading days)",
+      "horizonLabel": "Prediction horizon (trading days)",
+      "configSubtitle": "Pooled cross-sectional regression; research only, the simulated account is unchanged.",
+      "note": "Runs a pooled OLS with an intercept on each day's factor cross-section and forward returns; features are standardised per date, so a coefficient is the average return tied to a one-standard-deviation move.",
+      "resultTitle": "Factor regression result",
+      "samples": "Samples",
+      "dates": "{count} cross-sections",
+      "r2": "R²",
+      "intercept": "Intercept {value}",
+      "lookback": "Feature window",
+      "horizon": "{value}-day horizon",
+      "tableTitle": "Factor premia and IC",
+      "tableSubtitle": "Coefficients are average returns (%); IC is the mean cross-sectional Rank IC",
+      "factor": "Factor",
+      "coefficient": "Coefficient",
+      "ic": "Rank IC",
+      "disclaimer": "The regression only describes average in-sample relationships; factor premia change with the market regime and are not forecasts."
+    },
     "ml": {
       "configSubtitle": "A cross-sectional market model that never changes the simulated account.",
-      "configNote": "Uses momentum, low-volatility, trend, news sentiment, sentiment change and volume features across 40 companies; labels are the top half of forward cross-sectional returns.",
+      "configNote": "Uses momentum, low-volatility, trend, news sentiment, sentiment change, volume and money-flow features across 40 companies; labels are the top half of forward cross-sectional returns.",
       "resultTitle": "ML selection result",
       "topReturn": "Selection portfolio return",
       "benchmark": "Universe {value}",
@@ -7050,7 +7113,10 @@
       "modelType": "Model type",
       "modelLogistic": "Logistic regression",
       "modelMlp": "Small neural network (MLP)",
+      "modelDeep": "Deep network (two hidden layers)",
       "hiddenUnits": "Hidden units",
+      "hiddenLayer1": "First hidden layer",
+      "hiddenLayer2": "Second hidden layer",
       "epochs": "Training epochs",
       "featureImportance": "Feature importance",
       "autoTuneLabel": "Auto tuning",
@@ -7060,7 +7126,7 @@
       "tuningValidation": "Validation accuracy",
       "tuningCandidates": "Configurations searched",
       "tuningNote": "Auto tuning carves a validation slice out of the training set; the out-of-sample test is never used for selection.",
-      "modelNote": "Features are standardised per cross-section; logistic regression shows weights and the MLP shows hidden-layer feature importance. News sentiment uses a 20-day window.",
+      "modelNote": "Features are standardised per cross-section; logistic regression shows weights and neural models show hidden-layer feature importance. News sentiment uses a 20-day window.",
       "picksTitle": "Out-of-sample picks",
       "picksSubtitle": "{count} rebalances · top {top} each",
       "date": "Rebalance date",
@@ -7112,6 +7178,7 @@
       "history": "At least {min} completed daily bars are needed to run a backtest.",
       "optimizeHistory": "Sample too short: in-sample and out-of-sample each need at least {min} daily bars.",
       "mlData": "This history is too short to train and test that model.",
+      "regression": "There are not enough samples to estimate the factor regression.",
       "strategy": "Unknown strategy."
     },
     "stats": {
@@ -7162,6 +7229,8 @@
       "newsTrendDesc": "Compare recent-half news impact with the prior half; improving attention ranks higher.",
       "volume": "Volume attention",
       "volumeDesc": "Compare the last five days with the window average; heavier volume ranks higher.",
+      "flow": "Money-flow strength",
+      "flowDesc": "Accumulate volume by price direction and rank the net buying pressure as a share of window volume.",
       "ticker": "Ticker",
       "sector": "Sector",
       "metric": "Factor value",

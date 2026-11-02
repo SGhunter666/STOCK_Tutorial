@@ -158,6 +158,8 @@ test('fund view gates, launches and renders an active fund', () => {
   assert(activeHost.querySelector('[data-fund-ticker]'), 'fund ticker selector renders');
   assert(activeHost.querySelector('[data-fund-plan-form]'), 'strategy plan form renders');
   assert(activeHost.querySelector('[name="autoRebalance"]'), 'auto rebalance control renders');
+  assert(activeHost.querySelector('[data-fund-research]'), 'sizing research button renders');
+  assert(activeHost.textContent.includes('fund.research.title'), 'sizing research card renders');
   assert(activeHost.textContent.includes('fund.attr.title'), 'factor attribution card renders');
   assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 7, 'seven team roles render');
   active.destroy();
@@ -211,6 +213,7 @@ test('quant optimisation and ML modes render their own controls and results', ()
   const mlHost = mountView(ml);
   assert(mlHost.querySelector('[name="mlLookback"]'), 'ML feature window renders');
   assert(mlHost.querySelector('[name="mlModel"]'), 'ML model selector renders');
+  assert(mlHost.querySelector('[name="mlModel"] option[value="deep"]'), 'deep model option renders');
   assert(mlHost.querySelector('[name="mlAutoTune"]'), 'ML auto-tuning selector renders');
   assert(mlHost.textContent.includes('quant.ml.modelTitle'), 'model coefficient panel renders');
   assert(mlHost.querySelector('#quant-ml-chart'), 'selection curve renders');
@@ -229,6 +232,37 @@ test('quant optimisation and ML modes render their own controls and results', ()
   assert(!logisticHost.querySelector('[name="mlAutoTune"]'), 'auto tuning is hidden for logistic');
   logistic.destroy();
   logisticHost.remove();
+
+  const deepState = createGameState({ seed: 'ui-quant-deep' });
+  deepState.education.units.u16.completedAt = Date.now();
+  deepState.quant.mode = 'ml';
+  deepState.quant.mlModel = 'deep';
+  const deepCtx = makeCtx(deepState);
+  deepCtx.ctx.actions.setQuantConfig = (config) => config;
+  const deep = createQuantView(deepCtx.ctx);
+  const deepHost = mountView(deep);
+  assert(deepHost.querySelector('[name="mlModel"] option[value="deep"]:checked'), 'deep model is selected');
+  assert(deepHost.textContent.includes('quant.ml.hiddenLayer2'), 'second hidden layer is reported');
+  assert(deepHost.querySelector('[name="mlAutoTune"]'), 'deep model keeps auto tuning');
+  deep.destroy();
+  deepHost.remove();
+});
+
+test('quant regression mode renders factor premia and rank IC', () => {
+  const state = createGameState({ seed: 'ui-quant-regression' });
+  state.education.units.u16.completedAt = Date.now();
+  state.quant.mode = 'regression';
+  const { ctx } = makeCtx(state);
+  ctx.actions.setQuantConfig = (config) => config;
+  const view = createQuantView(ctx);
+  const host = mountView(view);
+  assert(host.querySelector('[data-quant-mode="regression"]'), 'regression tab renders');
+  assert(host.querySelector('[name="mlLookback"]'), 'regression feature window renders');
+  assert(host.querySelector('#quant-regression-table'), 'factor regression table renders');
+  assert(host.textContent.includes('quant.reg.tableTitle'), 'regression factor table title renders');
+  assert(host.textContent.includes('quant.factor.flow'), 'money-flow factor appears in the regression');
+  view.destroy();
+  host.remove();
 });
 
 test('macro world locks, unlocks and renders the calendar and global markets', () => {

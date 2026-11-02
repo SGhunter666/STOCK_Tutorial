@@ -18,7 +18,7 @@ import {
 } from '../js/fund/fundEngine.js';
 import {
   normalizeFundPlanConfig, buildFundPlan, executeFundPlan, autoRebalanceFund,
-  fundAttribution,
+  researchFundPlan, FUND_PLAN_RESEARCH_GRID, fundAttribution,
 } from '../js/fund/fundStrategy.js';
 
 const STOCK = COMPANIES.find((company) => !company.isEtf).ticker;
@@ -464,6 +464,36 @@ test('fund auto rebalance respects disabled, schedule and success paths', () => 
   const due = autoRebalanceFund(first.fund, state, 5);
   assert(due.ok, 'run at the interval succeeds');
   assertEqual(due.fund.quantPlan.lastAutoDay, 5, 'attempt day advances');
+});
+
+test('fund plan research optimises sizing out of sample without mutating the fund', () => {
+  const state = makeState();
+  const fund = launch(state);
+  const before = JSON.stringify(fund);
+  const result = researchFundPlan(state, {
+    enabled: true,
+    strategyId: 'buyHold',
+    topN: 5,
+    rebalanceDays: 21,
+    cashBuffer: 0.1,
+  });
+  assert(result.ok, 'research runs on the seeded history');
+  assertEqual(result.comboCount, 100, 'sizing grid is complete');
+  assertEqual(result.candidates.length, 8, 'top candidates are returned');
+  assert(result.best.config.topN >= 3, 'best topN comes from the grid');
+  assert(FUND_PLAN_RESEARCH_GRID.cashBuffer.includes(result.best.config.cashBuffer), 'best cash buffer from grid');
+  assert(Number.isFinite(result.best.inSample.sharpe), 'in-sample metrics are numeric');
+  assert(Number.isFinite(result.outSample.sharpe), 'out-of-sample metrics are numeric');
+  assert(typeof result.overfitRisk === 'boolean', 'overfit flag is boolean');
+  assertEqual(JSON.stringify(fund), before, 'research does not mutate the fund');
+  const again = researchFundPlan(state, {
+    enabled: true,
+    strategyId: 'buyHold',
+    topN: 5,
+    rebalanceDays: 21,
+    cashBuffer: 0.1,
+  });
+  assertEqual(JSON.stringify(result.best.config), JSON.stringify(again.best.config), 'best config is deterministic');
 });
 
 test('fund attribution components reconcile to the total return', () => {
