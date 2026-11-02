@@ -15,6 +15,7 @@ import { CAREER_RANKS } from '../js/education/career.js';
 import {
   FUND_STRATEGIES, FUND_RISK_PROFILES, FUND_ROLES,
 } from '../js/fund/fundEngine.js';
+import { QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS } from '../js/quant/backtestEngine.js';
 
 const zhResponse = await fetch('../locales/zh-CN.json');
 const enResponse = await fetch('../locales/en.json');
@@ -483,6 +484,7 @@ test('dashboard and academy views are localised', () => {
     'dashboard.practicePending', 'dashboard.quizPassed', 'dashboard.quizPending',
     'dashboard.resumeLesson', 'dashboard.goPractice', 'dashboard.openAcademy',
     'dashboard.stageCompleteEyebrow', 'dashboard.stageCompleteTitle', 'dashboard.stageCompleteText',
+    'settings.scope.p1g',
     'dashboard.certificateBadge', 'dashboard.stageUnits', 'dashboard.reviewAcademy',
     'dashboard.seeRoadmap', 'dashboard.certificateNote', 'dashboard.portfolioEyebrow',
     'dashboard.sinceStart', 'dashboard.cashLine', 'dashboard.positionsLine',
@@ -614,6 +616,8 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'roadmap.p6.i4',
     'roadmap.p7.title', 'roadmap.p7.text', 'roadmap.p7.i1', 'roadmap.p7.i2', 'roadmap.p7.i3',
     'roadmap.p7.i4',
+    'roadmap.p8.title', 'roadmap.p8.text', 'roadmap.p8.i1', 'roadmap.p8.i2', 'roadmap.p8.i3',
+    'roadmap.p8.i4',
     'locked.eyebrow', 'locked.subtitle', 'locked.options.title', 'locked.options.text',
     'locked.options.i1', 'locked.options.i2', 'locked.options.i3', 'locked.options.i4',
     'locked.challenges.title', 'locked.challenges.text', 'locked.challenges.i1',
@@ -727,6 +731,42 @@ test('fund management UI, roles, strategies and events are localised', () => {
   ['created', 'subscription', 'redemption', 'redemptionRequest', 'dividend', 'managementFee',
     'performanceFee', 'payroll', 'payrollShort', 'candidate', 'closed', 'other']
     .forEach((event) => check(`fund.event.${event}`));
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
+suite('Quant Lab copy');
+
+test('quant lab UI, strategies, parameters and factors are localised', () => {
+  const { check, missing } = required();
+  [
+    'nav.quant',
+    'quant.eyebrow', 'quant.title', 'quant.subtitle', 'quant.pill', 'quant.note',
+    'quant.lockedTitle', 'quant.lockedText', 'quant.lockedHint', 'quant.goAcademy',
+    'quant.configTitle', 'quant.configSubtitle', 'quant.tickerLabel', 'quant.strategyLabel',
+    'quant.cashLabel', 'quant.commissionLabel', 'quant.factorLabel', 'quant.factorLookbackLabel',
+    'quant.run', 'quant.resultTitle',
+    'quant.error.history', 'quant.error.strategy',
+    'quant.stats.totalReturn', 'quant.stats.cagr', 'quant.stats.maxDrawdown',
+    'quant.stats.finalEquity', 'quant.stats.sharpe', 'quant.stats.volatility',
+    'quant.stats.winRate', 'quant.stats.trades', 'quant.stats.exposure',
+    'quant.stats.openPosition', 'quant.stats.flat', 'quant.stats.benchmark',
+    'quant.stats.excess',
+    'quant.chartTitle', 'quant.chartSubtitle', 'quant.chartNote',
+    'quant.tradesTitle', 'quant.tradesSubtitle', 'quant.tradesEmpty',
+    'quant.trade.entry', 'quant.trade.exit', 'quant.trade.qty', 'quant.trade.pnl',
+    'quant.trade.return', 'quant.trade.bars', 'quant.trade.stillOpen',
+    'quant.disclaimer', 'quant.factorTitle', 'quant.factorSubtitle',
+  ].forEach((key) => check(key));
+  for (const strategy of Object.values(QUANT_STRATEGIES)) {
+    check(strategy.nameKey);
+    check(strategy.descKey);
+    for (const definition of strategy.params) check(definition.labelKey);
+  }
+  for (const factor of QUANT_FACTOR_OPTIONS) {
+    check(factor.nameKey);
+    check(factor.descKey);
+  }
+  ['ticker', 'sector', 'metric', 'note', 'empty'].forEach((key) => check(`quant.factor.${key}`));
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 

@@ -19,7 +19,8 @@
     "branches": "Branches",
     "sandbox": "Sandbox",
     "career": "Career",
-    "fund": "Fund"
+    "fund": "Fund",
+    "quant": "Quant Lab"
   },
   "common": {
     "close": "Close",
@@ -5632,7 +5633,7 @@
     "resetProgress": "Reset progress",
     "dataHint": "Importing a save overwrites current progress. Resetting clears local academy progress and the simulated account.",
     "scopeTitle": "Current build scope",
-    "scopeSubtitle": "Implemented in Phases 1–7, and what remains planned",
+    "scopeSubtitle": "Implemented in Phases 1–8, and what remains planned",
     "scopeText": "This is the current complete playable build. The lists below show what is implemented and what remains for later versions.",
     "scopeIncluded": "Implemented",
     "scopePlanned": "Not implemented",
@@ -5642,14 +5643,15 @@
       "p1c": "Interactive demos, practice tasks, quizzes, XP, achievements and unlocks",
       "p1d": "Sandbox with a separate save, six Challenge goals and fund management with clients, staff and fees",
       "future": {
-        "a": "Standalone quant lab, custom strategy editor and backtesting",
-        "b": "Fund-specific strategy editor and factor research",
+        "a": "Automatic parameter optimisation, machine-learning stock selection and richer multi-factor models",
+        "b": "Fund-specific strategy editing and finer factor attribution",
         "c": "Full macro economy and global market linkages",
         "d": "Live quotes and broader real-market data",
         "e": "Additional asset classes such as bonds and FX"
       },
       "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
-      "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes"
+      "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes",
+      "p1g": "Standalone Quant Lab: strategy backtests, trade logs and momentum / low-vol / trend / value factor research"
     },
     "disclaimer": "This game uses fictional companies and virtual money. Everything is for education only, not investment, legal or tax advice, and it is not a formal financial qualification.",
     "resetTitle": "Reset learning progress?",
@@ -5659,10 +5661,10 @@
   "roadmap": {
     "eyebrow": "Roadmap",
     "title": "Development Roadmap",
-    "subtitle": "Phases 1–7 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
+    "subtitle": "Phases 1–8 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
     "statusShipped": "Shipped",
     "statusPlanned": "Planned",
-    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression and fund management; quantitative research tools are not implemented.",
+    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management and a Quant Lab; parameter optimisation and machine learning remain unimplemented.",
     "p1": {
       "title": "Phase 1 · Teaching foundation",
       "text": "A complete learning and trading loop for Stage 1, starting from zero.",
@@ -5717,6 +5719,14 @@
       "i2": "Fund setup with strategy templates, risk profiles and three AUM tiers",
       "i3": "Client subscriptions and redemptions, management fees and high-water-mark performance fees",
       "i4": "Staff roles, position and cash limits, closure conditions and a peer fund leaderboard"
+    },
+    "p8": {
+      "title": "Phase 8 · Quant Lab",
+      "text": "Run independent strategy backtests on completed daily bars and rank the market by historical factors.",
+      "i1": "Five presets: buy-and-hold, moving-average cross, RSI mean reversion, momentum and range breakout",
+      "i2": "Signals confirm at the close and fill at the next open, avoiding look-ahead inside the same data",
+      "i3": "Total and annualised return, max drawdown, Sharpe, win rate, exposure and a trade log",
+      "i4": "Momentum, low-volatility, trend and valuation factor research without touching the simulated account"
     }
   },
   "locked": {
@@ -6685,6 +6695,111 @@
       "compliance": "Risk limits were breached without a compliance officer",
       "keyPerson": "A key person left the fund",
       "leverage": "Gross exposure exceeded the leverage cap for too many days"
+    }
+  },
+  "quant": {
+    "eyebrow": "Quantitative research",
+    "title": "Quant Lab",
+    "subtitle": "Build strategies on completed daily bars, run a no-look-ahead backtest and rank the market by factors.",
+    "pill": "Standalone research",
+    "note": "The backtest only uses completed daily bars, generates signals at the close and fills at the next open. Results are for teaching and falsification, not forecasts.",
+    "lockedTitle": "Quant Lab is locked",
+    "lockedText": "Complete Unit 16, Investment Strategies, to unlock it.",
+    "lockedHint": "That unit covers data, backtest bias, factors and risk metrics; finish it to open the standalone workbench.",
+    "goAcademy": "Go to Unit 16",
+    "configTitle": "Strategy configuration",
+    "configSubtitle": "Choose the instrument, strategy and parameters. Running the test never changes the simulated account.",
+    "tickerLabel": "Research instrument",
+    "strategyLabel": "Strategy",
+    "cashLabel": "Starting cash",
+    "commissionLabel": "Commission per trade",
+    "factorLabel": "Factor",
+    "factorLookbackLabel": "Factor window (trading days)",
+    "run": "Run backtest",
+    "resultTitle": "Backtest result",
+    "param": {
+      "fast": "Fast period",
+      "slow": "Slow period",
+      "rsiPeriod": "RSI period",
+      "rsiEntry": "Entry threshold",
+      "rsiExit": "Exit threshold",
+      "lookback": "Momentum window",
+      "threshold": "Signal threshold (%)",
+      "breakoutLookback": "Breakout window"
+    },
+    "strategy": {
+      "buyHold": {
+        "name": "Buy and hold",
+        "desc": "Buy on the first bar and hold to the end of the sample as the simplest benchmark."
+      },
+      "smaCross": {
+        "name": "Moving-average cross",
+        "desc": "Buy when the fast average crosses above the slow one, sell on the cross down; signals confirm at the close and fill at the next open."
+      },
+      "rsiReversion": {
+        "name": "RSI mean reversion",
+        "desc": "Buy when RSI is below the entry threshold and exit above the sell threshold."
+      },
+      "momentum": {
+        "name": "Momentum",
+        "desc": "Buy when the lookback return exceeds the threshold and sell when it falls below the negative threshold."
+      },
+      "breakout": {
+        "name": "Range breakout",
+        "desc": "Buy when the close breaks the prior N-day high and sell when it breaks the prior low."
+      }
+    },
+    "error": {
+      "history": "At least {min} completed daily bars are needed to run a backtest.",
+      "strategy": "Unknown strategy."
+    },
+    "stats": {
+      "totalReturn": "Total return",
+      "cagr": "CAGR",
+      "maxDrawdown": "Max drawdown",
+      "finalEquity": "Final equity {value}",
+      "sharpe": "Sharpe ratio",
+      "volatility": "Annualised volatility {value}",
+      "winRate": "Win rate",
+      "trades": "{count} trades",
+      "exposure": "Time in market",
+      "openPosition": "Position still open",
+      "flat": "Flat at the end",
+      "benchmark": "Buy-and-hold {value}",
+      "excess": "Excess return {value}"
+    },
+    "chartTitle": "Strategy equity curve",
+    "chartSubtitle": "Close-based equity after per-trade commissions",
+    "chartNote": "The curve advances by trading day; no slippage, financing or shorting is included.",
+    "tradesTitle": "Trade log",
+    "tradesSubtitle": "Latest 10 · {count} total",
+    "tradesEmpty": "The strategy produced no trades in this sample.",
+    "trade": {
+      "entry": "Entry",
+      "exit": "Exit",
+      "qty": "Quantity",
+      "pnl": "P&L",
+      "return": "Return",
+      "bars": "Bars held",
+      "stillOpen": "Still open"
+    },
+    "disclaimer": "Backtests can be distorted by sample selection, overfitting and cost assumptions. Live trading also faces slippage, liquidity and taxes.",
+    "factorTitle": "Factor research",
+    "factorSubtitle": "{days}-day window · {count} companies",
+    "factor": {
+      "momentum": "Momentum",
+      "momentumDesc": "Rank by cumulative return over the window; stronger momentum ranks higher.",
+      "lowVol": "Low volatility",
+      "lowVolDesc": "Rank by annualised volatility from low to high.",
+      "trend": "Trend",
+      "trendDesc": "Compare the 20-day and 50-day averages; a larger positive gap ranks higher.",
+      "value": "Valuation",
+      "valueDesc": "Rank by P/E from low to high, including profitable companies only.",
+      "ticker": "Ticker",
+      "sector": "Sector",
+      "metric": "Factor value",
+      "note": "Ranks describe past characteristics and are not forecasts of future returns.",
+      "empty": "There is not enough data in this window."
     }
   },
   "career": {

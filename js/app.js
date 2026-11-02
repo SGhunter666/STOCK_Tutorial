@@ -57,6 +57,7 @@ import {
 } from './fund/fundEngine.js';
 import { getUnit } from './education/curriculum.js';
 import { getCompany } from './data/companies.js';
+import { normalizeQuantConfig } from './quant/backtestEngine.js';
 import { createShell } from './ui/shell.js';
 import { Router } from './ui/router.js';
 import { initComponents, toast, openLockedToolModal } from './ui/components.js';
@@ -66,6 +67,7 @@ import { createAcademyView } from './ui/views/academy.js';
 import { createBranchesView } from './ui/views/branches.js';
 import { createCareerView } from './ui/views/career.js';
 import { createFundView } from './ui/views/fund.js';
+import { createQuantView } from './ui/views/quant.js';
 import { createLessonView } from './ui/views/lesson.js';
 import { createQuizView } from './ui/views/quiz.js';
 import { createPracticeView } from './ui/views/practice.js';
@@ -911,6 +913,13 @@ const actions = {
   getCareerProgress() {
     return careerProgress(store.get());
   },
+  setQuantConfig(config) {
+    const state = store.get();
+    state.quant = normalizeQuantConfig(config);
+    store.update(() => {}, { type: 'quant:config' });
+    scheduleSave();
+    return state.quant;
+  },
   createFund(input) {
     if (appMode !== 'career') {
       toast(i18n.t('fund.errorCareerOnly'), 'warning');
@@ -1474,6 +1483,9 @@ function renderRoute(route) {
       break;
     case 'fund':
       view = createFundView(ctx);
+      break;
+    case 'quant':
+      view = createQuantView(ctx);
       break;
     case 'market':
       view = createMarketView(ctx);

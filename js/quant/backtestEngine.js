@@ -1,0 +1,395 @@
+/**
+ * Quantitative research engine: deterministic long-only backtests and factor
+ * ranking. Signals are computed from completed bars and executed at the next
+ * open, so the backtest cannot look ahead within its own data.
+ */
+import { COMPANIES, fundamentalsFor } from '../data/companies.js';
+import { annualizedVolatility, sma } from '../market/indicators.js';
+
+export const QUANT_MIN_BARS = 30;
+export const QUANT_CASH_OPTIONS = [10000, 100000, 1000000];
+export const QUANT_FACTOR_OPTIONS = [
+  { id: 'momentum', nameKey: 'quant.factor.momentum', descKey: 'quant.factor.momentumDesc' },
+  { id: 'lowVol', nameKey: 'quant.factor.lowVol', descKey: 'quant.factor.lowVolDesc' },
+  { id: 'trend', nameKey: 'quant.factor.trend', descKey: 'quant.factor.trendDesc' },
+  { id: 'value', nameKey: 'quant.factor.value', descKey: 'quant.factor.valueDesc' },
+];
+
+const param = (id, labelKey, def, min, max, step = 1) => ({
+  id, labelKey, default: def, min, max, step,
+});
+
+export const QUANT_STRATEGIES = {
+  buyHold: {
+    id: 'buyHold',
+    nameKey: 'quant.strategy.buyHold.name',
+    descKey: 'quant.strategy.buyHold.desc',
+    params: [],
+  },
+  smaCross: {
+    id: 'smaCross',
+    nameKey: 'quant.strategy.smaCross.name',
+    descKey: 'quant.strategy.smaCross.desc',
+    params: [
+      param('fast', 'quant.param.fast', 20, 2, 120),
+      param('slow', 'quant.param.slow', 50, 5, 250),
+    ],
+  },
+  rsiReversion: {
+    id: 'rsiReversion',
+    nameKey: 'quant.strategy.rsiReversion.name',
+    descKey: 'quant.strategy.rsiReversion.desc',
+    params: [
+      param('rsiPeriod', 'quant.param.rsiPeriod', 14, 5, 40),
+      param('rsiEntry', 'quant.param.rsiEntry', 30, 10, 45),
+      param('rsiExit', 'quant.param.rsiExit', 70, 55, 90),
+    ],
+  },
+  momentum: {
+    id: 'momentum',
+    nameKey: 'quant.strategy.momentum.name',
+    descKey: 'quant.strategy.momentum.desc',
+    params: [
+      param('lookback', 'quant.param.lookback', 60, 10, 250),
+      param('threshold', 'quant.param.threshold', 2, 0, 20, 0.5),
+    ],
+  },
+  breakout: {
+    id: 'breakout',
+    nameKey: 'quant.strategy.breakout.name',
+    descKey: 'quant.strategy.breakout.desc',
+    params: [
+      param('lookback', 'quant.param.breakoutLookback', 20, 5, 120),
+    ],
+  },
+};
+
+export const DEFAULT_QUANT_CONFIG = {
+  ticker: '',
+  strategy: 'smaCross',
+  params: {
+    fast: 20,
+    slow: 50,
+    rsiPeriod: 14,
+    rsiEntry: 30,
+    rsiExit: 70,
+    lookback: 60,
+    threshold: 2,
+  },
+  initialCash: QUANT_CASH_OPTIONS[1],
+  commission: 1,
+  factor: 'momentum',
+  factorLookback: 60,
+};
+
+function clamp(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, number));
+}
+
+export function quantStrategy(id) {
+  return QUANT_STRATEGIES[id] || QUANT_STRATEGIES.smaCross;
+}
+
+function normalizeParams(strategyId, params = {}) {
+  const strategy = quantStrategy(strategyId);
+  const out = {};
+  for (const definition of strategy.params) {
+    out[definition.id] = clamp(
+      params[definition.id],
+      definition.min,
+      definition.max,
+      definition.default,
+    );
+  }
+  if (strategyId === 'smaCross' && out.fast >= out.slow) {
+    out.fast = Math.max(2, Math.min(out.slow - 1, out.fast));
+  }
+  if (strategyId === 'rsiReversion' && out.rsiEntry >= out.rsiExit - 5) {
+    out.rsiExit = Math.min(90, out.rsiEntry + 5);
+  }
+  return out;
+}
+
+export function normalizeQuantConfig(config) {
+  const source = config && typeof config === 'object' ? config : {};
+  const strategyId = QUANT_STRATEGIES[source.strategy] ? source.strategy : DEFAULT_QUANT_CONFIG.strategy;
+  const factor = QUANT_FACTOR_OPTIONS.some((entry) => entry.id === source.factor)
+    ? source.factor
+    : DEFAULT_QUANT_CONFIG.factor;
+  return {
+    ticker: typeof source.ticker === 'string' ? source.ticker.slice(0, 8) : '',
+    strategy: strategyId,
+    params: normalizeParams(strategyId, source.params),
+    initialCash: QUANT_CASH_OPTIONS.includes(Number(source.initialCash))
+      ? Number(source.initialCash) : DEFAULT_QUANT_CONFIG.initialCash,
+    commission: clamp(source.commission, 0, 10, DEFAULT_QUANT_CONFIG.commission),
+    factor,
+    factorLookback: Math.round(clamp(source.factorLookback, 20, 250, DEFAULT_QUANT_CONFIG.factorLookback)),
+  };
+}
+
+function rsiAt(closes, index, period) {
+  if (index < period) return null;
+  let gains = 0;
+  let losses = 0;
+  for (let cursor = index - period + 1; cursor <= index; cursor += 1) {
+    const change = closes[cursor] - closes[cursor - 1];
+    if (change >= 0) gains += change;
+    else losses += Math.abs(change);
+  }
+  if (gains + losses === 0) return 50;
+  if (losses === 0) return 100;
+  const rs = gains / losses;
+  return 100 - (100 / (1 + rs));
+}
+
+function signalAt(strategyId, params, candles, index) {
+  const closes = candles.map((candle) => candle.c);
+  if (strategyId === 'buyHold') return index === 0 ? 'buy' : null;
+  if (strategyId === 'smaCross') {
+    const fast = sma(closes.slice(0, index + 1), params.fast);
+    const slow = sma(closes.slice(0, index + 1), params.slow);
+    const prevFast = sma(closes.slice(0, index), params.fast);
+    const prevSlow = sma(closes.slice(0, index), params.slow);
+    if (fast == null || slow == null || prevFast == null || prevSlow == null) return null;
+    if (fast > slow && prevFast <= prevSlow) return 'buy';
+    if (fast < slow && prevFast >= prevSlow) return 'sell';
+    return null;
+  }
+  if (strategyId === 'rsiReversion') {
+    const value = rsiAt(closes, index, Math.round(params.rsiPeriod));
+    if (value == null) return null;
+    if (value < params.rsiEntry) return 'buy';
+    if (value > params.rsiExit) return 'sell';
+    return null;
+  }
+  if (strategyId === 'momentum') {
+    const lookback = Math.round(params.lookback);
+    if (index < lookback) return null;
+    const base = closes[index - lookback];
+    if (!base) return null;
+    const move = (closes[index] / base - 1) * 100;
+    if (move > params.threshold) return 'buy';
+    if (move < -params.threshold) return 'sell';
+    return null;
+  }
+  if (strategyId === 'breakout') {
+    const lookback = Math.round(params.lookback);
+    if (index < lookback) return null;
+    const prior = candles.slice(index - lookback, index);
+    const high = Math.max(...prior.map((candle) => candle.h));
+    const low = Math.min(...prior.map((candle) => candle.l));
+    if (candles[index].c > high) return 'buy';
+    if (candles[index].c < low) return 'sell';
+    return null;
+  }
+  return null;
+}
+
+function equityMetrics(curve, initialCash, trades, bars) {
+  const values = curve.length ? curve : [initialCash];
+  const finalEquity = values[values.length - 1];
+  const totalReturnPct = initialCash > 0 ? (finalEquity / initialCash - 1) * 100 : 0;
+  const years = Math.max(1 / 252, bars / 252);
+  const cagrPct = initialCash > 0 && finalEquity > 0
+    ? ((Math.pow(finalEquity / initialCash, 1 / years) - 1) * 100)
+    : -100;
+  let peak = values[0];
+  let worst = 0;
+  for (const value of values) {
+    peak = Math.max(peak, value);
+    if (peak > 0) worst = Math.min(worst, (value - peak) / peak);
+  }
+  const dailyReturns = [];
+  for (let index = 1; index < values.length; index += 1) {
+    if (values[index - 1] > 0) {
+      dailyReturns.push((values[index] - values[index - 1]) / values[index - 1]);
+    }
+  }
+  const mean = dailyReturns.length
+    ? dailyReturns.reduce((sum, value) => sum + value, 0) / dailyReturns.length : 0;
+  const variance = dailyReturns.length > 1
+    ? dailyReturns.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / dailyReturns.length
+    : 0;
+  const std = Math.sqrt(variance);
+  const sharpe = std > 0 ? (mean / std) * Math.sqrt(252) : 0;
+  const wins = trades.filter((trade) => trade.pnl > 0);
+  const losses = trades.filter((trade) => trade.pnl < 0);
+  const grossProfit = wins.reduce((sum, trade) => sum + trade.pnl, 0);
+  const grossLoss = Math.abs(losses.reduce((sum, trade) => sum + trade.pnl, 0));
+  return {
+    initialCash,
+    finalEquity,
+    totalReturnPct,
+    cagrPct,
+    maxDrawdownPct: Math.abs(worst * 100),
+    volatilityPct: std * Math.sqrt(252) * 100,
+    sharpe,
+    winRatePct: trades.length ? (wins.length / trades.length) * 100 : 0,
+    profitFactor: grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? null : 0,
+    trades: trades.length,
+    exposurePct: 0,
+    bars,
+  };
+}
+
+export function runBacktest({
+  candles, strategy = 'smaCross', params = {}, initialCash = 100000, commission = 1,
+}) {
+  if (!Array.isArray(candles) || candles.length < QUANT_MIN_BARS) {
+    return { ok: false, error: 'quant.error.history' };
+  }
+  const strategyDef = QUANT_STRATEGIES[strategy];
+  if (!strategyDef) return { ok: false, error: 'quant.error.strategy' };
+  const normalizedParams = normalizeParams(strategy, params);
+  const cashStart = QUANT_CASH_OPTIONS.includes(Number(initialCash))
+    ? Number(initialCash) : DEFAULT_QUANT_CONFIG.initialCash;
+  const fee = Math.max(0, Number(commission) || 0);
+  const closes = candles.map((candle) => candle.c);
+  let cash = cashStart;
+  let qty = 0;
+  let entry = null;
+  let exposureBars = 0;
+  const trades = [];
+  const curve = [cashStart];
+
+  for (let index = 1; index < candles.length; index += 1) {
+    const signal = signalAt(strategy, normalizedParams, candles.slice(0, index), index - 1);
+    const open = candles[index].o;
+    if (signal === 'buy' && qty === 0) {
+      const quantity = Math.floor((cash - fee) / open);
+      if (quantity > 0) {
+        cash -= quantity * open + fee;
+        qty = quantity;
+        entry = {
+          entryIndex: index,
+          entryPrice: open,
+          qty: quantity,
+          fee,
+        };
+      }
+    } else if (signal === 'sell' && qty > 0 && entry) {
+      const proceeds = qty * open - fee;
+      cash += proceeds;
+      const pnl = qty * (open - entry.entryPrice) - fee * 2;
+      trades.push({
+        entryIndex: entry.entryIndex,
+        exitIndex: index,
+        entryPrice: entry.entryPrice,
+        exitPrice: open,
+        qty,
+        pnl,
+        returnPct: entry.entryPrice > 0
+          ? ((open - entry.entryPrice) / entry.entryPrice) * 100 : 0,
+        barsHeld: index - entry.entryIndex,
+        fee: entry.fee + fee,
+      });
+      qty = 0;
+      entry = null;
+    }
+    if (qty > 0) exposureBars += 1;
+    curve.push(cash + qty * closes[index]);
+  }
+
+  const finalClose = closes[closes.length - 1];
+  if (qty > 0) {
+    const pnl = qty * (finalClose - entry.entryPrice) - entry.fee;
+    trades.push({
+      entryIndex: entry.entryIndex,
+      exitIndex: candles.length - 1,
+      entryPrice: entry.entryPrice,
+      exitPrice: null,
+      qty,
+      pnl,
+      returnPct: entry.entryPrice > 0 ? ((finalClose - entry.entryPrice) / entry.entryPrice) * 100 : 0,
+      barsHeld: candles.length - 1 - entry.entryIndex,
+      fee: entry.fee,
+      open: true,
+    });
+    cash += qty * finalClose;
+  }
+
+  const metrics = equityMetrics(curve, cashStart, trades, candles.length - 1);
+  metrics.exposurePct = (exposureBars / Math.max(1, candles.length - 1)) * 100;
+  metrics.finalEquity = cash;
+  const benchmarkReturnPct = closes[0] > 0 ? (finalClose / closes[0] - 1) * 100 : 0;
+  return {
+    ok: true,
+    strategy,
+    params: normalizedParams,
+    metrics: {
+      ...metrics,
+      benchmarkReturnPct,
+      excessReturnPct: metrics.totalReturnPct - benchmarkReturnPct,
+      openPosition: qty > 0,
+    },
+    trades,
+    equityCurve: curve.map((value, index) => ({
+      index,
+      day: candles[Math.min(index, candles.length - 1)]?.d,
+      equity: Math.round(value * 100) / 100,
+    })),
+    lastPrice: finalClose,
+  };
+}
+
+function factorMetric(state, company, lookback, factor) {
+  const history = state.market?.history?.[company.ticker] || [];
+  const quote = state.market?.quotes?.[company.ticker];
+  const closes = history.map((candle) => candle.c).filter((value) => Number.isFinite(value));
+  const price = quote && Number.isFinite(quote.last) ? quote.last : closes[closes.length - 1];
+  if (!price || closes.length < 2) return null;
+  if (factor === 'momentum') {
+    const window = closes.slice(-(lookback + 1));
+    if (window.length < 2 || !window[0]) return null;
+    return { metric: (price / window[0] - 1) * 100, score: (price / window[0] - 1) * 100 };
+  }
+  if (factor === 'lowVol') {
+    const volatility = annualizedVolatility(closes.slice(-(lookback + 1)));
+    if (!Number.isFinite(volatility)) return null;
+    return { metric: volatility, score: -volatility };
+  }
+  if (factor === 'trend') {
+    const window = closes.slice(-Math.max(lookback, 50));
+    const short = sma(window, 20);
+    const long = sma(window, 50);
+    if (short == null || long == null || long <= 0) return null;
+    const gap = ((short / long) - 1) * 100;
+    return { metric: gap, score: gap };
+  }
+  if (factor === 'value') {
+    const fundamentals = fundamentalsFor(company, price);
+    if (!Number.isFinite(fundamentals.pe) || fundamentals.pe <= 0) return null;
+    return { metric: fundamentals.pe, score: -fundamentals.pe };
+  }
+  return null;
+}
+
+export function factorResearch(state, { factor = 'momentum', lookback = 60 } = {}) {
+  const normalizedFactor = QUANT_FACTOR_OPTIONS.some((entry) => entry.id === factor)
+    ? factor : 'momentum';
+  const window = Math.round(clamp(lookback, 20, 250, 60));
+  const rows = COMPANIES.filter((company) => !company.isEtf)
+    .map((company) => {
+      const result = factorMetric(state, company, window, normalizedFactor);
+      if (!result) return null;
+      return {
+        ticker: company.ticker,
+        nameKey: `company.${company.ticker}.name`,
+        sector: company.sector,
+        metric: Math.round(result.metric * 100) / 100,
+        score: result.score,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score)
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+  return {
+    factor: normalizedFactor,
+    lookback: window,
+    rows,
+    count: rows.length,
+  };
+}

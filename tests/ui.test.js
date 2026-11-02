@@ -12,6 +12,7 @@ import { createChallengesView } from '../js/ui/views/challenges.js';
 import { createSandboxView } from '../js/ui/views/sandbox.js';
 import { createCareerView } from '../js/ui/views/career.js';
 import { createFundView } from '../js/ui/views/fund.js';
+import { createQuantView } from '../js/ui/views/quant.js';
 import { setupFund, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
 import { refreshResearchTasks, acceptResearchTask } from '../js/education/career.js';
 
@@ -156,6 +157,30 @@ test('fund view gates, launches and renders an active fund', () => {
   assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 7, 'seven team roles render');
   active.destroy();
   activeHost.remove();
+});
+
+test('quant lab shows its lock then renders a backtest and factor table', () => {
+  const lockedState = createGameState({ seed: 'ui-quant-locked' });
+  const locked = createQuantView(makeCtx(lockedState).ctx);
+  const lockedHost = mountView(locked);
+  assert(lockedHost.textContent.includes('quant.lockedTitle'), 'locked card is shown before Unit 16');
+  assert(!lockedHost.querySelector('[data-quant-form]'), 'configuration is hidden while locked');
+  locked.destroy();
+  lockedHost.remove();
+
+  const state = createGameState({ seed: 'ui-quant' });
+  state.education.units.u16.completedAt = Date.now();
+  const { ctx } = makeCtx(state);
+  ctx.actions.setQuantConfig = (config) => config;
+  const view = createQuantView(ctx);
+  const host = mountView(view);
+  assert(host.querySelector('[data-quant-form]'), 'strategy form renders once unlocked');
+  assert(host.querySelector('[data-param="fast"]'), 'SMA parameters render');
+  assert(host.querySelector('#quant-equity-chart'), 'equity chart renders');
+  assert(host.textContent.includes('quant.stats.totalReturn'), 'return stat renders');
+  assert(host.textContent.includes('quant.factorTitle'), 'factor research card renders');
+  view.destroy();
+  host.remove();
 });
 
 test('challenge board and sandbox setup mount without errors', () => {

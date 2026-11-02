@@ -1425,6 +1425,26 @@
   .career-task__head { flex-direction: column; }
 }
 
+.quant-page .card { margin-bottom: 14px; }
+
+.quant-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quant-result-shell .card { margin-bottom: 14px; }
+
+.quant-page .chart-wrap canvas { width: 100%; }
+
+@media (max-width: 1080px) {
+  .quant-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .quant-form { grid-template-columns: 1fr; }
+}
+
 .fund-page .card { margin-bottom: 14px; }
 
 .fund-form {
