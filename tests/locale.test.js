@@ -15,7 +15,9 @@ import { CAREER_RANKS } from '../js/education/career.js';
 import {
   FUND_STRATEGIES, FUND_RISK_PROFILES, FUND_ROLES,
 } from '../js/fund/fundEngine.js';
-import { QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS } from '../js/quant/backtestEngine.js';
+import {
+  QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_MODES, QUANT_OBJECTIVES,
+} from '../js/quant/backtestEngine.js';
 
 const zhResponse = await fetch('../locales/zh-CN.json');
 const enResponse = await fetch('../locales/en.json');
@@ -744,8 +746,30 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
     'quant.lockedTitle', 'quant.lockedText', 'quant.lockedHint', 'quant.goAcademy',
     'quant.configTitle', 'quant.configSubtitle', 'quant.tickerLabel', 'quant.strategyLabel',
     'quant.cashLabel', 'quant.commissionLabel', 'quant.factorLabel', 'quant.factorLookbackLabel',
-    'quant.run', 'quant.resultTitle',
-    'quant.error.history', 'quant.error.strategy',
+    'quant.run', 'quant.runOptimize', 'quant.runMl', 'quant.resultTitle',
+    'quant.objectiveLabel', 'quant.splitLabel',
+    'quant.error.history', 'quant.error.optimizeHistory', 'quant.error.mlData',
+    'quant.error.strategy',
+    'quant.opt.resultTitle', 'quant.opt.inSampleReturn', 'quant.opt.inSharpe',
+    'quant.opt.outSampleReturn', 'quant.opt.outSharpe', 'quant.opt.outDrawdown',
+    'quant.opt.split', 'quant.opt.baseline', 'quant.opt.pickCount',
+    'quant.opt.overfitWarning', 'quant.opt.overfitClear',
+    'quant.opt.bestTitle', 'quant.opt.bestSubtitle', 'quant.opt.bestNote',
+    'quant.opt.tableTitle', 'quant.opt.tableSubtitle', 'quant.opt.params',
+    'quant.opt.inReturn', 'quant.opt.score', 'quant.opt.chartTitle',
+    'quant.opt.chartSubtitle', 'quant.opt.chartNote', 'quant.opt.disclaimer',
+    'quant.opt.gridNote',
+    'quant.ml.configSubtitle', 'quant.ml.configNote', 'quant.ml.resultTitle',
+    'quant.ml.topReturn', 'quant.ml.benchmark', 'quant.ml.excess', 'quant.ml.hitRate',
+    'quant.ml.testAccuracy', 'quant.ml.trainAccuracy', 'quant.ml.rebalances',
+    'quant.ml.avgExcess', 'quant.ml.overfitWarning', 'quant.ml.overfitClear',
+    'quant.ml.modelTitle', 'quant.ml.modelSubtitle', 'quant.ml.intercept',
+    'quant.ml.splitDate', 'quant.ml.modelNote', 'quant.ml.picksTitle',
+    'quant.ml.picksSubtitle', 'quant.ml.date', 'quant.ml.picks',
+    'quant.ml.pickReturn', 'quant.ml.universeReturn', 'quant.ml.chartTitle',
+    'quant.ml.chartSubtitle', 'quant.ml.chartNote', 'quant.ml.disclaimer',
+    'quant.ml.lookbackLabel', 'quant.ml.horizonLabel', 'quant.ml.topNLabel',
+    'quant.ml.testPctLabel',
     'quant.stats.totalReturn', 'quant.stats.cagr', 'quant.stats.maxDrawdown',
     'quant.stats.finalEquity', 'quant.stats.sharpe', 'quant.stats.volatility',
     'quant.stats.winRate', 'quant.stats.trades', 'quant.stats.exposure',
@@ -766,6 +790,11 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
     check(factor.nameKey);
     check(factor.descKey);
   }
+  for (const mode of QUANT_MODES) {
+    check(mode.nameKey);
+    check(mode.descKey);
+  }
+  for (const objective of QUANT_OBJECTIVES) check(objective.nameKey);
   ['ticker', 'sector', 'metric', 'note', 'empty'].forEach((key) => check(`quant.factor.${key}`));
   assertEqual(missing.length, 0, missing.join('\n'));
 });

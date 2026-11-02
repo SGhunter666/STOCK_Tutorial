@@ -183,6 +183,34 @@ test('quant lab shows its lock then renders a backtest and factor table', () => 
   host.remove();
 });
 
+test('quant optimisation and ML modes render their own controls and results', () => {
+  const optimizeState = createGameState({ seed: 'ui-quant-opt' });
+  optimizeState.education.units.u16.completedAt = Date.now();
+  optimizeState.quant.mode = 'optimize';
+  const optimizeCtx = makeCtx(optimizeState);
+  optimizeCtx.ctx.actions.setQuantConfig = (config) => config;
+  const optimize = createQuantView(optimizeCtx.ctx);
+  const optimizeHost = mountView(optimize);
+  assert(optimizeHost.querySelector('[data-quant-mode="optimize"]'), 'optimise tab renders');
+  assert(optimizeHost.querySelector('[name="objective"]'), 'objective selector renders');
+  assert(optimizeHost.textContent.includes('quant.opt.bestTitle'), 'optimisation result renders');
+  optimize.destroy();
+  optimizeHost.remove();
+
+  const mlState = createGameState({ seed: 'ui-quant-ml' });
+  mlState.education.units.u16.completedAt = Date.now();
+  mlState.quant.mode = 'ml';
+  const mlCtx = makeCtx(mlState);
+  mlCtx.ctx.actions.setQuantConfig = (config) => config;
+  const ml = createQuantView(mlCtx.ctx);
+  const mlHost = mountView(ml);
+  assert(mlHost.querySelector('[name="mlLookback"]'), 'ML feature window renders');
+  assert(mlHost.textContent.includes('quant.ml.modelTitle'), 'model coefficient panel renders');
+  assert(mlHost.querySelector('#quant-ml-chart'), 'selection curve renders');
+  ml.destroy();
+  mlHost.remove();
+});
+
 test('challenge board and sandbox setup mount without errors', () => {
   const state = createGameState({ seed: 'ui-modes' });
   const { ctx } = makeCtx(state);

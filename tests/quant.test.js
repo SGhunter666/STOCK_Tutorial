@@ -7,8 +7,9 @@ import {
 } from './harness.js';
 import { createGameState } from '../js/game/gameState.js';
 import {
-  QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_MIN_BARS,
-  normalizeQuantConfig, runBacktest, factorResearch,
+  QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_MIN_BARS, QUANT_MODES, QUANT_OBJECTIVES,
+  normalizeQuantConfig, runBacktest, factorResearch, parameterGrid, optimizeStrategy,
+  buildMlPanel, trainLogisticModel, mlStockSelection,
 } from '../js/quant/backtestEngine.js';
 
 function candlesFromCloses(closes) {
@@ -135,6 +136,85 @@ test('quant configuration clamps invalid values and keeps a valid strategy', () 
   assertEqual(config.factorLookback, 250, 'lookback clamps to its ceiling');
   const defaulted = normalizeQuantConfig({ strategy: 'unknown' });
   assertEqual(defaulted.strategy, 'smaCross', 'unknown strategy falls back');
+  const advanced = normalizeQuantConfig({
+    mode: 'moon', objective: 'vibes', splitPct: 99,
+    mlLookback: 500, mlHorizon: 1, mlTopN: 20, mlTestPct: 90,
+  });
+  assertEqual(advanced.mode, 'backtest', 'unknown mode falls back');
+  assertEqual(advanced.objective, 'sharpe', 'unknown objective falls back');
+  assertEqual(advanced.splitPct, 90, 'split clamps');
+  assertEqual(advanced.mlLookback, 50, 'ML lookback clamps');
+  assertEqual(advanced.mlHorizon, 5, 'ML horizon clamps');
+  assertEqual(advanced.mlTopN, 10, 'ML top-N clamps');
+  assertEqual(advanced.mlTestPct, 50, 'ML test share clamps');
+});
+
+test('optimisation searches a valid grid and checks out of sample', () => {
+  const grid = parameterGrid('smaCross');
+  assert(grid.length > 0 && grid.length <= 64, 'grid is bounded');
+  assert(grid.every((combo) => combo.fast < combo.slow), 'SMA grid keeps fast below slow');
+  const rsiGrid = parameterGrid('rsiReversion');
+  assert(rsiGrid.every((combo) => combo.rsiEntry + 5 <= combo.rsiExit), 'RSI grid keeps entry below exit');
+
+  const candles = candlesFromCloses(trendingCloses(260));
+  const first = optimizeStrategy({
+    candles,
+    strategy: 'smaCross',
+    initialCash: 100000,
+    splitPct: 70,
+    objective: 'sharpe',
+  });
+  assert(first.ok, 'optimisation runs');
+  assert(first.best.params.fast < first.best.params.slow, 'best parameters remain valid');
+  assert(first.outSample, 'out-of-sample run exists');
+  assertEqual(typeof first.overfitRisk, 'boolean', 'overfit flag is boolean');
+  assert(first.comboCount > 1, 'more than one candidate searched');
+  const second = optimizeStrategy({
+    candles,
+    strategy: 'smaCross',
+    initialCash: 100000,
+    splitPct: 70,
+    objective: 'sharpe',
+  });
+  assertEqual(JSON.stringify(first.best.params), JSON.stringify(second.best.params), 'optimisation is deterministic');
+  const tooShort = optimizeStrategy({
+    candles: candles.slice(0, 50),
+    strategy: 'smaCross',
+  });
+  assertEqual(tooShort.ok, false);
+  assertEqual(tooShort.error, 'quant.error.optimizeHistory');
+});
+
+test('ML panel, logistic model and out-of-sample selection are deterministic', () => {
+  const state = createGameState({ seed: 'quant-ml' });
+  const panel = buildMlPanel(state, { lookback: 30, horizon: 10 });
+  assert(panel.ok, 'ML panel builds');
+  assert(panel.samples.length >= 120, 'enough labelled samples');
+  assert(panel.samples.every((sample) => sample.label === 0 || sample.label === 1), 'labels are binary');
+  const subset = panel.samples.slice(0, 200);
+  const model = trainLogisticModel(subset);
+  assertEqual(model.weights.length, 4, 'three factors plus intercept');
+  assert(model.accuracy >= 0 && model.accuracy <= 1, 'training accuracy is a ratio');
+
+  const result = mlStockSelection(state, {
+    lookback: 30, horizon: 10, topN: 5, testPct: 30,
+  });
+  assert(result.ok, 'ML selection runs');
+  assert(result.picks.length >= 1, 'at least one out-of-sample rebalance');
+  assert(result.picks.every((pick) => pick.tickers.length <= 5), 'top-N respected');
+  assert(result.portfolio.totalReturnPct >= -100, 'portfolio return is bounded');
+  assertEqual(typeof result.overfitRisk, 'boolean', 'ML overfit flag is boolean');
+  const second = mlStockSelection(state, {
+    lookback: 30, horizon: 10, topN: 5, testPct: 30,
+  });
+  assertEqual(JSON.stringify(result.model.coefficients), JSON.stringify(second.model.coefficients), 'model is deterministic');
+});
+
+test('new quant modes and objectives are exposed', () => {
+  assertEqual(QUANT_MODES.length, 3, 'three research modes');
+  assertEqual(QUANT_OBJECTIVES.length, 4, 'four optimisation objectives');
+  assertEqual(QUANT_FACTOR_OPTIONS.length, 4, 'four factors are available');
+  assert(QUANT_MODES.every((mode) => mode.nameKey && mode.descKey), 'mode keys exist');
 });
 
 test('backtesting never mutates the simulated account', () => {

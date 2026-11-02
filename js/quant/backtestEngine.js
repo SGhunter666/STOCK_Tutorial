@@ -15,6 +15,22 @@ export const QUANT_FACTOR_OPTIONS = [
   { id: 'value', nameKey: 'quant.factor.value', descKey: 'quant.factor.valueDesc' },
 ];
 
+export const QUANT_MODES = [
+  { id: 'backtest', nameKey: 'quant.mode.backtest', descKey: 'quant.mode.backtestDesc' },
+  { id: 'optimize', nameKey: 'quant.mode.optimize', descKey: 'quant.mode.optimizeDesc' },
+  { id: 'ml', nameKey: 'quant.mode.ml', descKey: 'quant.mode.mlDesc' },
+];
+
+export const QUANT_OBJECTIVES = [
+  { id: 'sharpe', nameKey: 'quant.objective.sharpe' },
+  { id: 'totalReturn', nameKey: 'quant.objective.totalReturn' },
+  { id: 'cagr', nameKey: 'quant.objective.cagr' },
+  { id: 'calmar', nameKey: 'quant.objective.calmar' },
+];
+
+export const ML_FACTORS = ['momentum', 'lowVol', 'trend'];
+export const ML_MIN_SAMPLES = 120;
+
 const param = (id, labelKey, def, min, max, step = 1) => ({
   id, labelKey, default: def, min, max, step,
 });
@@ -67,6 +83,7 @@ export const QUANT_STRATEGIES = {
 export const DEFAULT_QUANT_CONFIG = {
   ticker: '',
   strategy: 'smaCross',
+  mode: 'backtest',
   params: {
     fast: 20,
     slow: 50,
@@ -80,6 +97,12 @@ export const DEFAULT_QUANT_CONFIG = {
   commission: 1,
   factor: 'momentum',
   factorLookback: 60,
+  objective: 'sharpe',
+  splitPct: 70,
+  mlLookback: 30,
+  mlHorizon: 10,
+  mlTopN: 5,
+  mlTestPct: 30,
 };
 
 function clamp(value, min, max, fallback) {
@@ -118,15 +141,26 @@ export function normalizeQuantConfig(config) {
   const factor = QUANT_FACTOR_OPTIONS.some((entry) => entry.id === source.factor)
     ? source.factor
     : DEFAULT_QUANT_CONFIG.factor;
+  const mode = QUANT_MODES.some((entry) => entry.id === source.mode)
+    ? source.mode : DEFAULT_QUANT_CONFIG.mode;
+  const objective = QUANT_OBJECTIVES.some((entry) => entry.id === source.objective)
+    ? source.objective : DEFAULT_QUANT_CONFIG.objective;
   return {
     ticker: typeof source.ticker === 'string' ? source.ticker.slice(0, 8) : '',
     strategy: strategyId,
+    mode,
     params: normalizeParams(strategyId, source.params),
     initialCash: QUANT_CASH_OPTIONS.includes(Number(source.initialCash))
       ? Number(source.initialCash) : DEFAULT_QUANT_CONFIG.initialCash,
     commission: clamp(source.commission, 0, 10, DEFAULT_QUANT_CONFIG.commission),
     factor,
     factorLookback: Math.round(clamp(source.factorLookback, 20, 250, DEFAULT_QUANT_CONFIG.factorLookback)),
+    objective,
+    splitPct: Math.round(clamp(source.splitPct, 50, 90, DEFAULT_QUANT_CONFIG.splitPct)),
+    mlLookback: Math.round(clamp(source.mlLookback, 20, 50, DEFAULT_QUANT_CONFIG.mlLookback)),
+    mlHorizon: Math.round(clamp(source.mlHorizon, 5, 30, DEFAULT_QUANT_CONFIG.mlHorizon)),
+    mlTopN: Math.round(clamp(source.mlTopN, 3, 10, DEFAULT_QUANT_CONFIG.mlTopN)),
+    mlTestPct: Math.round(clamp(source.mlTestPct, 20, 50, DEFAULT_QUANT_CONFIG.mlTestPct)),
   };
 }
 
@@ -391,5 +425,358 @@ export function factorResearch(state, { factor = 'momentum', lookback = 60 } = {
     lookback: window,
     rows,
     count: rows.length,
+  };
+}
+
+const OPTIMIZATION_GRIDS = {
+  buyHold: [{}],
+  smaCross: {
+    fast: [5, 10, 20, 30, 40],
+    slow: [30, 50, 80, 120, 160],
+  },
+  rsiReversion: {
+    rsiPeriod: [7, 14, 21],
+    rsiEntry: [20, 30, 40],
+    rsiExit: [60, 70, 80],
+  },
+  momentum: {
+    lookback: [20, 40, 60, 120],
+    threshold: [1, 2, 3, 5],
+  },
+  breakout: {
+    lookback: [10, 20, 40, 60],
+  },
+};
+
+/** Cartesian product of the built-in parameter grid, filtered to valid combos. */
+export function parameterGrid(strategyId) {
+  const grid = OPTIMIZATION_GRIDS[strategyId] || [{}];
+  if (Array.isArray(grid)) return grid.map((params) => ({ ...params }));
+  let combos = [{}];
+  for (const [key, values] of Object.entries(grid)) {
+    combos = combos.flatMap((combo) => values.map((value) => ({ ...combo, [key]: value })));
+  }
+  const valid = combos.filter((combo) => {
+    if (strategyId === 'smaCross') return combo.fast < combo.slow;
+    if (strategyId === 'rsiReversion') return combo.rsiEntry + 5 <= combo.rsiExit;
+    return true;
+  });
+  return valid.slice(0, 64).map((params) => normalizeParams(strategyId, params));
+}
+
+function objectiveScore(metrics, objective) {
+  if (!metrics) return -Infinity;
+  if (objective === 'totalReturn') return metrics.totalReturnPct;
+  if (objective === 'cagr') return metrics.cagrPct;
+  if (objective === 'calmar') return metrics.totalReturnPct / Math.max(1, metrics.maxDrawdownPct);
+  return metrics.sharpe;
+}
+
+export function optimizeStrategy({
+  candles,
+  strategy = 'smaCross',
+  baseParams = {},
+  initialCash = 100000,
+  commission = 1,
+  splitPct = 70,
+  objective = 'sharpe',
+}) {
+  if (!Array.isArray(candles) || candles.length < QUANT_MIN_BARS * 2) {
+    return { ok: false, error: 'quant.error.optimizeHistory' };
+  }
+  const split = Math.round(clamp(splitPct, 50, 90, 70));
+  let splitIndex = Math.floor(candles.length * split / 100);
+  splitIndex = Math.max(QUANT_MIN_BARS, Math.min(candles.length - QUANT_MIN_BARS, splitIndex));
+  const inCandles = candles.slice(0, splitIndex);
+  const outCandles = candles.slice(splitIndex);
+  const combos = parameterGrid(strategy);
+  const candidates = [];
+  for (const params of combos) {
+    const run = runBacktest({
+      candles: inCandles,
+      strategy,
+      params,
+      initialCash,
+      commission,
+    });
+    if (!run.ok) continue;
+    candidates.push({
+      params,
+      inSample: run.metrics,
+      score: objectiveScore(run.metrics, objective),
+    });
+  }
+  if (!candidates.length) return { ok: false, error: 'quant.error.optimizeHistory' };
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  const outSample = runBacktest({
+    candles: outCandles,
+    strategy,
+    params: best.params,
+    initialCash,
+    commission,
+  });
+  const baselineOut = runBacktest({
+    candles: outCandles,
+    strategy,
+    params: baseParams,
+    initialCash,
+    commission,
+  });
+  const inMetrics = best.inSample;
+  const outMetrics = outSample.ok ? outSample.metrics : null;
+  const overfitRisk = Boolean(outMetrics && (
+    outMetrics.totalReturnPct < 0
+    || outMetrics.sharpe < inMetrics.sharpe * 0.3
+    || (inMetrics.totalReturnPct > 5 && outMetrics.totalReturnPct < inMetrics.totalReturnPct * 0.3)
+  ));
+  return {
+    ok: true,
+    strategy,
+    objective,
+    splitPct: Math.round(splitIndex / candles.length * 100),
+    splitIndex,
+    comboCount: combos.length,
+    candidates: candidates.slice(0, 8),
+    best,
+    outSample: outSample.ok ? outSample : null,
+    baselineOut: baselineOut.ok ? baselineOut : null,
+    overfitRisk,
+  };
+}
+
+function mlFactorValue(closes, index, factor, lookback) {
+  if (index < lookback || index >= closes.length) return null;
+  if (factor === 'momentum') {
+    const base = closes[index - lookback];
+    if (!base) return null;
+    return (closes[index] / base - 1) * 100;
+  }
+  if (factor === 'lowVol') {
+    const volatility = annualizedVolatility(closes.slice(index - lookback, index + 1));
+    return Number.isFinite(volatility) ? -volatility : null;
+  }
+  if (factor === 'trend') {
+    const short = sma(closes.slice(0, index + 1), 20);
+    const long = sma(closes.slice(0, index + 1), 50);
+    if (short == null || long == null || long <= 0) return null;
+    return ((short / long) - 1) * 100;
+  }
+  return null;
+}
+
+function zScoreRows(rows, featureCount) {
+  const means = Array(featureCount).fill(0);
+  const stds = Array(featureCount).fill(0);
+  for (const row of rows) {
+    for (let index = 0; index < featureCount; index += 1) means[index] += row.features[index];
+  }
+  for (let index = 0; index < featureCount; index += 1) means[index] /= Math.max(1, rows.length);
+  for (const row of rows) {
+    for (let index = 0; index < featureCount; index += 1) {
+      stds[index] += (row.features[index] - means[index]) ** 2;
+    }
+  }
+  for (let index = 0; index < featureCount; index += 1) {
+    stds[index] = Math.sqrt(stds[index] / Math.max(1, rows.length)) || 1;
+  }
+  return rows.map((row) => ({
+    ...row,
+    features: row.features.map((value, index) => (value - means[index]) / stds[index]),
+  }));
+}
+
+export function buildMlPanel(state, { lookback = 30, horizon = 10 } = {}) {
+  const window = Math.round(clamp(lookback, 20, 50, 30));
+  const forward = Math.round(clamp(horizon, 5, 30, 10));
+  const companies = COMPANIES.filter((company) => !company.isEtf);
+  const series = companies.map((company) => ({
+    company,
+    closes: (state.market?.history?.[company.ticker] || [])
+      .map((candle) => candle.c)
+      .filter((value) => Number.isFinite(value)),
+  })).filter((entry) => entry.closes.length >= window + forward + 1);
+  if (!series.length) return { ok: false, error: 'quant.error.mlData' };
+  const maxLength = Math.min(...series.map((entry) => entry.closes.length));
+  const dates = [];
+  for (let index = window; index < maxLength - forward; index += 3) dates.push(index);
+  if (!dates.length) return { ok: false, error: 'quant.error.mlData' };
+  const groups = [];
+  const samples = [];
+  for (const date of dates) {
+    const rows = [];
+    for (const entry of series) {
+      const features = ML_FACTORS.map((factor) => mlFactorValue(entry.closes, date, factor, window));
+      if (features.some((value) => value == null || !Number.isFinite(value))) continue;
+      const forwardReturn = (entry.closes[date + forward] / entry.closes[date] - 1) * 100;
+      rows.push({
+        date,
+        ticker: entry.company.ticker,
+        sector: entry.company.sector,
+        features,
+        forwardReturn,
+      });
+    }
+    if (rows.length < 8) continue;
+    const sorted = [...rows].sort((a, b) => a.forwardReturn - b.forwardReturn);
+    const median = sorted[Math.floor(sorted.length / 2)].forwardReturn;
+    const labeled = rows.map((row) => ({ ...row, label: row.forwardReturn >= median ? 1 : 0 }));
+    groups.push({ date, rows: zScoreRows(labeled, ML_FACTORS.length) });
+    samples.push(...groups[groups.length - 1].rows);
+  }
+  return {
+    ok: true,
+    lookback: window,
+    horizon: forward,
+    dates: groups.map((group) => group.date),
+    groups,
+    samples,
+  };
+}
+
+function sigmoid(value) {
+  if (value > 30) return 1;
+  if (value < -30) return 0;
+  return 1 / (1 + Math.exp(-value));
+}
+
+function predictProbability(weights, features) {
+  let sum = weights[0];
+  for (let index = 0; index < features.length; index += 1) {
+    sum += weights[index + 1] * features[index];
+  }
+  return sigmoid(sum);
+}
+
+export function trainLogisticModel(samples, { iterations = 160, learningRate = 0.08, l2 = 0.02 } = {}) {
+  const featureCount = ML_FACTORS.length;
+  const weights = Array(featureCount + 1).fill(0);
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    const gradient = Array(featureCount + 1).fill(0);
+    for (const sample of samples) {
+      const probability = predictProbability(weights, sample.features);
+      const error = probability - sample.label;
+      gradient[0] += error;
+      for (let index = 0; index < featureCount; index += 1) {
+        gradient[index + 1] += error * sample.features[index];
+      }
+    }
+    const scale = 1 / Math.max(1, samples.length);
+    weights[0] -= learningRate * gradient[0] * scale;
+    for (let index = 0; index < featureCount; index += 1) {
+      weights[index + 1] -= learningRate * (gradient[index + 1] * scale + l2 * weights[index + 1]);
+    }
+  }
+  let correct = 0;
+  for (const sample of samples) {
+    if ((predictProbability(weights, sample.features) >= 0.5) === (sample.label === 1)) correct += 1;
+  }
+  return {
+    weights,
+    coefficients: Object.fromEntries(ML_FACTORS.map((factor, index) => [factor, Math.round(weights[index + 1] * 1000) / 1000])),
+    intercept: Math.round(weights[0] * 1000) / 1000,
+    accuracy: samples.length ? correct / samples.length : 0,
+    samples: samples.length,
+  };
+}
+
+export function mlStockSelection(state, {
+  lookback = 30,
+  horizon = 10,
+  topN = 5,
+  testPct = 30,
+} = {}) {
+  const panel = buildMlPanel(state, { lookback, horizon });
+  if (!panel.ok) return panel;
+  const sortedDates = [...new Set(panel.samples.map((sample) => sample.date))].sort((a, b) => a - b);
+  if (sortedDates.length < 8 || panel.samples.length < ML_MIN_SAMPLES) {
+    return { ok: false, error: 'quant.error.mlData' };
+  }
+  const testCount = Math.max(2, Math.round(sortedDates.length * clamp(testPct, 20, 50, 30) / 100));
+  const splitDate = sortedDates[sortedDates.length - testCount];
+  const trainSamples = panel.samples.filter((sample) => sample.date < splitDate);
+  const testSamples = panel.samples.filter((sample) => sample.date >= splitDate);
+  if (!trainSamples.length || !testSamples.length) return { ok: false, error: 'quant.error.mlData' };
+  const model = trainLogisticModel(trainSamples);
+  let testCorrect = 0;
+  for (const sample of testSamples) {
+    if ((predictProbability(model.weights, sample.features) >= 0.5) === (sample.label === 1)) testCorrect += 1;
+  }
+  const testAccuracy = testSamples.length ? testCorrect / testSamples.length : 0;
+  const top = Math.round(clamp(topN, 3, 10, 5));
+  const rebalanceDates = [];
+  let nextDate = splitDate;
+  for (const date of sortedDates) {
+    if (date < splitDate) continue;
+    if (date >= nextDate) {
+      rebalanceDates.push(date);
+      nextDate = date + Math.max(5, Math.round(clamp(horizon, 5, 30, 10)));
+    }
+  }
+  const picks = [];
+  let topCurve = 1;
+  let benchmarkCurve = 1;
+  const curve = [{ index: 0, top: topCurve, benchmark: benchmarkCurve }];
+  let wins = 0;
+  let excessSum = 0;
+  for (const date of rebalanceDates) {
+    const group = panel.groups.find((entry) => entry.date === date);
+    if (!group) continue;
+    const ranked = group.rows
+      .map((row) => ({
+        ticker: row.ticker,
+        sector: row.sector,
+        probability: predictProbability(model.weights, row.features),
+        forwardReturn: row.forwardReturn,
+      }))
+      .sort((a, b) => b.probability - a.probability);
+    const selected = ranked.slice(0, top);
+    const topReturn = selected.reduce((sum, row) => sum + row.forwardReturn, 0) / Math.max(1, selected.length);
+    const universeReturn = ranked.reduce((sum, row) => sum + row.forwardReturn, 0) / Math.max(1, ranked.length);
+    topCurve *= 1 + topReturn / 100;
+    benchmarkCurve *= 1 + universeReturn / 100;
+    if (topReturn > universeReturn) wins += 1;
+    excessSum += topReturn - universeReturn;
+    picks.push({
+      date,
+      tickers: selected.map((row) => row.ticker),
+      topReturn: Math.round(topReturn * 100) / 100,
+      universeReturn: Math.round(universeReturn * 100) / 100,
+      excess: Math.round((topReturn - universeReturn) * 100) / 100,
+    });
+    curve.push({
+      index: curve.length,
+      top: Math.round(topCurve * 10000) / 10000,
+      benchmark: Math.round(benchmarkCurve * 10000) / 10000,
+    });
+  }
+  if (!picks.length) return { ok: false, error: 'quant.error.mlData' };
+  const overfitRisk = testAccuracy < 0.5
+    || model.accuracy - testAccuracy > 0.15
+    || (topCurve - 1) * 100 < 0;
+  return {
+    ok: true,
+    lookback: panel.lookback,
+    horizon: panel.horizon,
+    topN: top,
+    testPct: Math.round(clamp(testPct, 20, 50, 30)),
+    splitDate,
+    trainSamples: trainSamples.length,
+    testSamples: testSamples.length,
+    model: {
+      ...model,
+      testAccuracy,
+    },
+    portfolio: {
+      totalReturnPct: (topCurve - 1) * 100,
+      benchmarkReturnPct: (benchmarkCurve - 1) * 100,
+      excessReturnPct: (topCurve - benchmarkCurve) * 100,
+      hitRatePct: picks.length ? (wins / picks.length) * 100 : 0,
+      avgExcessPct: picks.length ? excessSum / picks.length : 0,
+      rebalances: picks.length,
+    },
+    picks,
+    curve,
+    overfitRisk,
   };
 }
