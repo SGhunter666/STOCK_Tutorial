@@ -154,11 +154,11 @@ export function createQuantView(ctx) {
           <select class="input input--select" name="mlModel">
             ${ML_MODELS.map((model) => `<option value="${model.id}" ${model.id === config.mlModel ? 'selected' : ''}>${t(model.nameKey)}</option>`).join('')}
           </select>`)}
-        ${field(t('quant.ml.autoTuneLabel'), `
+        ${config.mlModel === 'mlp' ? field(t('quant.ml.autoTuneLabel'), `
           <select class="input input--select" name="mlAutoTune">
             <option value="false" ${config.mlAutoTune ? '' : 'selected'}>${t('quant.ml.autoTuneOff')}</option>
             <option value="true" ${config.mlAutoTune ? 'selected' : ''}>${t('quant.ml.autoTuneOn')}</option>
-          </select>`)}`;
+          </select>`) : ''}`;
     }
     const runKey = mode === 'optimize' ? 'quant.runOptimize' : mode === 'ml' ? 'quant.runMl' : 'quant.run';
     return card({
@@ -556,6 +556,7 @@ export function createQuantView(ctx) {
     if (value('mlTestPct')) config.mlTestPct = Number(value('mlTestPct'));
     if (value('mlModel')) config.mlModel = value('mlModel');
     if (value('mlAutoTune') !== undefined) config.mlAutoTune = value('mlAutoTune') === 'true';
+    if (config.mlModel !== 'mlp') config.mlAutoTune = false;
     form.querySelectorAll('[data-param]').forEach((input) => {
       config.params[input.dataset.param] = Number(input.value);
     });
@@ -588,7 +589,7 @@ export function createQuantView(ctx) {
       const form = event.target.closest('[data-quant-form]');
       if (!form) return;
       captureDraft(form);
-      if (event.target.matches('[name="strategy"], [name="ticker"], [name="factor"], [name="factorLookback"]')) {
+      if (event.target.matches('[name="strategy"], [name="ticker"], [name="factor"], [name="factorLookback"], [name="mlModel"]')) {
         render(store.get());
       }
     });

@@ -243,6 +243,14 @@ test('alternative-data news factors and model options are exposed', () => {
   assert(news.rows.every((row) => Number.isFinite(row.metric)), 'news metrics are numeric');
   const trend = factorResearch(state, { factor: 'newsTrend', lookback: 20 });
   assert(trend.rows.every((row) => Number.isFinite(row.metric)), 'news trend metrics are numeric');
+  const boundaryState = createGameState({ seed: 'quant-news-boundary' });
+  boundaryState.market.day = 0;
+  boundaryState.market.news = [{
+    id: 1, day: -10, tick: 0, kind: 'company', template: 'upgrade', ticker: 'HLIX', pct: 5,
+  }];
+  const boundaryTrend = factorResearch(boundaryState, { factor: 'newsTrend', lookback: 20 });
+  const boundaryRow = boundaryTrend.rows.find((row) => row.ticker === 'HLIX');
+  assertEqual(boundaryRow.metric, -5, 'boundary news is counted once in the prior window');
   const volume = factorResearch(state, { factor: 'volume', lookback: 60 });
   assert(volume.rows.length > 0, 'volume factor has a cross-section');
   assert(volume.rows.every((row) => Number.isFinite(row.metric)), 'volume metrics are numeric');

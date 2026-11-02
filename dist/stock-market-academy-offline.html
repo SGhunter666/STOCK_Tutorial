@@ -8546,7 +8546,7 @@ class MarketEngine {
    */
   _applyCalendarShock() {
     const st = this.state;
-    if (st.day <= 0 || st.day % 21 !== 0) return null;
+    if (st.day < 0 || st.day % 21 !== 0) return null;
     const event = macroCalendar(st.day, st.seed, { past: 0, future: 0 })
       .find((entry) => entry.day === st.day && entry.released);
     if (!event || !Number.isFinite(event.impactPct) || Math.abs(event.impactPct) < 0.01) return null;
@@ -15656,20 +15656,24 @@ function factorMetric(state, company, lookback, factor) {
   return null;
 }
 
-function newsSentiment(state, ticker, day, lookback = ML_NEWS_WINDOW) {
+function newsImpactBetween(state, ticker, fromDay, toDay) {
   const news = state.market?.news || [];
   const value = news
     .filter((entry) => entry.ticker === ticker && Number.isFinite(entry.day)
-      && entry.day <= day && entry.day >= day - lookback)
+      && entry.day <= toDay && entry.day >= fromDay)
     .reduce((sum, entry) => sum + (Number(entry.pct) || 0), 0);
   return Math.round(value * 100) / 100;
+}
+
+function newsSentiment(state, ticker, day, lookback = ML_NEWS_WINDOW) {
+  return newsImpactBetween(state, ticker, day - lookback, day);
 }
 
 /** Compares recent news sentiment with the prior window to capture attention shifts. */
 function newsSentimentTrend(state, ticker, day, lookback = ML_NEWS_WINDOW) {
   const half = Math.max(5, Math.round(lookback / 2));
-  const recent = newsSentiment(state, ticker, day, half);
-  const prior = newsSentiment(state, ticker, day - half, half);
+  const recent = newsImpactBetween(state, ticker, day - half + 1, day);
+  const prior = newsImpactBetween(state, ticker, day - 2 * half + 1, day - half);
   return Math.round((recent - prior) * 100) / 100;
 }
 
@@ -24965,11 +24969,11 @@ function createQuantView(ctx) {
           <select class="input input--select" name="mlModel">
             ${ML_MODELS.map((model) => `<option value="${model.id}" ${model.id === config.mlModel ? 'selected' : ''}>${t(model.nameKey)}</option>`).join('')}
           </select>`)}
-        ${field(t('quant.ml.autoTuneLabel'), `
+        ${config.mlModel === 'mlp' ? field(t('quant.ml.autoTuneLabel'), `
           <select class="input input--select" name="mlAutoTune">
             <option value="false" ${config.mlAutoTune ? '' : 'selected'}>${t('quant.ml.autoTuneOff')}</option>
             <option value="true" ${config.mlAutoTune ? 'selected' : ''}>${t('quant.ml.autoTuneOn')}</option>
-          </select>`)}`;
+          </select>`) : ''}`;
     }
     const runKey = mode === 'optimize' ? 'quant.runOptimize' : mode === 'ml' ? 'quant.runMl' : 'quant.run';
     return card({
@@ -25367,6 +25371,7 @@ function createQuantView(ctx) {
     if (value('mlTestPct')) config.mlTestPct = Number(value('mlTestPct'));
     if (value('mlModel')) config.mlModel = value('mlModel');
     if (value('mlAutoTune') !== undefined) config.mlAutoTune = value('mlAutoTune') === 'true';
+    if (config.mlModel !== 'mlp') config.mlAutoTune = false;
     form.querySelectorAll('[data-param]').forEach((input) => {
       config.params[input.dataset.param] = Number(input.value);
     });
@@ -25399,7 +25404,7 @@ function createQuantView(ctx) {
       const form = event.target.closest('[data-quant-form]');
       if (!form) return;
       captureDraft(form);
-      if (event.target.matches('[name="strategy"], [name="ticker"], [name="factor"], [name="factorLookback"]')) {
+      if (event.target.matches('[name="strategy"], [name="ticker"], [name="factor"], [name="factorLookback"], [name="mlModel"]')) {
         render(store.get());
       }
     });

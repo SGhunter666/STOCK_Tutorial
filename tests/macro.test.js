@@ -67,6 +67,7 @@ test('calendar releases transmit shocks into the simulated market', () => {
   for (let tick = 0; tick < TICKS_PER_DAY * 22; tick += 1) engine.tick();
   const calendarNews = engine.recentNews(80).filter((entry) => entry.calendar);
   assert(calendarNews.length > 0, 'a calendar release produced market news');
+  assert(calendarNews.some((entry) => entry.day === 0), 'the day-0 release also transmits');
   const latest = calendarNews[0];
   assertEqual(latest.day, 21, 'the release lands on the 21-day boundary');
   assertEqual(latest.kind, 'macro', 'calendar news is a macro event');

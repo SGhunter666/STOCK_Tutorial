@@ -403,7 +403,7 @@ export class MarketEngine {
    */
   _applyCalendarShock() {
     const st = this.state;
-    if (st.day <= 0 || st.day % 21 !== 0) return null;
+    if (st.day < 0 || st.day % 21 !== 0) return null;
     const event = macroCalendar(st.day, st.seed, { past: 0, future: 0 })
       .find((entry) => entry.day === st.day && entry.released);
     if (!event || !Number.isFinite(event.impactPct) || Math.abs(event.impactPct) < 0.01) return null;

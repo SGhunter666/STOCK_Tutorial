@@ -493,20 +493,24 @@ function factorMetric(state, company, lookback, factor) {
   return null;
 }
 
-function newsSentiment(state, ticker, day, lookback = ML_NEWS_WINDOW) {
+function newsImpactBetween(state, ticker, fromDay, toDay) {
   const news = state.market?.news || [];
   const value = news
     .filter((entry) => entry.ticker === ticker && Number.isFinite(entry.day)
-      && entry.day <= day && entry.day >= day - lookback)
+      && entry.day <= toDay && entry.day >= fromDay)
     .reduce((sum, entry) => sum + (Number(entry.pct) || 0), 0);
   return Math.round(value * 100) / 100;
+}
+
+function newsSentiment(state, ticker, day, lookback = ML_NEWS_WINDOW) {
+  return newsImpactBetween(state, ticker, day - lookback, day);
 }
 
 /** Compares recent news sentiment with the prior window to capture attention shifts. */
 function newsSentimentTrend(state, ticker, day, lookback = ML_NEWS_WINDOW) {
   const half = Math.max(5, Math.round(lookback / 2));
-  const recent = newsSentiment(state, ticker, day, half);
-  const prior = newsSentiment(state, ticker, day - half, half);
+  const recent = newsImpactBetween(state, ticker, day - half + 1, day);
+  const prior = newsImpactBetween(state, ticker, day - 2 * half + 1, day - half);
   return Math.round((recent - prior) * 100) / 100;
 }
 

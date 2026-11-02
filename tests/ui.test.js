@@ -216,6 +216,19 @@ test('quant optimisation and ML modes render their own controls and results', ()
   assert(mlHost.querySelector('#quant-ml-chart'), 'selection curve renders');
   ml.destroy();
   mlHost.remove();
+
+  const logisticState = createGameState({ seed: 'ui-quant-logistic' });
+  logisticState.education.units.u16.completedAt = Date.now();
+  logisticState.quant.mode = 'ml';
+  logisticState.quant.mlModel = 'logistic';
+  const logisticCtx = makeCtx(logisticState);
+  logisticCtx.ctx.actions.setQuantConfig = (config) => config;
+  const logistic = createQuantView(logisticCtx.ctx);
+  const logisticHost = mountView(logistic);
+  assert(logisticHost.querySelector('[name="mlModel"]'), 'model selector still renders for logistic');
+  assert(!logisticHost.querySelector('[name="mlAutoTune"]'), 'auto tuning is hidden for logistic');
+  logistic.destroy();
+  logisticHost.remove();
 });
 
 test('macro world locks, unlocks and renders the calendar and global markets', () => {
