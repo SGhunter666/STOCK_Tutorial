@@ -5651,7 +5651,7 @@
       "p1c": "Interactive demos, practice tasks, quizzes, XP, achievements and unlocks",
       "p1d": "Sandbox with a separate save, six Challenge goals and fund management with clients, staff and fees",
       "future": {
-        "a": "Deep learning, alternative data and richer multi-factor models",
+        "a": "Deeper neural networks, more alternative datasets and automatic hyperparameter search",
         "b": "Finer factor attribution, fund strategy optimisation and automatic rebalancing",
         "c": "Finer global macro linkages, economic-event shocks and live data",
         "d": "Live quotes and broader real-market data",
@@ -5659,7 +5659,7 @@
       },
       "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
       "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes",
-      "p1g": "Standalone Quant Lab: strategy backtests, grid optimisation, in/out-of-sample checks, logistic stock selection and four factor rankings",
+      "p1g": "Standalone Quant Lab: strategy backtests, grid optimisation, in/out-of-sample checks, logistic / small neural-network stock selection and momentum / low-vol / trend / value / news-sentiment factors",
       "p1h": "Fund quant plans: signal-driven rebalance suggestions with pre-trade risk checks, plus market / sector / selection / cash / fee return attribution",
       "p1i": "Macro World: policy rate, inflation, growth, unemployment, yield curve, credit spread, economic calendar and global market linkages",
       "p1j": "Bonds & FX: semi-annual coupon present-value pricing, coupon and yield marking, plus USD-quoted FX trading and daily revaluation"
@@ -5675,7 +5675,7 @@
     "subtitle": "Phases 1–8 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
     "statusShipped": "Shipped",
     "statusPlanned": "Planned",
-    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management and a Quant Lab with parameter optimisation and machine-learning selection; deep learning and alternative data remain unimplemented.",
+    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management, a Macro World, bonds / FX and a Quant Lab with parameter optimisation, logistic and small neural-network selection and news sentiment; deeper networks and live alternative data remain unimplemented.",
     "p1": {
       "title": "Phase 1 · Teaching foundation",
       "text": "A complete learning and trading loop for Stage 1, starting from zero.",
@@ -5737,7 +5737,7 @@
       "i1": "Five presets: buy-and-hold, moving-average cross, RSI mean reversion, momentum and range breakout",
       "i2": "Signals confirm at the close and fill at the next open; grid optimisation checks overfitting out of sample",
       "i3": "Total and annualised return, max drawdown, Sharpe, win rate, exposure and a trade log",
-      "i4": "Momentum, low-volatility, trend and valuation factors, plus cross-sectional logistic stock selection"
+      "i4": "Momentum, low-volatility, trend, valuation and news-sentiment factors, plus logistic and small neural-network selection"
     }
   },
   "locked": {
@@ -6993,7 +6993,14 @@
       "modelSubtitle": "{train} training rows · {test} test rows",
       "intercept": "Intercept",
       "splitDate": "OOS start",
-      "modelNote": "Features are standardised per cross-section; a positive weight raises the chance of outperformance.",
+      "modelLabel": "Model",
+      "modelType": "Model type",
+      "modelLogistic": "Logistic regression",
+      "modelMlp": "Small neural network (MLP)",
+      "hiddenUnits": "Hidden units",
+      "epochs": "Training epochs",
+      "featureImportance": "Feature importance",
+      "modelNote": "Features are standardised per cross-section; logistic regression shows weights and the MLP shows hidden-layer feature importance. News sentiment uses a 20-day window.",
       "picksTitle": "Out-of-sample picks",
       "picksSubtitle": "{count} rebalances · top {top} each",
       "date": "Rebalance date",
@@ -7089,6 +7096,8 @@
       "trendDesc": "Compare the 20-day and 50-day averages; a larger positive gap ranks higher.",
       "value": "Valuation",
       "valueDesc": "Rank by P/E from low to high, including profitable companies only.",
+      "news": "News sentiment",
+      "newsDesc": "Rank by cumulative recent news impact; more positive stories rank higher.",
       "ticker": "Ticker",
       "sector": "Sector",
       "metric": "Factor value",

@@ -209,6 +209,7 @@ test('quant optimisation and ML modes render their own controls and results', ()
   const ml = createQuantView(mlCtx.ctx);
   const mlHost = mountView(ml);
   assert(mlHost.querySelector('[name="mlLookback"]'), 'ML feature window renders');
+  assert(mlHost.querySelector('[name="mlModel"]'), 'ML model selector renders');
   assert(mlHost.textContent.includes('quant.ml.modelTitle'), 'model coefficient panel renders');
   assert(mlHost.querySelector('#quant-ml-chart'), 'selection curve renders');
   ml.destroy();

@@ -13,6 +13,7 @@ export const QUANT_FACTOR_OPTIONS = [
   { id: 'lowVol', nameKey: 'quant.factor.lowVol', descKey: 'quant.factor.lowVolDesc' },
   { id: 'trend', nameKey: 'quant.factor.trend', descKey: 'quant.factor.trendDesc' },
   { id: 'value', nameKey: 'quant.factor.value', descKey: 'quant.factor.valueDesc' },
+  { id: 'news', nameKey: 'quant.factor.news', descKey: 'quant.factor.newsDesc' },
 ];
 
 export const QUANT_MODES = [
@@ -28,7 +29,12 @@ export const QUANT_OBJECTIVES = [
   { id: 'calmar', nameKey: 'quant.objective.calmar' },
 ];
 
-export const ML_FACTORS = ['momentum', 'lowVol', 'trend'];
+export const ML_FACTORS = ['momentum', 'lowVol', 'trend', 'news'];
+export const ML_MODELS = [
+  { id: 'logistic', nameKey: 'quant.ml.modelLogistic' },
+  { id: 'mlp', nameKey: 'quant.ml.modelMlp' },
+];
+export const ML_NEWS_WINDOW = 20;
 export const ML_MIN_SAMPLES = 120;
 
 const param = (id, labelKey, def, min, max, step = 1) => ({
@@ -103,6 +109,7 @@ export const DEFAULT_QUANT_CONFIG = {
   mlHorizon: 10,
   mlTopN: 5,
   mlTestPct: 30,
+  mlModel: 'mlp',
 };
 
 function clamp(value, min, max, fallback) {
@@ -145,6 +152,8 @@ export function normalizeQuantConfig(config) {
     ? source.mode : DEFAULT_QUANT_CONFIG.mode;
   const objective = QUANT_OBJECTIVES.some((entry) => entry.id === source.objective)
     ? source.objective : DEFAULT_QUANT_CONFIG.objective;
+  const mlModel = ML_MODELS.some((entry) => entry.id === source.mlModel)
+    ? source.mlModel : DEFAULT_QUANT_CONFIG.mlModel;
   return {
     ticker: typeof source.ticker === 'string' ? source.ticker.slice(0, 8) : '',
     strategy: strategyId,
@@ -161,6 +170,7 @@ export function normalizeQuantConfig(config) {
     mlHorizon: Math.round(clamp(source.mlHorizon, 5, 30, DEFAULT_QUANT_CONFIG.mlHorizon)),
     mlTopN: Math.round(clamp(source.mlTopN, 3, 10, DEFAULT_QUANT_CONFIG.mlTopN)),
     mlTestPct: Math.round(clamp(source.mlTestPct, 20, 50, DEFAULT_QUANT_CONFIG.mlTestPct)),
+    mlModel,
   };
 }
 
@@ -448,7 +458,20 @@ function factorMetric(state, company, lookback, factor) {
     if (!Number.isFinite(fundamentals.pe) || fundamentals.pe <= 0) return null;
     return { metric: fundamentals.pe, score: -fundamentals.pe };
   }
+  if (factor === 'news') {
+    const sentiment = newsSentiment(state, company.ticker, state.market?.day ?? 0, lookback);
+    return { metric: sentiment, score: sentiment };
+  }
   return null;
+}
+
+function newsSentiment(state, ticker, day, lookback = ML_NEWS_WINDOW) {
+  const news = state.market?.news || [];
+  const value = news
+    .filter((entry) => entry.ticker === ticker && Number.isFinite(entry.day)
+      && entry.day <= day && entry.day >= day - lookback)
+    .reduce((sum, entry) => sum + (Number(entry.pct) || 0), 0);
+  return Math.round(value * 100) / 100;
 }
 
 export function factorResearch(state, { factor = 'momentum', lookback = 60 } = {}) {
@@ -656,7 +679,9 @@ export function buildMlPanel(state, { lookback = 30, horizon = 10 } = {}) {
   for (const date of dates) {
     const rows = [];
     for (const entry of series) {
-      const features = ML_FACTORS.map((factor) => mlFactorValue(entry.closes, date, factor, window));
+      const features = ML_FACTORS.map((factor) => (factor === 'news'
+        ? newsSentiment(state, entry.company.ticker, date, window)
+        : mlFactorValue(entry.closes, date, factor, window)));
       if (features.some((value) => value == null || !Number.isFinite(value))) continue;
       const forwardReturn = (entry.closes[date + forward] / entry.closes[date] - 1) * 100;
       rows.push({
@@ -698,6 +723,83 @@ function predictProbability(weights, features) {
   return sigmoid(sum);
 }
 
+export function trainMlpModel(samples, {
+  hidden = 6, epochs = 120, learningRate = 0.05, l2 = 0.001,
+} = {}) {
+  const featureCount = ML_FACTORS.length;
+  const hiddenUnits = Math.max(2, Math.min(12, Math.round(hidden)));
+  const w1 = Array.from({ length: hiddenUnits }, (_, unit) => (
+    Array.from({ length: featureCount }, (_, feature) => (
+      Math.sin((unit + 1) * (feature + 2) * 0.7) * 0.4
+    ))
+  ));
+  const b1 = Array.from({ length: hiddenUnits }, (_, unit) => Math.sin(unit + 1) * 0.1);
+  const w2 = Array.from({ length: hiddenUnits }, (_, unit) => Math.sin(unit + 2) * 0.35);
+  let b2 = 0;
+  const train = (features) => {
+    const activations = w1.map((row, unit) => Math.tanh(
+      row.reduce((sum, weight, index) => sum + weight * features[index], b1[unit]),
+    ));
+    const output = activations.reduce((sum, activation, unit) => sum + activation * w2[unit], b2);
+    return { activations, probability: sigmoid(output) };
+  };
+  for (let epoch = 0; epoch < epochs; epoch += 1) {
+    const gw1 = Array.from({ length: hiddenUnits }, () => Array(featureCount).fill(0));
+    const gb1 = Array(hiddenUnits).fill(0);
+    const gw2 = Array(hiddenUnits).fill(0);
+    let gb2 = 0;
+    for (const sample of samples) {
+      const { activations, probability } = train(sample.features);
+      const delta = probability - sample.label;
+      for (let unit = 0; unit < hiddenUnits; unit += 1) {
+        gw2[unit] += delta * activations[unit];
+        const hiddenDelta = delta * w2[unit] * (1 - activations[unit] ** 2);
+        gb1[unit] += hiddenDelta;
+        for (let feature = 0; feature < featureCount; feature += 1) {
+          gw1[unit][feature] += hiddenDelta * sample.features[feature];
+        }
+      }
+      gb2 += delta;
+    }
+    const scale = 1 / Math.max(1, samples.length);
+    b2 -= learningRate * gb2 * scale;
+    for (let unit = 0; unit < hiddenUnits; unit += 1) {
+      w2[unit] -= learningRate * (gw2[unit] * scale + l2 * w2[unit]);
+      b1[unit] -= learningRate * gb1[unit] * scale;
+      for (let feature = 0; feature < featureCount; feature += 1) {
+        w1[unit][feature] -= learningRate * (gw1[unit][feature] * scale + l2 * w1[unit][feature]);
+      }
+    }
+  }
+  let correct = 0;
+  for (const sample of samples) {
+    if ((train(sample.features).probability >= 0.5) === (sample.label === 1)) correct += 1;
+  }
+  const featureImportance = Object.fromEntries(ML_FACTORS.map((factor, feature) => [
+    factor,
+    Math.round(w1.reduce((sum, row) => sum + Math.abs(row[feature]), 0) * 1000) / 1000,
+  ]));
+  return {
+    type: 'mlp',
+    hidden: hiddenUnits,
+    epochs,
+    w1,
+    b1,
+    w2,
+    b2,
+    featureImportance,
+    accuracy: samples.length ? correct / samples.length : 0,
+    samples: samples.length,
+  };
+}
+
+function predictMlp(model, features) {
+  const activations = model.w1.map((row, unit) => Math.tanh(
+    row.reduce((sum, weight, index) => sum + weight * features[index], model.b1[unit]),
+  ));
+  return sigmoid(activations.reduce((sum, activation, unit) => sum + activation * model.w2[unit], model.b2));
+}
+
 export function trainLogisticModel(samples, { iterations = 160, learningRate = 0.08, l2 = 0.02 } = {}) {
   const featureCount = ML_FACTORS.length;
   const weights = Array(featureCount + 1).fill(0);
@@ -722,6 +824,7 @@ export function trainLogisticModel(samples, { iterations = 160, learningRate = 0
     if ((predictProbability(weights, sample.features) >= 0.5) === (sample.label === 1)) correct += 1;
   }
   return {
+    type: 'logistic',
     weights,
     coefficients: Object.fromEntries(ML_FACTORS.map((factor, index) => [factor, Math.round(weights[index + 1] * 1000) / 1000])),
     intercept: Math.round(weights[0] * 1000) / 1000,
@@ -735,6 +838,7 @@ export function mlStockSelection(state, {
   horizon = 10,
   topN = 5,
   testPct = 30,
+  modelType = 'mlp',
 } = {}) {
   const panel = buildMlPanel(state, { lookback, horizon });
   if (!panel.ok) return panel;
@@ -747,10 +851,16 @@ export function mlStockSelection(state, {
   const trainSamples = panel.samples.filter((sample) => sample.date < splitDate);
   const testSamples = panel.samples.filter((sample) => sample.date >= splitDate);
   if (!trainSamples.length || !testSamples.length) return { ok: false, error: 'quant.error.mlData' };
-  const model = trainLogisticModel(trainSamples);
+  const normalizedModel = ML_MODELS.some((entry) => entry.id === modelType) ? modelType : 'mlp';
+  const model = normalizedModel === 'mlp'
+    ? trainMlpModel(trainSamples)
+    : trainLogisticModel(trainSamples);
+  const predict = normalizedModel === 'mlp'
+    ? (features) => predictMlp(model, features)
+    : (features) => predictProbability(model.weights, features);
   let testCorrect = 0;
   for (const sample of testSamples) {
-    if ((predictProbability(model.weights, sample.features) >= 0.5) === (sample.label === 1)) testCorrect += 1;
+    if ((predict(sample.features) >= 0.5) === (sample.label === 1)) testCorrect += 1;
   }
   const testAccuracy = testSamples.length ? testCorrect / testSamples.length : 0;
   const top = Math.round(clamp(topN, 3, 10, 5));
@@ -776,7 +886,7 @@ export function mlStockSelection(state, {
       .map((row) => ({
         ticker: row.ticker,
         sector: row.sector,
-        probability: predictProbability(model.weights, row.features),
+        probability: predict(row.features),
         forwardReturn: row.forwardReturn,
       }))
       .sort((a, b) => b.probability - a.probability);

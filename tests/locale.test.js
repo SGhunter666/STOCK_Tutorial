@@ -16,7 +16,7 @@ import {
   FUND_STRATEGIES, FUND_RISK_PROFILES, FUND_ROLES,
 } from '../js/fund/fundEngine.js';
 import {
-  QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_MODES, QUANT_OBJECTIVES,
+  QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_MODES, QUANT_OBJECTIVES, ML_MODELS,
 } from '../js/quant/backtestEngine.js';
 import { BOND_DEFS } from '../js/assets/bonds.js';
 import { FX_PAIRS } from '../js/assets/fx.js';
@@ -843,6 +843,9 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
     'quant.ml.testAccuracy', 'quant.ml.trainAccuracy', 'quant.ml.rebalances',
     'quant.ml.avgExcess', 'quant.ml.overfitWarning', 'quant.ml.overfitClear',
     'quant.ml.modelTitle', 'quant.ml.modelSubtitle', 'quant.ml.intercept',
+    'quant.ml.modelLabel', 'quant.ml.modelType', 'quant.ml.modelLogistic',
+    'quant.ml.modelMlp', 'quant.ml.hiddenUnits', 'quant.ml.epochs',
+    'quant.ml.featureImportance',
     'quant.ml.splitDate', 'quant.ml.modelNote', 'quant.ml.picksTitle',
     'quant.ml.picksSubtitle', 'quant.ml.date', 'quant.ml.picks',
     'quant.ml.pickReturn', 'quant.ml.universeReturn', 'quant.ml.chartTitle',
@@ -874,7 +877,9 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
     check(mode.descKey);
   }
   for (const objective of QUANT_OBJECTIVES) check(objective.nameKey);
-  ['ticker', 'sector', 'metric', 'note', 'empty'].forEach((key) => check(`quant.factor.${key}`));
+  ['ticker', 'sector', 'metric', 'note', 'empty', 'news', 'newsDesc']
+    .forEach((key) => check(`quant.factor.${key}`));
+  for (const model of ML_MODELS) check(model.nameKey);
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 

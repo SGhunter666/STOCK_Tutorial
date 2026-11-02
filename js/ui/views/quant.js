@@ -15,7 +15,7 @@ import { companyName, sectorLabel } from '../labels.js';
 import { isUnitComplete } from '../../education/lessonEngine.js';
 import {
   QUANT_STRATEGIES, QUANT_FACTOR_OPTIONS, QUANT_CASH_OPTIONS, QUANT_MIN_BARS,
-  QUANT_MODES, QUANT_OBJECTIVES, ML_FACTORS,
+  QUANT_MODES, QUANT_OBJECTIVES, ML_FACTORS, ML_MODELS,
   normalizeQuantConfig, runBacktest, factorResearch, optimizeStrategy, mlStockSelection,
 } from '../../quant/backtestEngine.js';
 
@@ -149,7 +149,11 @@ export function createQuantView(ctx) {
         ${field(t('quant.ml.lookbackLabel'), `<input class="input" type="number" name="mlLookback" min="20" max="50" step="1" value="${config.mlLookback}" inputmode="numeric">`)}
         ${field(t('quant.ml.horizonLabel'), `<input class="input" type="number" name="mlHorizon" min="5" max="30" step="1" value="${config.mlHorizon}" inputmode="numeric">`)}
         ${field(t('quant.ml.topNLabel'), `<input class="input" type="number" name="mlTopN" min="3" max="10" step="1" value="${config.mlTopN}" inputmode="numeric">`)}
-        ${field(t('quant.ml.testPctLabel'), `<input class="input" type="number" name="mlTestPct" min="20" max="50" step="1" value="${config.mlTestPct}" inputmode="numeric">`)}`;
+        ${field(t('quant.ml.testPctLabel'), `<input class="input" type="number" name="mlTestPct" min="20" max="50" step="1" value="${config.mlTestPct}" inputmode="numeric">`)}
+        ${field(t('quant.ml.modelLabel'), `
+          <select class="input input--select" name="mlModel">
+            ${ML_MODELS.map((model) => `<option value="${model.id}" ${model.id === config.mlModel ? 'selected' : ''}>${t(model.nameKey)}</option>`).join('')}
+          </select>`)}`;
     }
     const runKey = mode === 'optimize' ? 'quant.runOptimize' : mode === 'ml' ? 'quant.runMl' : 'quant.run';
     return card({
@@ -357,13 +361,14 @@ export function createQuantView(ctx) {
 
   function mlBody(state) {
     const config = draft(state);
-    const key = `${config.mlLookback}:${config.mlHorizon}:${config.mlTopN}:${config.mlTestPct}:${state.market.day}:${runToken}`;
+    const key = `${config.mlLookback}:${config.mlHorizon}:${config.mlTopN}:${config.mlTestPct}:${config.mlModel}:${state.market.day}:${runToken}`;
     if (key !== cachedMlKey) {
       cachedMl = mlStockSelection(state, {
         lookback: config.mlLookback,
         horizon: config.mlHorizon,
         topN: config.mlTopN,
         testPct: config.mlTestPct,
+        modelType: config.mlModel,
       });
       cachedMlKey = key;
     }
@@ -392,8 +397,15 @@ export function createQuantView(ctx) {
       train: result.trainSamples, test: result.testSamples,
     }),
     body: `${keyValueList([
-      [t('quant.ml.intercept'), num(result.model.intercept, i18n.locale, 3)],
-      ...ML_FACTORS.map((factor) => [t(`quant.factor.${factor}`), num(result.model.coefficients[factor], i18n.locale, 3)]),
+      [t('quant.ml.modelType'), t(result.model.type === 'mlp' ? 'quant.ml.modelMlp' : 'quant.ml.modelLogistic')],
+      ...(result.model.type === 'mlp' ? [
+        [t('quant.ml.hiddenUnits'), String(result.model.hidden)],
+        [t('quant.ml.epochs'), String(result.model.epochs)],
+      ] : [[t('quant.ml.intercept'), num(result.model.intercept, i18n.locale, 3)]]),
+      ...ML_FACTORS.map((factor) => [
+        t(`quant.factor.${factor}`),
+        num(result.model.type === 'mlp' ? result.model.featureImportance[factor] : result.model.coefficients[factor], i18n.locale, 3),
+      ]),
       [t('quant.ml.splitDate'), formatMarketDate(result.splitDate, i18n.locale)],
     ])}
       <p class="chart-note muted">${t('quant.ml.modelNote')}</p>`,
@@ -530,6 +542,7 @@ export function createQuantView(ctx) {
     if (value('mlHorizon')) config.mlHorizon = Number(value('mlHorizon'));
     if (value('mlTopN')) config.mlTopN = Number(value('mlTopN'));
     if (value('mlTestPct')) config.mlTestPct = Number(value('mlTestPct'));
+    if (value('mlModel')) config.mlModel = value('mlModel');
     form.querySelectorAll('[data-param]').forEach((input) => {
       config.params[input.dataset.param] = Number(input.value);
     });
