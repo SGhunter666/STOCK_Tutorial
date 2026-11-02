@@ -24,7 +24,9 @@ export const FUND_PLAN_DEFAULT = {
   topN: 5,
   rebalanceDays: 21,
   cashBuffer: 0.1,
+  autoRebalance: false,
   lastPlanDay: null,
+  lastAutoDay: null,
   plan: null,
 };
 
@@ -56,7 +58,13 @@ export function normalizeFundPlanConfig(config) {
     topN: Math.round(clamp(source.topN, 2, 10, FUND_PLAN_DEFAULT.topN)),
     rebalanceDays: Math.round(clamp(source.rebalanceDays, 5, 60, FUND_PLAN_DEFAULT.rebalanceDays)),
     cashBuffer: clamp(source.cashBuffer, 0, 0.5, FUND_PLAN_DEFAULT.cashBuffer),
-    lastPlanDay: Number.isFinite(Number(source.lastPlanDay)) ? Number(source.lastPlanDay) : null,
+    autoRebalance: Boolean(source.autoRebalance),
+    lastPlanDay: source.lastPlanDay === null || source.lastPlanDay === undefined
+      ? null
+      : (Number.isFinite(Number(source.lastPlanDay)) ? Number(source.lastPlanDay) : null),
+    lastAutoDay: source.lastAutoDay === null || source.lastAutoDay === undefined
+      ? null
+      : (Number.isFinite(Number(source.lastAutoDay)) ? Number(source.lastAutoDay) : null),
     plan,
   };
 }
@@ -193,6 +201,62 @@ export function executeFundPlan(fund, quotes, plan, { day = 0, tick = 0 } = {}) 
     fund: next,
     applied,
     failures,
+  };
+}
+
+/**
+ * Runs one automatic rebalance when the schedule is due. The result always
+ * records the attempt day, even when the model has no trades, so the next
+ * interval is measured from the last real attempt rather than every tick.
+ */
+export function autoRebalanceFund(fund, state, day = 0) {
+  if (!fund || fund.status !== 'active') {
+    return { ok: false, error: 'fund.errorNotActive', executed: false, fund };
+  }
+  const config = normalizeFundPlanConfig(fund.quantPlan);
+  if (!config.autoRebalance) {
+    return { ok: false, skipped: 'disabled', executed: false, fund };
+  }
+  if (config.lastAutoDay !== null && day - config.lastAutoDay < config.rebalanceDays) {
+    return { ok: false, skipped: 'notDue', executed: false, fund };
+  }
+  const built = buildFundPlan(fund, state, config);
+  if (!built.ok) {
+    return {
+      ok: false,
+      error: built.error,
+      executed: false,
+      fund: { ...fund, quantPlan: { ...config, lastAutoDay: day } },
+    };
+  }
+  const checked = {
+    ...fund,
+    quantPlan: { ...config, lastAutoDay: day, lastPlanDay: day, plan: null },
+  };
+  if (!built.plan.trades.length) {
+    return {
+      ok: true,
+      executed: false,
+      skipped: 'aligned',
+      fund: checked,
+      plan: built.plan,
+      applied: [],
+      failures: [],
+    };
+  }
+  const run = executeFundPlan(fund, state.market.quotes, built.plan, { day, tick: 0 });
+  return {
+    ok: run.ok,
+    executed: Boolean(run.ok),
+    fund: run.ok
+      ? {
+        ...run.fund,
+        quantPlan: { ...config, lastAutoDay: day, lastPlanDay: day, plan: null },
+      }
+      : checked,
+    plan: built.plan,
+    applied: run.applied || [],
+    failures: run.failures || [],
   };
 }
 

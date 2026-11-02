@@ -157,6 +157,7 @@ test('fund view gates, launches and renders an active fund', () => {
   assert(activeHost.querySelector('[data-fund-buy]'), 'fund buy button renders');
   assert(activeHost.querySelector('[data-fund-ticker]'), 'fund ticker selector renders');
   assert(activeHost.querySelector('[data-fund-plan-form]'), 'strategy plan form renders');
+  assert(activeHost.querySelector('[name="autoRebalance"]'), 'auto rebalance control renders');
   assert(activeHost.textContent.includes('fund.attr.title'), 'factor attribution card renders');
   assertEqual(activeHost.querySelectorAll('.fund-team-member').length, 7, 'seven team roles render');
   active.destroy();
@@ -210,6 +211,7 @@ test('quant optimisation and ML modes render their own controls and results', ()
   const mlHost = mountView(ml);
   assert(mlHost.querySelector('[name="mlLookback"]'), 'ML feature window renders');
   assert(mlHost.querySelector('[name="mlModel"]'), 'ML model selector renders');
+  assert(mlHost.querySelector('[name="mlAutoTune"]'), 'ML auto-tuning selector renders');
   assert(mlHost.textContent.includes('quant.ml.modelTitle'), 'model coefficient panel renders');
   assert(mlHost.querySelector('#quant-ml-chart'), 'selection curve renders');
   ml.destroy();
@@ -237,12 +239,14 @@ test('macro world locks, unlocks and renders the calendar and global markets', (
   host.remove();
 });
 
-test('bonds and FX page locks then renders both markets', () => {
+test('multi-asset page locks then renders bonds, FX, commodities and crypto', () => {
   const lockedState = createGameState({ seed: 'ui-multi-locked' });
   const locked = createMultiAssetView(makeCtx(lockedState).ctx);
   const lockedHost = mountView(locked);
   assert(lockedHost.textContent.includes('multiasset.lockedTitle'), 'locked card before Unit 13');
   assert(!lockedHost.querySelector('[data-bond-buy]'), 'bond buy hidden while locked');
+  assert(!lockedHost.querySelector('[data-commodity-buy]'), 'commodity buy hidden while locked');
+  assert(!lockedHost.querySelector('[data-crypto-buy]'), 'crypto buy hidden while locked');
   locked.destroy();
   lockedHost.remove();
 
@@ -252,8 +256,12 @@ test('bonds and FX page locks then renders both markets', () => {
   const host = mountView(view);
   assert(host.querySelector('[data-bond-buy]'), 'bond buy control renders');
   assert(host.querySelector('[data-fx-buy]'), 'FX buy control renders');
+  assert(host.querySelector('[data-commodity-buy]'), 'commodity buy control renders');
+  assert(host.querySelector('[data-crypto-buy]'), 'crypto buy control renders');
   assert(host.textContent.includes('multiasset.bondPositionsTitle'), 'bond positions card renders');
   assert(host.textContent.includes('multiasset.fxPositionsTitle'), 'FX positions card renders');
+  assert(host.textContent.includes('multiasset.commodityPositionsTitle'), 'commodity positions card renders');
+  assert(host.textContent.includes('multiasset.cryptoPositionsTitle'), 'crypto positions card renders');
   view.destroy();
   host.remove();
 });

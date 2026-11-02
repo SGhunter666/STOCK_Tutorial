@@ -6,6 +6,8 @@ import {
   suite, test, assert, assertEqual, assertClose,
 } from './harness.js';
 import { createGameState } from '../js/game/gameState.js';
+import { MarketEngine } from '../js/market/marketEngine.js';
+import { TICKS_PER_DAY } from '../js/market/calendar.js';
 import {
   macroWorld, macroCalendar, globalMarkets,
 } from '../js/market/macro.js';
@@ -58,4 +60,17 @@ test('global markets link to the simulated US index', () => {
   }
   const again = globalMarkets(state, state.market.day, state.seed);
   assertEqual(JSON.stringify(rows), JSON.stringify(again), 'global markets are deterministic');
+});
+
+test('calendar releases transmit shocks into the simulated market', () => {
+  const engine = MarketEngine.create('macro-shock');
+  for (let tick = 0; tick < TICKS_PER_DAY * 22; tick += 1) engine.tick();
+  const calendarNews = engine.recentNews(80).filter((entry) => entry.calendar);
+  assert(calendarNews.length > 0, 'a calendar release produced market news');
+  const latest = calendarNews[0];
+  assertEqual(latest.day, 21, 'the release lands on the 21-day boundary');
+  assertEqual(latest.kind, 'macro', 'calendar news is a macro event');
+  assert(['cpi', 'payrolls', 'gdp', 'pmi', 'centralBank'].includes(latest.calendar), 'calendar type recorded');
+  assert(Number.isFinite(latest.pct), 'shock percentage recorded');
+  assert(Number.isFinite(latest.surprise), 'surprise recorded');
 });

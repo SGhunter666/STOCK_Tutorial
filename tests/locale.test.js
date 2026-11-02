@@ -20,6 +20,8 @@ import {
 } from '../js/quant/backtestEngine.js';
 import { BOND_DEFS } from '../js/assets/bonds.js';
 import { FX_PAIRS } from '../js/assets/fx.js';
+import { COMMODITY_DEFS } from '../js/assets/commodities.js';
+import { CRYPTO_DEFS } from '../js/assets/crypto.js';
 
 const zhResponse = await fetch('../locales/zh-CN.json');
 const enResponse = await fetch('../locales/en.json');
@@ -604,7 +606,7 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'settings.scope.p1a', 'settings.scope.p1b', 'settings.scope.p1c', 'settings.scope.p1d',
     'settings.scope.p1e', 'settings.scope.p1f',
     'settings.scope.future.a', 'settings.scope.future.b', 'settings.scope.future.c',
-    'settings.scope.future.d', 'settings.disclaimer', 'settings.resetTitle',
+    'settings.disclaimer', 'settings.resetTitle',
     'settings.resetMessage', 'settings.resetConfirm',
     'roadmap.eyebrow', 'roadmap.title', 'roadmap.subtitle', 'roadmap.statusShipped',
     'roadmap.statusPlanned', 'roadmap.note',
@@ -622,6 +624,8 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'roadmap.p7.i4',
     'roadmap.p8.title', 'roadmap.p8.text', 'roadmap.p8.i1', 'roadmap.p8.i2', 'roadmap.p8.i3',
     'roadmap.p8.i4',
+    'roadmap.p9.title', 'roadmap.p9.text', 'roadmap.p9.i1', 'roadmap.p9.i2', 'roadmap.p9.i3',
+    'roadmap.p9.i4',
     'locked.eyebrow', 'locked.subtitle', 'locked.options.title', 'locked.options.text',
     'locked.options.i1', 'locked.options.i2', 'locked.options.i3', 'locked.options.i4',
     'locked.challenges.title', 'locked.challenges.text', 'locked.challenges.i1',
@@ -712,9 +716,10 @@ test('fund management UI, roles, strategies and events are localised', () => {
     'fund.insight.research', 'fund.insight.quant', 'fund.insight.macro', 'fund.insight.risk',
     'fund.plan.title', 'fund.plan.subtitle', 'fund.plan.enabled', 'fund.plan.disabled',
     'fund.plan.enableLabel', 'fund.plan.off', 'fund.plan.on', 'fund.plan.strategyLabel',
-    'fund.plan.topNLabel', 'fund.plan.intervalLabel', 'fund.plan.cashBufferLabel',
+    'fund.plan.topNLabel', 'fund.plan.intervalLabel', 'fund.plan.autoLabel',
+    'fund.plan.cashBufferLabel',
     'fund.plan.generate', 'fund.plan.hint', 'fund.plan.strategyHint', 'fund.plan.generated',
-    'fund.plan.nav', 'fund.plan.cashAfter', 'fund.plan.side', 'fund.plan.ticker',
+    'fund.plan.lastAuto', 'fund.plan.nav', 'fund.plan.cashAfter', 'fund.plan.side', 'fund.plan.ticker',
     'fund.plan.qty', 'fund.plan.price', 'fund.plan.reason', 'fund.plan.apply',
     'fund.plan.aligned', 'fund.plan.noPlan', 'fund.plan.errorEmpty',
     'fund.plan.reasonKey.rebalance', 'fund.plan.reasonKey.signalBuy', 'fund.plan.reasonKey.momentum',
@@ -729,6 +734,7 @@ test('fund management UI, roles, strategies and events are localised', () => {
     'toast.fundCreated', 'toast.fundHired', 'toast.fundFired', 'toast.fundClientJoined',
     'toast.fundRedemptionPaid', 'toast.fundCashWithdrawn', 'toast.fundRedemptionRequest',
     'toast.fundPayrollShort', 'toast.fundClosed', 'toast.fundPlanApplied',
+    'toast.fundAutoRebalance',
   ].forEach((key) => check(key));
   for (const strategy of Object.values(FUND_STRATEGIES)) {
     check(strategy.nameKey);
@@ -760,8 +766,10 @@ test('bond and FX desks, positions, errors and toasts are localised', () => {
     'multiasset.eyebrow', 'multiasset.title', 'multiasset.subtitle', 'multiasset.pill',
     'multiasset.note', 'multiasset.lockedTitle', 'multiasset.lockedText',
     'multiasset.lockedHint', 'multiasset.goAcademy',
-    'multiasset.bondValue', 'multiasset.fxValue', 'multiasset.cash',
-    'multiasset.bondUnrealized', 'multiasset.fxUnrealized', 'multiasset.cashSub',
+    'multiasset.bondValue', 'multiasset.fxValue', 'multiasset.commodityValue',
+    'multiasset.cryptoValue', 'multiasset.cash',
+    'multiasset.bondUnrealized', 'multiasset.fxUnrealized',
+    'multiasset.commodityUnrealized', 'multiasset.cryptoUnrealized', 'multiasset.cashSub',
     'multiasset.bondTitle', 'multiasset.bondSubtitle', 'multiasset.bond',
     'multiasset.qty', 'multiasset.buyBond', 'multiasset.bondNote',
     'multiasset.bondPositionsTitle', 'multiasset.bondPositionsSubtitle',
@@ -772,7 +780,16 @@ test('bond and FX desks, positions, errors and toasts are localised', () => {
     'multiasset.buyFx', 'multiasset.fxNote', 'multiasset.fxPositionsTitle',
     'multiasset.fxPositionsSubtitle', 'multiasset.noFxPositions', 'multiasset.rate',
     'multiasset.change',
+    'multiasset.commodityTitle', 'multiasset.commoditySubtitle', 'multiasset.commodity',
+    'multiasset.buyCommodity', 'multiasset.commodityNote',
+    'multiasset.commodityPositionsTitle', 'multiasset.commodityPositionsSubtitle',
+    'multiasset.noCommodityPositions',
+    'multiasset.cryptoTitle', 'multiasset.cryptoSubtitle', 'multiasset.crypto',
+    'multiasset.buyCrypto', 'multiasset.cryptoNote',
+    'multiasset.cryptoPositionsTitle', 'multiasset.cryptoPositionsSubtitle',
+    'multiasset.noCryptoPositions',
     'toast.bondCoupons', 'toast.bondBought', 'toast.bondSold', 'toast.fxBought', 'toast.fxSold',
+    'toast.commodityBought', 'toast.commoditySold', 'toast.cryptoBought', 'toast.cryptoSold',
   ].forEach((key) => check(key));
   ['gov', 'AA', 'A', 'BBB', 'BB'].forEach((rating) => check(`multiasset.rating.${rating}`));
   for (const bond of BOND_DEFS) {
@@ -780,8 +797,15 @@ test('bond and FX desks, positions, errors and toasts are localised', () => {
     check(bond.issuerKey);
   }
   for (const pair of FX_PAIRS) check(pair.nameKey);
+  for (const commodity of COMMODITY_DEFS) {
+    check(commodity.nameKey);
+    check(commodity.unitKey);
+  }
+  for (const asset of CRYPTO_DEFS) check(asset.nameKey);
   ['bond.errorUnknown', 'bond.errorNoPosition', 'bond.errorInsufficient',
-    'fx.errorUnknown', 'fx.errorNoPosition', 'fx.errorInsufficient']
+    'fx.errorUnknown', 'fx.errorNoPosition', 'fx.errorInsufficient',
+    'commodity.errorUnknown', 'commodity.errorNoPosition', 'commodity.errorInsufficient',
+    'crypto.errorUnknown', 'crypto.errorNoPosition', 'crypto.errorQtyInvalid', 'crypto.errorInsufficient']
     .forEach((key) => check(key));
   assertEqual(missing.length, 0, missing.join('\n'));
 });
@@ -845,7 +869,9 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
     'quant.ml.modelTitle', 'quant.ml.modelSubtitle', 'quant.ml.intercept',
     'quant.ml.modelLabel', 'quant.ml.modelType', 'quant.ml.modelLogistic',
     'quant.ml.modelMlp', 'quant.ml.hiddenUnits', 'quant.ml.epochs',
-    'quant.ml.featureImportance',
+    'quant.ml.featureImportance', 'quant.ml.autoTuneLabel', 'quant.ml.autoTuneOff',
+    'quant.ml.autoTuneOn', 'quant.ml.tuningBest', 'quant.ml.tuningValidation',
+    'quant.ml.tuningCandidates', 'quant.ml.tuningNote',
     'quant.ml.splitDate', 'quant.ml.modelNote', 'quant.ml.picksTitle',
     'quant.ml.picksSubtitle', 'quant.ml.date', 'quant.ml.picks',
     'quant.ml.pickReturn', 'quant.ml.universeReturn', 'quant.ml.chartTitle',
@@ -877,7 +903,8 @@ test('quant lab UI, strategies, parameters and factors are localised', () => {
     check(mode.descKey);
   }
   for (const objective of QUANT_OBJECTIVES) check(objective.nameKey);
-  ['ticker', 'sector', 'metric', 'note', 'empty', 'news', 'newsDesc']
+  ['ticker', 'sector', 'metric', 'note', 'empty', 'news', 'newsDesc',
+    'newsTrend', 'newsTrendDesc', 'volume', 'volumeDesc']
     .forEach((key) => check(`quant.factor.${key}`));
   for (const model of ML_MODELS) check(model.nameKey);
   assertEqual(missing.length, 0, missing.join('\n'));

@@ -14,6 +14,8 @@ export const QUANT_FACTOR_OPTIONS = [
   { id: 'trend', nameKey: 'quant.factor.trend', descKey: 'quant.factor.trendDesc' },
   { id: 'value', nameKey: 'quant.factor.value', descKey: 'quant.factor.valueDesc' },
   { id: 'news', nameKey: 'quant.factor.news', descKey: 'quant.factor.newsDesc' },
+  { id: 'newsTrend', nameKey: 'quant.factor.newsTrend', descKey: 'quant.factor.newsTrendDesc' },
+  { id: 'volume', nameKey: 'quant.factor.volume', descKey: 'quant.factor.volumeDesc' },
 ];
 
 export const QUANT_MODES = [
@@ -29,13 +31,21 @@ export const QUANT_OBJECTIVES = [
   { id: 'calmar', nameKey: 'quant.objective.calmar' },
 ];
 
-export const ML_FACTORS = ['momentum', 'lowVol', 'trend', 'news'];
+export const ML_FACTORS = ['momentum', 'lowVol', 'trend', 'news', 'newsTrend', 'volume'];
 export const ML_MODELS = [
   { id: 'logistic', nameKey: 'quant.ml.modelLogistic' },
   { id: 'mlp', nameKey: 'quant.ml.modelMlp' },
 ];
 export const ML_NEWS_WINDOW = 20;
 export const ML_MIN_SAMPLES = 120;
+export const ML_TUNING_GRID = [
+  { hidden: 4, epochs: 80 },
+  { hidden: 4, epochs: 120 },
+  { hidden: 6, epochs: 80 },
+  { hidden: 6, epochs: 120 },
+  { hidden: 8, epochs: 80 },
+  { hidden: 8, epochs: 120 },
+];
 
 const param = (id, labelKey, def, min, max, step = 1) => ({
   id, labelKey, default: def, min, max, step,
@@ -110,6 +120,7 @@ export const DEFAULT_QUANT_CONFIG = {
   mlTopN: 5,
   mlTestPct: 30,
   mlModel: 'mlp',
+  mlAutoTune: false,
 };
 
 function clamp(value, min, max, fallback) {
@@ -171,6 +182,7 @@ export function normalizeQuantConfig(config) {
     mlTopN: Math.round(clamp(source.mlTopN, 3, 10, DEFAULT_QUANT_CONFIG.mlTopN)),
     mlTestPct: Math.round(clamp(source.mlTestPct, 20, 50, DEFAULT_QUANT_CONFIG.mlTestPct)),
     mlModel,
+    mlAutoTune: Boolean(source.mlAutoTune),
   };
 }
 
@@ -462,6 +474,22 @@ function factorMetric(state, company, lookback, factor) {
     const sentiment = newsSentiment(state, company.ticker, state.market?.day ?? 0, lookback);
     return { metric: sentiment, score: sentiment };
   }
+  if (factor === 'newsTrend') {
+    const trend = newsSentimentTrend(state, company.ticker, state.market?.day ?? 0, lookback);
+    return { metric: trend, score: trend };
+  }
+  if (factor === 'volume') {
+    const volumes = history.map((candle) => Number(candle.v) || 0);
+    if (volumes.length < 10) return null;
+    const recent = volumes.slice(-5);
+    const baseline = volumes.slice(-(lookback + 1), -5);
+    if (!baseline.length) return null;
+    const recentAverage = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+    const baseAverage = baseline.reduce((sum, value) => sum + value, 0) / baseline.length;
+    if (!baseAverage || !recentAverage) return null;
+    const change = (recentAverage / baseAverage - 1) * 100;
+    return { metric: change, score: change };
+  }
   return null;
 }
 
@@ -472,6 +500,14 @@ function newsSentiment(state, ticker, day, lookback = ML_NEWS_WINDOW) {
       && entry.day <= day && entry.day >= day - lookback)
     .reduce((sum, entry) => sum + (Number(entry.pct) || 0), 0);
   return Math.round(value * 100) / 100;
+}
+
+/** Compares recent news sentiment with the prior window to capture attention shifts. */
+function newsSentimentTrend(state, ticker, day, lookback = ML_NEWS_WINDOW) {
+  const half = Math.max(5, Math.round(lookback / 2));
+  const recent = newsSentiment(state, ticker, day, half);
+  const prior = newsSentiment(state, ticker, day - half, half);
+  return Math.round((recent - prior) * 100) / 100;
 }
 
 export function factorResearch(state, { factor = 'momentum', lookback = 60 } = {}) {
@@ -618,7 +654,7 @@ export function optimizeStrategy({
   };
 }
 
-function mlFactorValue(closes, index, factor, lookback) {
+function mlFactorValue(closes, index, factor, lookback, volumes = []) {
   if (index < lookback || index >= closes.length) return null;
   if (factor === 'momentum') {
     const base = closes[index - lookback];
@@ -634,6 +670,16 @@ function mlFactorValue(closes, index, factor, lookback) {
     const long = sma(closes.slice(0, index + 1), 50);
     if (short == null || long == null || long <= 0) return null;
     return ((short / long) - 1) * 100;
+  }
+  if (factor === 'volume') {
+    if (volumes.length <= index) return null;
+    const recent = volumes.slice(index - 4, index + 1);
+    const baseline = volumes.slice(index - lookback, index - 4);
+    if (!recent.length || !baseline.length) return null;
+    const recentAverage = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+    const baseAverage = baseline.reduce((sum, value) => sum + value, 0) / baseline.length;
+    if (!recentAverage || !baseAverage) return null;
+    return (recentAverage / baseAverage - 1) * 100;
   }
   return null;
 }
@@ -663,12 +709,14 @@ export function buildMlPanel(state, { lookback = 30, horizon = 10 } = {}) {
   const window = Math.round(clamp(lookback, 20, 50, 30));
   const forward = Math.round(clamp(horizon, 5, 30, 10));
   const companies = COMPANIES.filter((company) => !company.isEtf);
-  const series = companies.map((company) => ({
-    company,
-    closes: (state.market?.history?.[company.ticker] || [])
-      .map((candle) => candle.c)
-      .filter((value) => Number.isFinite(value)),
-  })).filter((entry) => entry.closes.length >= window + forward + 1);
+  const series = companies.map((company) => {
+    const candles = state.market?.history?.[company.ticker] || [];
+    return {
+      company,
+      closes: candles.map((candle) => candle.c).filter((value) => Number.isFinite(value)),
+      volumes: candles.map((candle) => Number(candle.v) || 0),
+    };
+  }).filter((entry) => entry.closes.length >= window + forward + 1);
   if (!series.length) return { ok: false, error: 'quant.error.mlData' };
   const maxLength = Math.min(...series.map((entry) => entry.closes.length));
   const dates = [];
@@ -679,9 +727,11 @@ export function buildMlPanel(state, { lookback = 30, horizon = 10 } = {}) {
   for (const date of dates) {
     const rows = [];
     for (const entry of series) {
-      const features = ML_FACTORS.map((factor) => (factor === 'news'
-        ? newsSentiment(state, entry.company.ticker, date, window)
-        : mlFactorValue(entry.closes, date, factor, window)));
+      const features = ML_FACTORS.map((factor) => {
+        if (factor === 'news') return newsSentiment(state, entry.company.ticker, date, window);
+        if (factor === 'newsTrend') return newsSentimentTrend(state, entry.company.ticker, date, window);
+        return mlFactorValue(entry.closes, date, factor, window, entry.volumes);
+      });
       if (features.some((value) => value == null || !Number.isFinite(value))) continue;
       const forwardReturn = (entry.closes[date + forward] / entry.closes[date] - 1) * 100;
       rows.push({
@@ -800,6 +850,39 @@ function predictMlp(model, features) {
   return sigmoid(activations.reduce((sum, activation, unit) => sum + activation * model.w2[unit], model.b2));
 }
 
+/**
+ * Searches a small architecture grid on an internal validation slice. The test
+ * set is never used for model selection, so the final out-of-sample check stays
+ * honest.
+ */
+export function tuneMlpHyperparameters(fitSamples, validationSamples, grid = ML_TUNING_GRID) {
+  if (!fitSamples?.length || !validationSamples?.length) return null;
+  const candidates = grid.map((config) => {
+    const model = trainMlpModel(fitSamples, config);
+    let correct = 0;
+    for (const sample of validationSamples) {
+      if ((predictMlp(model, sample.features) >= 0.5) === (sample.label === 1)) correct += 1;
+    }
+    return {
+      hidden: config.hidden,
+      epochs: config.epochs,
+      accuracy: model.accuracy,
+      validationAccuracy: correct / validationSamples.length,
+    };
+  });
+  candidates.sort((a, b) => (
+    b.validationAccuracy - a.validationAccuracy
+    || b.accuracy - a.accuracy
+    || a.hidden - b.hidden
+    || a.epochs - b.epochs
+  ));
+  return {
+    gridSize: grid.length,
+    best: candidates[0],
+    candidates,
+  };
+}
+
 export function trainLogisticModel(samples, { iterations = 160, learningRate = 0.08, l2 = 0.02 } = {}) {
   const featureCount = ML_FACTORS.length;
   const weights = Array(featureCount + 1).fill(0);
@@ -839,6 +922,7 @@ export function mlStockSelection(state, {
   topN = 5,
   testPct = 30,
   modelType = 'mlp',
+  autoTune = false,
 } = {}) {
   const panel = buildMlPanel(state, { lookback, horizon });
   if (!panel.ok) return panel;
@@ -852,9 +936,26 @@ export function mlStockSelection(state, {
   const testSamples = panel.samples.filter((sample) => sample.date >= splitDate);
   if (!trainSamples.length || !testSamples.length) return { ok: false, error: 'quant.error.mlData' };
   const normalizedModel = ML_MODELS.some((entry) => entry.id === modelType) ? modelType : 'mlp';
-  const model = normalizedModel === 'mlp'
-    ? trainMlpModel(trainSamples)
-    : trainLogisticModel(trainSamples);
+  let model = null;
+  let tuning = null;
+  if (normalizedModel === 'mlp' && autoTune) {
+    const trainDates = [...new Set(trainSamples.map((sample) => sample.date))].sort((a, b) => a - b);
+    const validationDates = new Set(trainDates.slice(Math.floor(trainDates.length * 0.7)));
+    const fitSamples = trainSamples.filter((sample) => !validationDates.has(sample.date));
+    const validationSamples = trainSamples.filter((sample) => validationDates.has(sample.date));
+    tuning = tuneMlpHyperparameters(fitSamples, validationSamples);
+    if (tuning) {
+      model = trainMlpModel(trainSamples, {
+        hidden: tuning.best.hidden,
+        epochs: tuning.best.epochs,
+      });
+    }
+  }
+  if (!model) {
+    model = normalizedModel === 'mlp'
+      ? trainMlpModel(trainSamples)
+      : trainLogisticModel(trainSamples);
+  }
   const predict = normalizedModel === 'mlp'
     ? (features) => predictMlp(model, features)
     : (features) => predictProbability(model.weights, features);
@@ -927,6 +1028,7 @@ export function mlStockSelection(state, {
       ...model,
       testAccuracy,
     },
+    tuning,
     portfolio: {
       totalReturnPct: (topCurve - 1) * 100,
       benchmarkReturnPct: (benchmarkCurve - 1) * 100,

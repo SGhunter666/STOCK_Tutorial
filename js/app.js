@@ -32,7 +32,7 @@ import {
   buildFuturesChain, openFuture, closeFuture, markFutures, applyFuturesVariation,
   settleFutures, availableFuturesCash,
 } from './futures/futuresEngine.js';
-import { money } from './core/format.js';
+import { money, num } from './core/format.js';
 import {
   markSectionRead, recordQuizResult,
 } from './education/lessonEngine.js';
@@ -56,7 +56,7 @@ import {
   advanceFundDay, withdrawCompanyCash,
 } from './fund/fundEngine.js';
 import {
-  normalizeFundPlanConfig, buildFundPlan, executeFundPlan,
+  normalizeFundPlanConfig, buildFundPlan, executeFundPlan, autoRebalanceFund,
 } from './fund/fundStrategy.js';
 import {
   bondDef, buyBond, sellBond, markBonds, applyBondCoupons,
@@ -64,6 +64,12 @@ import {
 import {
   buyFx, sellFx, markFx, fxRates,
 } from './assets/fx.js';
+import {
+  COMMODITY_DEFS, commodityDef, commodityPrice, buyCommodity, sellCommodity, markCommodities,
+} from './assets/commodities.js';
+import {
+  CRYPTO_DEFS, cryptoDef, cryptoPrice, buyCrypto, sellCrypto, markCrypto,
+} from './assets/crypto.js';
 import { macroWorld } from './market/macro.js';
 import { getUnit } from './education/curriculum.js';
 import { getCompany } from './data/companies.js';
@@ -1216,6 +1222,108 @@ const actions = {
     }), result.realized >= 0 ? 'success' : 'warning', 4200);
     return result;
   },
+  buyCommodityAsset(commodityId, qty) {
+    const state = store.get();
+    const definition = commodityDef(commodityId);
+    if (!definition) return { ok: false, error: 'commodity.errorUnknown' };
+    const macro = macroWorld(state.market.day, state.seed);
+    const price = commodityPrice(definition, state.market.day, state.seed, macro);
+    const result = buyCommodity(state.account, commodityId, price, {
+      qty,
+      fee: state.settings.commission,
+      day: state.market.day,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.account = result.account; }, { type: 'commodity:buy' });
+    scheduleSave();
+    toast(i18n.t('toast.commodityBought', {
+      name: i18n.t(definition.nameKey),
+      qty: result.qty,
+      amount: money(result.qty * result.price, i18n.locale),
+    }), 'success', 4200);
+    return result;
+  },
+  sellCommodityAsset(commodityId, qty) {
+    const state = store.get();
+    const definition = commodityDef(commodityId);
+    if (!definition) return { ok: false, error: 'commodity.errorUnknown' };
+    const macro = macroWorld(state.market.day, state.seed);
+    const price = commodityPrice(definition, state.market.day, state.seed, macro);
+    const result = sellCommodity(state.account, commodityId, price, {
+      qty,
+      fee: state.settings.commission,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    const account = {
+      ...result.account,
+      commodityRealized: Math.round(((result.account.commodityRealized || 0) + result.realized) * 100) / 100,
+    };
+    store.update((s) => { s.account = account; }, { type: 'commodity:sell' });
+    scheduleSave();
+    toast(i18n.t('toast.commoditySold', {
+      name: i18n.t(definition.nameKey),
+      qty: result.qty,
+      pnl: money(result.realized, i18n.locale),
+    }), result.realized >= 0 ? 'success' : 'warning', 4200);
+    return result;
+  },
+  buyCryptoAsset(cryptoId, qty) {
+    const state = store.get();
+    const definition = cryptoDef(cryptoId);
+    if (!definition) return { ok: false, error: 'crypto.errorUnknown' };
+    const macro = macroWorld(state.market.day, state.seed);
+    const price = cryptoPrice(definition, state.market.day, state.seed, macro);
+    const result = buyCrypto(state.account, cryptoId, price, {
+      qty,
+      fee: state.settings.commission,
+      day: state.market.day,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    store.update((s) => { s.account = result.account; }, { type: 'crypto:buy' });
+    scheduleSave();
+    toast(i18n.t('toast.cryptoBought', {
+      name: definition.id,
+      units: num(result.units, i18n.locale, 4),
+      amount: money(result.units * result.price, i18n.locale),
+    }), 'success', 4200);
+    return result;
+  },
+  sellCryptoAsset(cryptoId, qty) {
+    const state = store.get();
+    const definition = cryptoDef(cryptoId);
+    if (!definition) return { ok: false, error: 'crypto.errorUnknown' };
+    const macro = macroWorld(state.market.day, state.seed);
+    const price = cryptoPrice(definition, state.market.day, state.seed, macro);
+    const result = sellCrypto(state.account, cryptoId, price, {
+      qty,
+      fee: state.settings.commission,
+    });
+    if (!result.ok) {
+      toast(i18n.t(result.error), 'warning');
+      return result;
+    }
+    const account = {
+      ...result.account,
+      cryptoRealized: Math.round(((result.account.cryptoRealized || 0) + result.realized) * 100) / 100,
+    };
+    store.update((s) => { s.account = account; }, { type: 'crypto:sell' });
+    scheduleSave();
+    toast(i18n.t('toast.cryptoSold', {
+      name: definition.id,
+      units: num(result.units, i18n.locale, 4),
+      pnl: money(result.realized, i18n.locale),
+    }), result.realized >= 0 ? 'success' : 'warning', 4200);
+    return result;
+  },
   getAppMode() {
     return appMode;
   },
@@ -1300,6 +1408,7 @@ function runSimulation(ticks) {
   let bondCoupons = 0;
   let fund = state.fund;
   let fundEvents = [];
+  let fundAutoRebalances = [];
   let fills = [];
   let dividends = [];
   let optionSettlements = [];
@@ -1356,6 +1465,16 @@ function runSimulation(ticks) {
       account = couponResult.account;
       bondCoupons += couponResult.total;
       account = markFx(account, fxRates(Math.max(0, prevDay), state.seed, macro));
+      const commodityPrices = {};
+      for (const definition of COMMODITY_DEFS) {
+        commodityPrices[definition.id] = commodityPrice(definition, Math.max(0, prevDay), state.seed, macro);
+      }
+      account = markCommodities(account, commodityPrices);
+      const cryptoPrices = {};
+      for (const definition of CRYPTO_DEFS) {
+        cryptoPrices[definition.id] = cryptoPrice(definition, Math.max(0, prevDay), state.seed, macro);
+      }
+      account = markCrypto(account, cryptoPrices);
       if (appMode === 'career') {
         const salary = applyCareerSalary(account, career, Math.max(0, prevDay));
         account = salary.account;
@@ -1370,6 +1489,22 @@ function runSimulation(ticks) {
           });
           fund = advancedFund.fund;
           fundEvents = [...fundEvents, ...advancedFund.events];
+          if (fund.status === 'active' && fund.quantPlan?.autoRebalance) {
+            const autoDay = Math.max(0, prevDay);
+            const auto = autoRebalanceFund(fund, {
+              ...state,
+              fund,
+              market: { ...state.market, day: autoDay },
+            }, autoDay);
+            fund = auto.fund;
+            if (auto.executed) {
+              fundAutoRebalances = [...fundAutoRebalances, {
+                day: autoDay,
+                applied: auto.applied.length,
+                failures: auto.failures.length,
+              }];
+            }
+          }
         }
       }
       if (allowDebit || (account.positions && Object.keys(account.positions).length)) {
@@ -1490,6 +1625,13 @@ function runSimulation(ticks) {
         }), 'warning', 5200);
       }
     }
+  }
+  if (fundAutoRebalances.length) {
+    const last = fundAutoRebalances[fundAutoRebalances.length - 1];
+    toast(i18n.t('toast.fundAutoRebalance', {
+      applied: last.applied,
+      failed: last.failures,
+    }), last.failures ? 'warning' : 'success', 5200);
   }
   if (optionSettlements.length) {
     const pnl = optionSettlements.reduce((sum, row) => sum + row.realized, 0);

@@ -21,8 +21,6 @@ export const PHASE_SCOPE = {
     'settings.scope.future.a',
     'settings.scope.future.b',
     'settings.scope.future.c',
-    'settings.scope.future.d',
-    'settings.scope.future.e',
   ],
 };
 
@@ -82,6 +80,13 @@ const PHASES = [
     titleKey: 'roadmap.p8.title',
     textKey: 'roadmap.p8.text',
     items: ['roadmap.p8.i1', 'roadmap.p8.i2', 'roadmap.p8.i3', 'roadmap.p8.i4'],
+  },
+  {
+    id: 9,
+    status: 'shipped',
+    titleKey: 'roadmap.p9.title',
+    textKey: 'roadmap.p9.text',
+    items: ['roadmap.p9.i1', 'roadmap.p9.i2', 'roadmap.p9.i3', 'roadmap.p9.i4'],
   },
 ];
 

@@ -15,6 +15,14 @@ import {
 import {
   FX_PAIRS, fxRate, fxRates, buyFx, sellFx, markFx, fxValue,
 } from '../js/assets/fx.js';
+import {
+  COMMODITY_DEFS, commodityDef, commodityPrice, commodityQuotes,
+  buyCommodity, sellCommodity, markCommodities, commodityValue,
+} from '../js/assets/commodities.js';
+import {
+  CRYPTO_DEFS, cryptoDef, cryptoPrice, cryptoQuotes,
+  buyCrypto, sellCrypto, markCrypto, cryptoValue,
+} from '../js/assets/crypto.js';
 
 suite('Bonds');
 
@@ -95,4 +103,80 @@ test('FX errors cover unknown pairs, missing positions and oversized sales', () 
   assertEqual(sellFx(account, 'EURUSD', rates, { units: 1 }).error, 'fx.errorNoPosition');
   const bought = buyFx(account, 'EURUSD', rates, { units: 5, day: 0 });
   assertEqual(sellFx(bought.account, 'EURUSD', rates, { units: 10 }).error, 'fx.errorInsufficient');
+});
+
+suite('Commodities');
+
+test('commodity prices are deterministic, macro-sensitive and tradable', () => {
+  const macro = macroWorld(0, 'asset-commodity');
+  const quotes = commodityQuotes(0, 'asset-commodity', macro);
+  const again = commodityQuotes(0, 'asset-commodity', macro);
+  assertEqual(COMMODITY_DEFS.length, 5, 'five teaching commodities');
+  assertEqual(JSON.stringify(quotes), JSON.stringify(again), 'quotes are deterministic');
+  for (const row of quotes) {
+    assert(row.price > 0, `${row.id} has a positive price`);
+    assert(Number.isFinite(row.changePct), `${row.id} change is numeric`);
+  }
+  const gold = commodityDef('gold');
+  assert(commodityPrice(gold, 0, 'asset-commodity', macro) > 0, 'gold price is positive');
+  const higherRates = { ...macro, realRate: macro.realRate + 1 };
+  assert(commodityPrice(gold, 0, 'asset-commodity', higherRates) < commodityPrice(gold, 0, 'asset-commodity', macro), 'higher real rates weigh on gold');
+
+  const account = { ...createGameState({ seed: 'asset-commodity' }).account, cash: 10000, initialCash: 10000 };
+  const bought = buyCommodity(account, 'gold', gold.base, { qty: 2, fee: 1, day: 0 });
+  assert(bought.ok, 'commodity purchase succeeds');
+  assertEqual(bought.account.commodities[0].qty, 2, 'quantity recorded');
+  assert(commodityValue(bought.account) > 0, 'commodity value is positive');
+  assert(equity(bought.account, {}) > 0, 'equity includes commodities');
+  const marked = markCommodities(bought.account, { gold: gold.base + 10 });
+  assert(marked.commodities[0].currentPrice === gold.base + 10, 'marking updates the price');
+  const sold = sellCommodity(marked, 'gold', gold.base + 10, { qty: 1, fee: 1 });
+  assert(sold.ok, 'partial commodity sale succeeds');
+  assertEqual(sold.account.commodities[0].qty, 1, 'one unit remains');
+  assert(Number.isFinite(sold.realized), 'realised commodity P&L reported');
+});
+
+test('commodity errors cover unknown, missing and oversized positions', () => {
+  const account = createGameState({ seed: 'asset-commodity-errors' }).account;
+  assertEqual(buyCommodity(account, 'zzz', 10, { qty: 1 }).error, 'commodity.errorUnknown');
+  assertEqual(sellCommodity(account, 'oil', 70, { qty: 1 }).error, 'commodity.errorNoPosition');
+  const bought = buyCommodity(account, 'oil', 70, { qty: 1, day: 0 });
+  assertEqual(sellCommodity(bought.account, 'oil', 70, { qty: 2 }).error, 'commodity.errorInsufficient');
+});
+
+suite('Crypto');
+
+test('crypto prices are deterministic and fractional positions mark in USD', () => {
+  const macro = macroWorld(0, 'asset-crypto');
+  const quotes = cryptoQuotes(0, 'asset-crypto', macro);
+  const again = cryptoQuotes(0, 'asset-crypto', macro);
+  assertEqual(CRYPTO_DEFS.length, 3, 'three teaching crypto assets');
+  assertEqual(JSON.stringify(quotes), JSON.stringify(again), 'crypto quotes are deterministic');
+  for (const row of quotes) {
+    assert(row.price > 0, `${row.id} has a positive price`);
+    assert(Number.isFinite(row.changePct), `${row.id} change is numeric`);
+  }
+  const btc = cryptoDef('BTC');
+  assert(cryptoPrice(btc, 0, 'asset-crypto', macro) > 0, 'BTC price is positive');
+  const account = { ...createGameState({ seed: 'asset-crypto' }).account, cash: 10000, initialCash: 10000 };
+  const bought = buyCrypto(account, 'BTC', btc.base, { qty: 0.05, fee: 1, day: 0 });
+  assert(bought.ok, 'fractional crypto purchase succeeds');
+  assertEqual(bought.account.crypto[0].units, 0.05, 'fractional units recorded');
+  assert(cryptoValue(bought.account) > 0, 'crypto value is positive');
+  assert(equity(bought.account, {}) > 0, 'equity includes crypto');
+  const marked = markCrypto(bought.account, { BTC: btc.base + 100 });
+  assertEqual(marked.crypto[0].currentPrice, btc.base + 100, 'position marked to the new price');
+  const sold = sellCrypto(marked, 'BTC', btc.base + 100, { qty: 0.02, fee: 1 });
+  assert(sold.ok, 'partial crypto sale succeeds');
+  assertClose(sold.account.crypto[0].units, 0.03, 1e-9, 'remaining crypto units');
+  assert(Number.isFinite(sold.realized), 'realised crypto P&L reported');
+});
+
+test('crypto errors cover unknown assets, invalid units and oversized sales', () => {
+  const account = createGameState({ seed: 'asset-crypto-errors' }).account;
+  assertEqual(buyCrypto(account, 'DOGE', 1, { qty: 1 }).error, 'crypto.errorUnknown');
+  assertEqual(buyCrypto(account, 'ETH', 3000, { qty: 0 }).error, 'crypto.errorQtyInvalid');
+  assertEqual(sellCrypto(account, 'ETH', 3000, { qty: 1 }).error, 'crypto.errorNoPosition');
+  const bought = buyCrypto(account, 'ETH', 3000, { qty: 0.5, day: 0 });
+  assertEqual(sellCrypto(bought.account, 'ETH', 3000, { qty: 1 }).error, 'crypto.errorInsufficient');
 });

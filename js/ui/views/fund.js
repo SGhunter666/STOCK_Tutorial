@@ -524,6 +524,13 @@ export function createFundView(ctx) {
               <input class="input" type="number" name="rebalanceDays" min="5" max="60" step="1" value="${config.rebalanceDays}" inputmode="numeric">
             </label>
             <label class="field">
+              <span class="field-label">${t('fund.plan.autoLabel')}</span>
+              <select class="input input--select" name="autoRebalance">
+                <option value="false" ${config.autoRebalance ? '' : 'selected'}>${t('fund.plan.off')}</option>
+                <option value="true" ${config.autoRebalance ? 'selected' : ''}>${t('fund.plan.on')}</option>
+              </select>
+            </label>
+            <label class="field">
               <span class="field-label">${t('fund.plan.cashBufferLabel')}</span>
               <input class="input" type="number" name="cashBuffer" min="0" max="50" step="1" value="${num(config.cashBuffer * 100, i18n.locale, 0)}" inputmode="numeric">
             </label>
@@ -547,6 +554,7 @@ export function createFundView(ctx) {
                 <span>${t('fund.plan.generated', { day: formatMarketDate(plan.day, i18n.locale) })}</span>
                 <span>${t('fund.plan.nav', { value: money(plan.nav, i18n.locale) })}</span>
                 <span>${t('fund.plan.cashAfter', { value: money(plan.expectedCash, i18n.locale) })}</span>
+                ${config.lastAutoDay !== null ? `<span>${t('fund.plan.lastAuto', { day: formatMarketDate(config.lastAutoDay, i18n.locale) })}</span>` : ''}
               </div>
               ${tradeRows.length
                 ? `<div class="table-wrap"><table class="table table--compact">
@@ -931,6 +939,7 @@ export function createFundView(ctx) {
           topN: Number(data.get('topN')),
           rebalanceDays: Number(data.get('rebalanceDays')),
           cashBuffer: Number(data.get('cashBuffer')) / 100,
+          autoRebalance: data.get('autoRebalance') === 'true',
         });
         actions.fundGeneratePlan();
         return;

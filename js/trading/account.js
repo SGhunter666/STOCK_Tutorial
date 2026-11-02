@@ -9,6 +9,8 @@
  */
 import { bondValue } from '../assets/bonds.js';
 import { fxValue } from '../assets/fx.js';
+import { commodityValue } from '../assets/commodities.js';
+import { cryptoValue } from '../assets/crypto.js';
 
 export const TRADE_LOG_LIMIT = 250;
 export const MAINTENANCE_LONG = 0.25;
@@ -37,6 +39,10 @@ export function createAccount(initialCash = 10000) {
     bondRealized: 0,
     fx: [],
     fxRealized: 0,
+    commodities: [],
+    commodityRealized: 0,
+    crypto: [],
+    cryptoRealized: 0,
     trades: [],
     tradeSeq: 1,
     dividends: [],
@@ -293,7 +299,8 @@ export function optionUnrealizedPnl(account) {
 
 export function equity(account, quotes) {
   return account.cash + marketValue(account, quotes) + optionValue(account)
-    + (account.futuresPnl || 0) + bondValue(account) + fxValue(account);
+    + (account.futuresPnl || 0) + bondValue(account) + fxValue(account)
+    + commodityValue(account) + cryptoValue(account);
 }
 
 export function totalPnl(account, quotes) {

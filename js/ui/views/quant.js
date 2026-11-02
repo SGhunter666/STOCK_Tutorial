@@ -153,6 +153,11 @@ export function createQuantView(ctx) {
         ${field(t('quant.ml.modelLabel'), `
           <select class="input input--select" name="mlModel">
             ${ML_MODELS.map((model) => `<option value="${model.id}" ${model.id === config.mlModel ? 'selected' : ''}>${t(model.nameKey)}</option>`).join('')}
+          </select>`)}
+        ${field(t('quant.ml.autoTuneLabel'), `
+          <select class="input input--select" name="mlAutoTune">
+            <option value="false" ${config.mlAutoTune ? '' : 'selected'}>${t('quant.ml.autoTuneOff')}</option>
+            <option value="true" ${config.mlAutoTune ? 'selected' : ''}>${t('quant.ml.autoTuneOn')}</option>
           </select>`)}`;
     }
     const runKey = mode === 'optimize' ? 'quant.runOptimize' : mode === 'ml' ? 'quant.runMl' : 'quant.run';
@@ -361,7 +366,7 @@ export function createQuantView(ctx) {
 
   function mlBody(state) {
     const config = draft(state);
-    const key = `${config.mlLookback}:${config.mlHorizon}:${config.mlTopN}:${config.mlTestPct}:${config.mlModel}:${state.market.day}:${runToken}`;
+    const key = `${config.mlLookback}:${config.mlHorizon}:${config.mlTopN}:${config.mlTestPct}:${config.mlModel}:${config.mlAutoTune}:${state.market.day}:${runToken}`;
     if (key !== cachedMlKey) {
       cachedMl = mlStockSelection(state, {
         lookback: config.mlLookback,
@@ -369,6 +374,7 @@ export function createQuantView(ctx) {
         topN: config.mlTopN,
         testPct: config.mlTestPct,
         modelType: config.mlModel,
+        autoTune: config.mlAutoTune,
       });
       cachedMlKey = key;
     }
@@ -401,6 +407,12 @@ export function createQuantView(ctx) {
       ...(result.model.type === 'mlp' ? [
         [t('quant.ml.hiddenUnits'), String(result.model.hidden)],
         [t('quant.ml.epochs'), String(result.model.epochs)],
+        [t('quant.ml.autoTuneLabel'), t(config.mlAutoTune ? 'quant.ml.autoTuneOn' : 'quant.ml.autoTuneOff')],
+        ...(result.tuning ? [
+          [t('quant.ml.tuningBest'), `${result.tuning.best.hidden} / ${result.tuning.best.epochs}`],
+          [t('quant.ml.tuningValidation'), pct(result.tuning.best.validationAccuracy * 100, i18n.locale, 1, false)],
+          [t('quant.ml.tuningCandidates'), String(result.tuning.gridSize)],
+        ] : []),
       ] : [[t('quant.ml.intercept'), num(result.model.intercept, i18n.locale, 3)]]),
       ...ML_FACTORS.map((factor) => [
         t(`quant.factor.${factor}`),
@@ -408,7 +420,7 @@ export function createQuantView(ctx) {
       ]),
       [t('quant.ml.splitDate'), formatMarketDate(result.splitDate, i18n.locale)],
     ])}
-      <p class="chart-note muted">${t('quant.ml.modelNote')}</p>`,
+      <p class="chart-note muted">${t(result.tuning ? 'quant.ml.tuningNote' : 'quant.ml.modelNote')}</p>`,
   })}
       ${card({
     title: t('quant.ml.picksTitle'),
@@ -543,6 +555,7 @@ export function createQuantView(ctx) {
     if (value('mlTopN')) config.mlTopN = Number(value('mlTopN'));
     if (value('mlTestPct')) config.mlTestPct = Number(value('mlTestPct'));
     if (value('mlModel')) config.mlModel = value('mlModel');
+    if (value('mlAutoTune') !== undefined) config.mlAutoTune = value('mlAutoTune') === 'true';
     form.querySelectorAll('[data-param]').forEach((input) => {
       config.params[input.dataset.param] = Number(input.value);
     });

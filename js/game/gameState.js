@@ -146,6 +146,10 @@ export function hydrateState(saved) {
     bondRealized: Number.isFinite(state.account.bondRealized) ? state.account.bondRealized : 0,
     fx: Array.isArray(state.account.fx) ? state.account.fx : [],
     fxRealized: Number.isFinite(state.account.fxRealized) ? state.account.fxRealized : 0,
+    commodities: Array.isArray(state.account.commodities) ? state.account.commodities : [],
+    commodityRealized: Number.isFinite(state.account.commodityRealized) ? state.account.commodityRealized : 0,
+    crypto: Array.isArray(state.account.crypto) ? state.account.crypto : [],
+    cryptoRealized: Number.isFinite(state.account.cryptoRealized) ? state.account.cryptoRealized : 0,
     initialCash: Number.isFinite(state.account.initialCash) ? state.account.initialCash : state.account.cash,
     tradeSeq: Number.isFinite(state.account.tradeSeq) ? state.account.tradeSeq : 1,
   };

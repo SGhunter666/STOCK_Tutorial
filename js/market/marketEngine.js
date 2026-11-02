@@ -8,7 +8,7 @@
 import { createRng } from '../core/rng.js';
 import { COMPANIES, SECTORS, getCompany } from '../data/companies.js';
 import { TICKS_PER_DAY } from './calendar.js';
-import { macroSnapshot } from './macro.js';
+import { macroSnapshot, macroCalendar } from './macro.js';
 
 export const HISTORY_DAYS = 90;
 const HISTORY_LIMIT = 220;
@@ -32,6 +32,14 @@ const MACRO_EVENTS = [
   { template: 'growthStrong', min: 1, max: 2.5 },
   { template: 'recessionFear', min: -2.5, max: -1 },
 ];
+
+const CALENDAR_TEMPLATES = {
+  cpi: (event) => (event.surprise > 0 ? 'inflationHot' : 'inflationCool'),
+  payrolls: (event) => (event.surprise >= 0 ? 'growthStrong' : 'recessionFear'),
+  gdp: (event) => (event.surprise >= 0 ? 'growthStrong' : 'recessionFear'),
+  pmi: (event) => (event.surprise >= 0 ? 'growthStrong' : 'recessionFear'),
+  centralBank: (event) => (event.surprise > 0 ? 'rateHike' : 'rateCut'),
+};
 
 function round2(v) {
   return Math.round((v + Number.EPSILON) * 100) / 100;
@@ -388,8 +396,40 @@ export class MarketEngine {
     return { dayClosed };
   }
 
+  /**
+   * Releases the calendar event scheduled for the closing day and transmits the
+   * surprise into prices. This makes the macro calendar a real market driver
+   * instead of a purely informational panel.
+   */
+  _applyCalendarShock() {
+    const st = this.state;
+    if (st.day <= 0 || st.day % 21 !== 0) return null;
+    const event = macroCalendar(st.day, st.seed, { past: 0, future: 0 })
+      .find((entry) => entry.day === st.day && entry.released);
+    if (!event || !Number.isFinite(event.impactPct) || Math.abs(event.impactPct) < 0.01) return null;
+    const templateFor = CALENDAR_TEMPLATES[event.type];
+    const template = templateFor ? templateFor(event) : 'growthStrong';
+    for (const company of COMPANIES.filter((entry) => !entry.isEtf)) {
+      const shock = Math.max(-4, Math.min(4, event.impactPct * Math.max(0.6, company.beta)));
+      this._applyShock(company.ticker, shock);
+    }
+    this._pushNews({
+      day: st.day,
+      tick: 0,
+      kind: 'macro',
+      template,
+      ticker: null,
+      pct: Math.round(event.impactPct * 100) / 100,
+      calendar: event.type,
+      surprise: event.surprise,
+    });
+    this._recomputeIndex();
+    return event;
+  }
+
   _closeDay() {
     const st = this.state;
+    this._applyCalendarShock();
     for (const company of COMPANIES) {
       const q = st.quotes[company.ticker];
       const series = st.history[company.ticker];

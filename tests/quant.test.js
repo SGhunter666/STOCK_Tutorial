@@ -11,6 +11,7 @@ import {
   ML_MODELS, ML_FACTORS,
   normalizeQuantConfig, runBacktest, factorResearch, parameterGrid, optimizeStrategy,
   buildMlPanel, trainLogisticModel, trainMlpModel, mlStockSelection,
+  tuneMlpHyperparameters,
 } from '../js/quant/backtestEngine.js';
 
 function candlesFromCloses(closes) {
@@ -193,16 +194,16 @@ test('ML panel, logistic model and out-of-sample selection are deterministic', (
   assert(panel.ok, 'ML panel builds');
   assert(panel.samples.length >= 120, 'enough labelled samples');
   assert(panel.samples.every((sample) => sample.label === 0 || sample.label === 1), 'labels are binary');
-  assertEqual(ML_FACTORS.length, 4, 'three price factors plus news sentiment');
+  assertEqual(ML_FACTORS.length, 6, 'four price/news factors plus sentiment change and volume');
   const subset = panel.samples.slice(0, 300);
   const model = trainLogisticModel(subset);
-  assertEqual(model.weights.length, 5, 'four factors plus intercept');
+  assertEqual(model.weights.length, 7, 'six factors plus intercept');
   assert(model.accuracy >= 0 && model.accuracy <= 1, 'training accuracy is a ratio');
   const mlp = trainMlpModel(subset, { hidden: 5, epochs: 80 });
   assertEqual(mlp.type, 'mlp', 'neural model type');
   assertEqual(mlp.hidden, 5, 'hidden units kept');
   assert(mlp.accuracy >= 0 && mlp.accuracy <= 1, 'MLP accuracy is a ratio');
-  assert(Object.keys(mlp.featureImportance).length === 4, 'feature importance covers every factor');
+  assert(Object.keys(mlp.featureImportance).length === 6, 'feature importance covers every factor');
 
   const result = mlStockSelection(state, {
     lookback: 30, horizon: 10, topN: 5, testPct: 30, modelType: 'logistic',
@@ -225,19 +226,47 @@ test('ML panel, logistic model and out-of-sample selection are deterministic', (
   assert(mlpResult.model.featureImportance.news >= 0, 'news sentiment contributes to importance');
 });
 
-test('alternative-data news factor and model options are exposed', () => {
-  assertEqual(QUANT_FACTOR_OPTIONS.length, 5, 'five factors including news');
+test('alternative-data news factors and model options are exposed', () => {
+  assertEqual(QUANT_FACTOR_OPTIONS.length, 7, 'seven factors including news and volume');
   assertEqual(ML_MODELS.length, 2, 'logistic and MLP models');
   const state = createGameState({ seed: 'quant-news-factor' });
   const news = factorResearch(state, { factor: 'news', lookback: 20 });
   assert(news.rows.length > 0, 'news factor has a cross-section');
   assert(news.rows.every((row) => Number.isFinite(row.metric)), 'news metrics are numeric');
+  const trend = factorResearch(state, { factor: 'newsTrend', lookback: 20 });
+  assert(trend.rows.every((row) => Number.isFinite(row.metric)), 'news trend metrics are numeric');
+  const volume = factorResearch(state, { factor: 'volume', lookback: 60 });
+  assert(volume.rows.length > 0, 'volume factor has a cross-section');
+  assert(volume.rows.every((row) => Number.isFinite(row.metric)), 'volume metrics are numeric');
+});
+
+test('automatic MLP tuning searches architectures without touching the test set', () => {
+  const state = createGameState({ seed: 'quant-ml-tune' });
+  const panel = buildMlPanel(state, { lookback: 30, horizon: 10 });
+  assert(panel.ok, 'panel builds for tuning');
+  const dates = [...new Set(panel.samples.map((sample) => sample.date))].sort((a, b) => a - b);
+  const split = dates[Math.floor(dates.length * 0.7)];
+  const fit = panel.samples.filter((sample) => sample.date < split);
+  const validation = panel.samples.filter((sample) => sample.date >= split);
+  const tuning = tuneMlpHyperparameters(fit, validation);
+  assert(tuning, 'tuning returns candidates');
+  assert(tuning.gridSize >= 4, 'several architectures searched');
+  assert(typeof tuning.best.hidden === 'number' && typeof tuning.best.epochs === 'number', 'best config is concrete');
+  assert(tuning.best.validationAccuracy >= 0 && tuning.best.validationAccuracy <= 1, 'validation accuracy is a ratio');
+  const result = mlStockSelection(state, {
+    lookback: 30, horizon: 10, topN: 5, testPct: 30, modelType: 'mlp', autoTune: true,
+  });
+  assert(result.ok, 'auto-tuned selection runs');
+  assert(result.tuning, 'result exposes the tuning search');
+  assertEqual(result.model.hidden, result.tuning.best.hidden, 'chosen hidden units are retrained');
+  assertEqual(result.model.epochs, result.tuning.best.epochs, 'chosen epochs are retrained');
+  assertEqual(normalizeQuantConfig({ mlAutoTune: true }).mlAutoTune, true, 'auto tuning flag normalises');
 });
 
 test('new quant modes and objectives are exposed', () => {
   assertEqual(QUANT_MODES.length, 3, 'three research modes');
   assertEqual(QUANT_OBJECTIVES.length, 4, 'four optimisation objectives');
-  assertEqual(QUANT_FACTOR_OPTIONS.length, 5, 'five factors including news sentiment');
+  assertEqual(QUANT_FACTOR_OPTIONS.length, 7, 'seven factors including news and volume');
   assert(QUANT_MODES.every((mode) => mode.nameKey && mode.descKey), 'mode keys exist');
 });
 
@@ -273,6 +302,6 @@ test('factor research is deterministic and ranks in the expected direction', () 
   const value = factorResearch(state, { factor: 'value', lookback: 60 });
   assert(value.rows.every((row) => row.metric > 0), 'valuation only includes positive P/E');
   assertEqual(value.factor, 'value');
-  assertEqual(QUANT_FACTOR_OPTIONS.length, 5, 'five factors including news sentiment');
+  assertEqual(QUANT_FACTOR_OPTIONS.length, 7, 'seven factors including news sentiment');
   assertEqual(Object.keys(QUANT_STRATEGIES).length, 5, 'five strategies are available');
 });

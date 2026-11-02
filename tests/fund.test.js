@@ -17,7 +17,8 @@ import {
   FUND_COMPLIANCE_DAYS,
 } from '../js/fund/fundEngine.js';
 import {
-  normalizeFundPlanConfig, buildFundPlan, executeFundPlan, fundAttribution,
+  normalizeFundPlanConfig, buildFundPlan, executeFundPlan, autoRebalanceFund,
+  fundAttribution,
 } from '../js/fund/fundStrategy.js';
 
 const STOCK = COMPANIES.find((company) => !company.isEtf).ticker;
@@ -406,6 +407,8 @@ test('fund strategy plans normalise, build and execute through normal risk check
   assertEqual(config.topN, 10, 'top-N clamps');
   assertEqual(config.rebalanceDays, 5, 'rebalance interval clamps');
   assertEqual(config.cashBuffer, 0.5, 'cash buffer clamps');
+  assertEqual(config.autoRebalance, false, 'auto rebalance defaults off');
+  assertEqual(normalizeFundPlanConfig({ autoRebalance: true }).autoRebalance, true, 'auto rebalance normalises');
 
   const state = makeState();
   const fund = launch(state);
@@ -424,6 +427,38 @@ test('fund strategy plans normalise, build and execute through normal risk check
   assert(executed.applied.length > 0, 'some plan trades filled');
   assert(executed.fund.account.positions && Object.keys(executed.fund.account.positions).length > 0, 'positions created');
   assertEqual(executeFundPlan(fund, state.market.quotes, { trades: [] }, {}).error, 'fund.plan.errorEmpty');
+});
+
+test('fund auto rebalance respects disabled, schedule and success paths', () => {
+  const state = makeState();
+  const fund = launch(state);
+  const disabled = autoRebalanceFund(fund, state, 0);
+  assertEqual(disabled.skipped, 'disabled', 'disabled plans do not trade');
+  assertEqual(disabled.fund, fund, 'disabled plans leave the fund unchanged');
+
+  const config = normalizeFundPlanConfig({
+    ...fund.quantPlan,
+    autoRebalance: true,
+    strategyId: 'buyHold',
+    topN: 3,
+    rebalanceDays: 5,
+    cashBuffer: 0.1,
+  });
+  const enabledFund = { ...fund, quantPlan: config };
+  const first = autoRebalanceFund(enabledFund, state, 0);
+  assert(first.ok, `first due auto rebalance runs (${first.error || first.skipped || 'unknown'})`);
+  assert(first.executed, 'auto rebalance executes trades');
+  assert(first.applied.length > 0, 'trades are reported');
+  assertEqual(first.fund.quantPlan.lastAutoDay, 0, 'attempt day recorded');
+
+  const early = autoRebalanceFund(first.fund, state, 3);
+  assertEqual(early.skipped, 'notDue', 'schedule blocks an early run');
+  assertEqual(early.executed, false, 'early run does not trade');
+  assertEqual(early.fund.quantPlan.lastAutoDay, 0, 'last attempt day preserved');
+
+  const due = autoRebalanceFund(first.fund, state, 5);
+  assert(due.ok, 'run at the interval succeeds');
+  assertEqual(due.fund.quantPlan.lastAutoDay, 5, 'attempt day advances');
 });
 
 test('fund attribution components reconcile to the total return', () => {

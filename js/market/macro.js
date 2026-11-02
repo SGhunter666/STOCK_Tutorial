@@ -110,7 +110,7 @@ export function macroCalendar(day, seed = '', { past = 3, future = 3 } = {}) {
       positiveWhen = -1;
     } else if (type === 'payrolls') {
       forecast = Math.round(120 + snapshot.growth * 35 + wave(date, 90, phase) * 28);
-      sensitivity = 0.18;
+      sensitivity = 0.03;
     } else if (type === 'gdp') {
       forecast = round1(snapshot.growth);
       sensitivity = 0.35;
