@@ -425,7 +425,7 @@ test('summary reports real, simulated and unavailable counts', async () => {
   const run = { ...createHistoryRun('minute-test'), dayIndex: 1, tick: 0 };
   const sum = summaryAtMinute(run, DATASET, store);
   assertEqual(sum.sourceCounts.REAL_MINUTE, 0, 'no real on missing day');
-  assertEqual(sum.sourceCounts.SIMULATED, 2, 'both symbols simulated');
+  assertEqual(sum.sourceCounts.SIMULATED, 1, 'tradable symbol simulated; benchmark excluded');
   assertEqual(sum.date, '2022-01-04', 'date');
   assertEqual(sum.tickTime, '09:31', 'minute tick clock');
   const coverage = coverageAtMinute(DATASET, store, 0, 0);
@@ -578,6 +578,110 @@ test('the pilot scenario reuses the 2022 events with 20 core names', () => {
   assertEqual(scenario.badgeKey, 'history.minuteBadge', 'badge');
   assertEqual(monthOf('2022-06-06'), '2022-06', 'month helper');
   assertEqual(nextMonth('2022-12'), '2023-01', 'next month');
+});
+
+const REAL_MANIFEST_PATH = 'data/real/alpaca/2022-pilot/minute-manifest.json';
+const REAL_ROOT = 'data/real/alpaca/2022-pilot';
+
+async function installedManifest() {
+  const response = await fetch(`../${REAL_MANIFEST_PATH}`);
+  if (!response.ok) return null;
+  return response.json();
+}
+
+function testFetch(url, options) {
+  return fetch(`../${String(url).replace(/^\.\//, '')}`, options);
+}
+
+function realPilotStore() {
+  return new MinuteDataStore({
+    manifestPath: REAL_MANIFEST_PATH,
+    root: REAL_ROOT,
+    fetchImpl: testFetch,
+    tickCacheLimit: 4,
+    minuteCacheLimit: 2,
+  });
+}
+
+test('installed tick indexes match raw one-minute closes', async () => {
+  const manifest = await installedManifest();
+  if (!manifest) {
+    console.warn('[minute] real pilot data is not installed; skipping tick assertions');
+    return;
+  }
+  const store = realPilotStore();
+  await store.loadManifest();
+  for (const symbol of ['NVDA', 'AMZN']) {
+    const record = manifest.symbols[symbol].months['2022-06'];
+    assert(record, `${symbol} June record`);
+    const days = await store.ensureTickMonth(symbol, '2022-06');
+    await store.ensureMinuteMonth(symbol, '2022-06');
+    const dates = Object.keys(days).slice(0, 3);
+    for (const date of dates) {
+      const bars = store.getMinuteBars(symbol, date);
+      assert(bars && bars.length, `${symbol} ${date} minute bars`);
+      for (const entry of days[date]) {
+        const index = MINUTE_TICK_TIMES.indexOf(entry.t);
+        const cutoff = minuteTickMinute(index);
+        const completed = bars.filter((bar) => bar.minutes + 1 <= cutoff);
+        assert(completed.length, `${symbol} ${date} ${entry.t} completed minute`);
+        const last = completed[completed.length - 1];
+        assertEqual(entry.mt, last.time, `${symbol} ${date} ${entry.t} minute label`);
+        assertClose(entry.p, last.close, 1e-5, `${symbol} ${date} ${entry.t} price`);
+        assertEqual(entry.lag, cutoff - (last.minutes + 1), `${symbol} ${date} ${entry.t} lag`);
+      }
+    }
+    if (symbol === 'AMZN') {
+      const splitDay = days['2022-06-06'];
+      assert(splitDay && splitDay.every((entry) => entry.p < 300), 'post-split minute prices');
+    }
+  }
+});
+
+test('a full 2022 replay keeps tick and minute caches bounded', async () => {
+  const manifest = await installedManifest();
+  if (!manifest) {
+    console.warn('[minute] real pilot data is not installed; skipping memory assertions');
+    return;
+  }
+  const symbols = Object.keys(manifest.symbols);
+  const months = manifest.calendar.months;
+  const store = realPilotStore();
+  await store.loadManifest();
+  const memoryBefore = typeof performance !== 'undefined' && performance.memory
+    ? performance.memory.usedJSHeapSize
+    : 0;
+  for (const month of months) {
+    await store.ensureSymbolsMonth(symbols, month);
+    await store.ensureMinuteMonth(symbols[0], month);
+  }
+  const stats = store.cacheStats();
+  assert(stats.tickMonths <= 4, `tick cache ${stats.tickMonths}`);
+  assert(stats.minuteMonths <= 2, `minute cache ${stats.minuteMonths}`);
+  assertEqual(stats.tickFetches, symbols.length * months.length, 'tick fetch count');
+  assertEqual(stats.minuteFetches, months.length, 'minute fetch count');
+  assert(stats.bytesLoaded > 5_000_000, `loaded ${stats.bytesLoaded} bytes`);
+  if (memoryBefore) {
+    const growth = performance.memory.usedJSHeapSize - memoryBefore;
+    assert(growth < 160 * 1024 * 1024, `heap growth ${Math.round(growth / 1048576)} MB`);
+  }
+  store.dispose();
+});
+
+test('the first 2022 session quotes NVDA from the real minute tick', async () => {
+  const manifest = await installedManifest();
+  if (!manifest) return;
+  const response = await fetch('../data/real/alpaca/2022-pilot/history.json');
+  assert(response.ok, 'history installed');
+  const dataset = await response.json();
+  const store = realPilotStore();
+  await store.loadManifest();
+  await store.ensureTickMonth('NVDA', '2022-02');
+  const quote = quoteAtMinute(dataset, store, 'NVDA', 20, 0);
+  assertEqual(quote.date, '2022-02-01', 'warm-up date');
+  assertEqual(quote.source, MINUTE_SOURCES.REAL_MINUTE, 'real source');
+  assertEqual(quote.minuteTime, '09:30', 'completed minute');
+  assertClose(quote.last, 248.125, 0.001, '09:31 price');
 });
 
 test('the local 2022 pilot files agree when installed', async () => {

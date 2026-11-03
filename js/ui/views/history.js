@@ -183,6 +183,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
           console.warn('[history] minute month failed', error);
         }
       }
+      if (token === prepareToken) minuteLoading = '';
       await minuteStore.prefetchAround(symbols, date);
     } catch (error) {
       console.warn('[history] minute index failed', error);

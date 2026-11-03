@@ -37031,9 +37031,11 @@ class MinuteDataStore {
   }
 
   tickState(symbol, month) {
-    const key = `${safeSymbol(symbol)}|${safeMonth(month)}`;
-    if (this.tickCache.has(key)) return 'ready';
-    return this.monthStates.get(key) || 'idle';
+    const ticker = safeSymbol(symbol);
+    const period = safeMonth(month);
+    const bundle = this.tickCache.get(period);
+    if (bundle && bundle[ticker]) return 'ready';
+    return this.monthStates.get(`${ticker}|${period}`) || 'idle';
   }
 
   minuteState(symbol, month) {
@@ -37051,9 +37053,10 @@ class MinuteDataStore {
     const ticker = safeSymbol(symbol);
     const period = safeMonth(month);
     const key = `${ticker}|${period}`;
-    if (this.tickCache.has(key)) {
+    const cachedBundle = this.tickCache.get(period);
+    if (cachedBundle && cachedBundle[ticker]) {
       this.stats.tickCacheHits += 1;
-      return this.tickCache.get(key);
+      return cachedBundle[ticker];
     }
     if (!this.manifest) await this.loadManifest();
     const record = this.monthRecord(ticker, period);
@@ -37082,7 +37085,9 @@ class MinuteDataStore {
       if (this.disposed) throw new Error('minute.error.disposed');
       this.stats.tickFetches += 1;
       this.stats.bytesLoaded += text.length;
-      this.tickCache.set(key, payload.days);
+      const bundle = this.tickCache.get(period) || {};
+      bundle[ticker] = payload.days;
+      this.tickCache.set(period, bundle);
       this.monthStates.delete(key);
       return payload.days;
     } catch (error) {
@@ -37090,7 +37095,7 @@ class MinuteDataStore {
         this.stats.aborted += 1;
         throw new Error('minute.error.disposed');
       }
-      if (!this.tickCache.has(key) && this.monthStates.get(key) === 'loading') {
+      if (this.monthStates.get(key) === 'loading') {
         this.monthStates.set(key, 'missing');
       }
       throw error;
@@ -37118,9 +37123,9 @@ class MinuteDataStore {
     const day = safeDate(date);
     const index = Math.max(0, Math.min(MINUTE_TICK_TIMES.length - 1, Number(tick) || 0));
     const period = monthOf(day);
-    if (!this.tickCache.has(`${ticker}|${period}`)) return undefined;
-    const days = this.tickCache.get(`${ticker}|${period}`);
-    const entries = days?.[day];
+    const bundle = this.tickCache.get(period);
+    if (!bundle || !bundle[ticker]) return undefined;
+    const entries = bundle[ticker]?.[day];
     if (!entries || !entries.length) return null;
     const entry = entries.find((item) => item.t === MINUTE_TICK_TIMES[index]);
     if (!entry) return null;
@@ -37407,6 +37412,9 @@ function summaryAtMinute(run, dataset, store) {
     name: tickerData(dataset, row.ticker)?.name || row.ticker,
     source: quotes[row.ticker]?.source || SOURCE.UNAVAILABLE,
   }));
+  const tradableQuotes = Object.fromEntries(Object.entries(quotes).filter(
+    ([symbol]) => !tickerData(dataset, symbol)?.benchmark,
+  ));
   const totalDays = barCount(dataset);
   return {
     total,
@@ -37425,7 +37433,7 @@ function summaryAtMinute(run, dataset, store) {
     tickTime: minuteTickClock(tick),
     date: currentDate(dataset, run.dayIndex),
     totalDays,
-    sourceCounts: sourceCounts(quotes),
+    sourceCounts: sourceCounts(tradableQuotes),
     splitEvents: run.lastSplitEvents || [],
     reachedEnd: run.dayIndex >= totalDays - 1 && tick >= TICKS_PER_DAY - 1,
   };
@@ -37574,17 +37582,17 @@ function minuteCandlesFor(dataset, store, symbol, dayIndex, tick, timeframe, cur
 
 function coverageAtMinute(dataset, store, dayIndex, tick = 0) {
   const quotes = quotesAtMinute(dataset, store, dayIndex, tick);
-  const counts = sourceCounts(quotes);
   const date = currentDate(dataset, dayIndex);
   const symbols = Object.keys(quotes).filter((symbol) => {
     const ticker = tickerData(dataset, symbol);
     return ticker && !ticker.benchmark;
   });
+  const tradableQuotes = Object.fromEntries(symbols.map((symbol) => [symbol, quotes[symbol]]));
   return {
     date,
     tick,
     tickTime: minuteTickClock(tick),
-    counts,
+    counts: sourceCounts(tradableQuotes),
     symbols: symbols.length,
     realSymbols: symbols.filter((symbol) => quotes[symbol]?.source === SOURCE.REAL_MINUTE),
     simulatedSymbols: symbols.filter((symbol) => quotes[symbol]?.source === SOURCE.SIMULATED),
@@ -37896,6 +37904,7 @@ function createHistoryScenarioView(ctx, scenarioId) {
           console.warn('[history] minute month failed', error);
         }
       }
+      if (token === prepareToken) minuteLoading = '';
       await minuteStore.prefetchAround(symbols, date);
     } catch (error) {
       console.warn('[history] minute index failed', error);

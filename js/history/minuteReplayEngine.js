@@ -172,6 +172,9 @@ export function summaryAtMinute(run, dataset, store) {
     name: tickerData(dataset, row.ticker)?.name || row.ticker,
     source: quotes[row.ticker]?.source || SOURCE.UNAVAILABLE,
   }));
+  const tradableQuotes = Object.fromEntries(Object.entries(quotes).filter(
+    ([symbol]) => !tickerData(dataset, symbol)?.benchmark,
+  ));
   const totalDays = barCount(dataset);
   return {
     total,
@@ -190,7 +193,7 @@ export function summaryAtMinute(run, dataset, store) {
     tickTime: minuteTickClock(tick),
     date: currentDate(dataset, run.dayIndex),
     totalDays,
-    sourceCounts: sourceCounts(quotes),
+    sourceCounts: sourceCounts(tradableQuotes),
     splitEvents: run.lastSplitEvents || [],
     reachedEnd: run.dayIndex >= totalDays - 1 && tick >= TICKS_PER_DAY - 1,
   };
@@ -339,17 +342,17 @@ export function minuteCandlesFor(dataset, store, symbol, dayIndex, tick, timefra
 
 export function coverageAtMinute(dataset, store, dayIndex, tick = 0) {
   const quotes = quotesAtMinute(dataset, store, dayIndex, tick);
-  const counts = sourceCounts(quotes);
   const date = currentDate(dataset, dayIndex);
   const symbols = Object.keys(quotes).filter((symbol) => {
     const ticker = tickerData(dataset, symbol);
     return ticker && !ticker.benchmark;
   });
+  const tradableQuotes = Object.fromEntries(symbols.map((symbol) => [symbol, quotes[symbol]]));
   return {
     date,
     tick,
     tickTime: minuteTickClock(tick),
-    counts,
+    counts: sourceCounts(tradableQuotes),
     symbols: symbols.length,
     realSymbols: symbols.filter((symbol) => quotes[symbol]?.source === SOURCE.REAL_MINUTE),
     simulatedSymbols: symbols.filter((symbol) => quotes[symbol]?.source === SOURCE.SIMULATED),

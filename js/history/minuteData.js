@@ -255,9 +255,11 @@ export class MinuteDataStore {
   }
 
   tickState(symbol, month) {
-    const key = `${safeSymbol(symbol)}|${safeMonth(month)}`;
-    if (this.tickCache.has(key)) return 'ready';
-    return this.monthStates.get(key) || 'idle';
+    const ticker = safeSymbol(symbol);
+    const period = safeMonth(month);
+    const bundle = this.tickCache.get(period);
+    if (bundle && bundle[ticker]) return 'ready';
+    return this.monthStates.get(`${ticker}|${period}`) || 'idle';
   }
 
   minuteState(symbol, month) {
@@ -275,9 +277,10 @@ export class MinuteDataStore {
     const ticker = safeSymbol(symbol);
     const period = safeMonth(month);
     const key = `${ticker}|${period}`;
-    if (this.tickCache.has(key)) {
+    const cachedBundle = this.tickCache.get(period);
+    if (cachedBundle && cachedBundle[ticker]) {
       this.stats.tickCacheHits += 1;
-      return this.tickCache.get(key);
+      return cachedBundle[ticker];
     }
     if (!this.manifest) await this.loadManifest();
     const record = this.monthRecord(ticker, period);
@@ -306,7 +309,9 @@ export class MinuteDataStore {
       if (this.disposed) throw new Error('minute.error.disposed');
       this.stats.tickFetches += 1;
       this.stats.bytesLoaded += text.length;
-      this.tickCache.set(key, payload.days);
+      const bundle = this.tickCache.get(period) || {};
+      bundle[ticker] = payload.days;
+      this.tickCache.set(period, bundle);
       this.monthStates.delete(key);
       return payload.days;
     } catch (error) {
@@ -314,7 +319,7 @@ export class MinuteDataStore {
         this.stats.aborted += 1;
         throw new Error('minute.error.disposed');
       }
-      if (!this.tickCache.has(key) && this.monthStates.get(key) === 'loading') {
+      if (this.monthStates.get(key) === 'loading') {
         this.monthStates.set(key, 'missing');
       }
       throw error;
@@ -342,9 +347,9 @@ export class MinuteDataStore {
     const day = safeDate(date);
     const index = Math.max(0, Math.min(MINUTE_TICK_TIMES.length - 1, Number(tick) || 0));
     const period = monthOf(day);
-    if (!this.tickCache.has(`${ticker}|${period}`)) return undefined;
-    const days = this.tickCache.get(`${ticker}|${period}`);
-    const entries = days?.[day];
+    const bundle = this.tickCache.get(period);
+    if (!bundle || !bundle[ticker]) return undefined;
+    const entries = bundle[ticker]?.[day];
     if (!entries || !entries.length) return null;
     const entry = entries.find((item) => item.t === MINUTE_TICK_TIMES[index]);
     if (!entry) return null;
