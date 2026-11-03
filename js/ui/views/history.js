@@ -20,7 +20,9 @@ import {
   summaryAtTick, quoteAtTick, quotesAtTick, currentDate, historyCandles, localeDateText,
   HISTORY_FEE, HISTORY_TIMEFRAMES,
 } from '../../history/replayEngine.js';
-import { MinuteDataStore, monthOf, minuteTickClock } from '../../history/minuteData.js';
+import {
+  MinuteDataStore, monthOf, minuteStepClock, hourTickNumber, MINUTES_PER_SESSION,
+} from '../../history/minuteData.js';
 import {
   summaryAtMinute, quoteAtMinute, quotesAtMinute, minuteCandlesFor, coverageAtMinute,
   MINUTE_SPREAD_BPS, MINUTE_SLIPPAGE_BPS,
@@ -175,6 +177,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     minuteLoading = month;
     try {
       await minuteStore.ensureSymbolsMonth(symbols, month);
+      await minuteStore.ensureSymbolsMinuteIndex(symbols, month);
       const info = minuteStore.symbolInfo(selectedTicker);
       if (minutes && info?.months?.[month]) {
         try {
@@ -217,6 +220,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       dataset = await loadHistoryDataset(scenario);
       ensureRunInStore(store, scenarioId, dataset);
       minuteMode = Boolean(scenario.minuteDataPath || dataset.intraday?.mode === 'minute');
+      if (minuteMode && clock?.setTickMs) clock.setTickMs({ 1: 1000, 5: 200, 20: 50 });
       if (minuteMode) await initMinuteStore();
       loading = false;
       const currentRun = run(store.get());
@@ -370,7 +374,12 @@ export function createHistoryScenarioView(ctx, scenarioId) {
         <div class="history-strip__date">
           <span class="field-label">${t('history.currentDate')}</span>
           <strong id="history-date">${localeDateText(sum.date, i18n.locale)}</strong>
-          <span class="muted" id="history-session">${minuteMode ? `${minuteTickClock(sum.tick)} ET` : sessionClock(sum.tick)} · ${t('history.tickOf', { tick: sum.tick + 1, total: TICKS_PER_DAY })}</span>
+          <span class="muted" id="history-session">${minuteMode
+            ? `${minuteStepClock(sum.tick)} ET · ${t('history.minute.minuteOf', {
+              minute: sum.tick + 1,
+              total: sum.totalSteps || MINUTES_PER_SESSION,
+            })}${sum.hourTick ? ` · ${t('history.minute.hourTick', { tick: sum.hourTick, total: 8 })}` : ''}`
+            : `${sessionClock(sum.tick)} · ${t('history.tickOf', { tick: sum.tick + 1, total: TICKS_PER_DAY })}`}</span>
           <span class="muted">${t('history.dayOf', { index: sum.dayIndex, total: sum.totalDays })}</span>
         </div>
         <div class="history-clock">
@@ -431,7 +440,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     if (minuteMode) {
       if (info.source === 'REAL_MINUTE') {
         note = t('history.minute.chartNoteReal', {
-          count: info.candles.length, tf, time: minuteTickClock(currentRun.tick || 0),
+          count: info.candles.length, tf, time: minuteStepClock(currentRun.tick || 0),
         });
         if (info.partial) note = `${note} · ${t('history.minute.partial')}`;
       } else if (info.source === 'SIMULATED') {
@@ -866,11 +875,18 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     const session = container.querySelector('#history-session');
     if (session) {
       const currentRun = run(state);
-      const clockText = minuteMode ? `${minuteTickClock(currentRun.tick || 0)} ET` : sessionClock(currentRun.tick || 0);
-      session.textContent = `${clockText} · ${t('history.tickOf', {
-        tick: (currentRun.tick || 0) + 1,
-        total: TICKS_PER_DAY,
-      })}`;
+      const clockText = minuteMode ? `${minuteStepClock(currentRun.tick || 0)} ET` : sessionClock(currentRun.tick || 0);
+      session.textContent = `${clockText} · ${minuteMode
+        ? t('history.minute.minuteOf', {
+          minute: (currentRun.tick || 0) + 1,
+          total: MINUTES_PER_SESSION,
+        })
+        : t('history.tickOf', {
+          tick: (currentRun.tick || 0) + 1,
+          total: TICKS_PER_DAY,
+        })}${minuteMode && hourTickNumber(currentRun.tick || 0)
+        ? ` · ${t('history.minute.hourTick', { tick: hourTickNumber(currentRun.tick || 0), total: 8 })}`
+        : ''}`;
     }
     const note = container.querySelector('#history-chart-note');
     if (note) note.textContent = chartNoteText(state);
@@ -1096,6 +1112,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
   function destroy() {
     destroyed = true;
     prepareToken += 1;
+    if (clock?.clearTickMs) clock.clearTickMs();
     if (chart) chart.destroy();
     chart = null;
     if (minuteStore) minuteStore.dispose();

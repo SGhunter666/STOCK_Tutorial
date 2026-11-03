@@ -298,6 +298,12 @@ function sessionClockText(tick) {
   return clockText(minutes);
 }
 
+/** Steps per session: 390 one-minute steps for the pilot, 8 daily ticks otherwise. */
+export function historyStepsPerDay(dataset) {
+  const steps = Number(dataset?.intraday?.sessionMinutes);
+  return Number.isInteger(steps) && steps > 0 ? steps : TICKS_PER_DAY;
+}
+
 export function createHistoryRun(scenarioId, startCash = HISTORY_START_CASH) {
   return {
     scenarioId,
@@ -326,7 +332,8 @@ export function ensureHistoryRun(existing, scenarioId, dataset) {
     Number(existing.startIndex) || (trades.length ? 1 : minimum),
     dayIndex,
   ));
-  const tick = Math.max(0, Math.min(TICKS_PER_DAY - 1, Number(existing.tick) || 0));
+  const maxSteps = historyStepsPerDay(dataset);
+  const tick = Math.max(0, Math.min(maxSteps - 1, Number(existing.tick) || 0));
   return {
     ...existing,
     dayIndex,
@@ -532,15 +539,16 @@ export function advanceToNextEvent(run, dataset, scenario) {
 /** Advances one intraday tick and closes the day after the last tick. */
 export function advanceHistoryTick(run, dataset) {
   const maxIndex = barCount(dataset) - 1;
-  const tick = Math.max(0, Math.min(TICKS_PER_DAY - 1, Number(run.tick) || 0));
-  if (run.dayIndex >= maxIndex && tick >= TICKS_PER_DAY - 1) {
+  const maxSteps = historyStepsPerDay(dataset);
+  const tick = Math.max(0, Math.min(maxSteps - 1, Number(run.tick) || 0));
+  if (run.dayIndex >= maxIndex && tick >= maxSteps - 1) {
     return {
-      run: { ...run, tick: TICKS_PER_DAY - 1, reachedEnd: true },
+      run: { ...run, tick: maxSteps - 1, reachedEnd: true },
       dayClosed: false,
       reachedEnd: true,
     };
   }
-  if (tick + 1 >= TICKS_PER_DAY) {
+  if (tick + 1 >= maxSteps) {
     const nextDay = Math.min(maxIndex, run.dayIndex + 1);
     return {
       run: { ...run, dayIndex: nextDay, tick: 0, reachedEnd: false },

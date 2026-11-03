@@ -10,14 +10,13 @@
 import {
   buy, sell, equity, marketValue, unrealizedPnl, positionRows, returnPct,
 } from '../trading/account.js';
-import { TICKS_PER_DAY } from '../market/calendar.js';
 import {
-  HISTORY_FEE, barsFor, barCount, tickerData, currentDate, intradayPath, intradayBar,
-  buildIntradayCandles, aggregateByPeriod,
+  HISTORY_FEE, barsFor, barCount, tickerData, currentDate, intradayPath,
+  aggregateByPeriod,
 } from './replayEngine.js';
 import {
-  MINUTE_SOURCES, MINUTE_TICK_TIMES, minuteTickClock, minuteTickMinute, monthOf,
-  aggregateCompletedMinutes, minuteCandles, isMinuteCompleted,
+  MINUTE_SOURCES, MINUTE_TICK_TIMES, MINUTES_PER_SESSION, minuteStepClock, minuteStepMinute,
+  hourTickNumber, monthOf, aggregateCompletedMinutes, minuteCandles, isMinuteCompleted,
 } from './minuteData.js';
 
 export const MINUTE_SPREAD_BPS = 2;
@@ -28,6 +27,12 @@ const SOURCE = MINUTE_SOURCES;
 function round(value, digits = 2) {
   const factor = 10 ** digits;
   return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
+function clockText(minutes) {
+  const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const mm = String(minutes % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 function halfSpread(price) {
@@ -68,41 +73,55 @@ function fallbackPrice(bars, dayIndex) {
 }
 
 /**
- * Quote for one symbol at one tick. `source` is never hidden: if the month index
- * has not loaded the quote is UNAVAILABLE rather than silently simulated.
+ * Smooth deterministic 390-step path from the real daily OHLC. Used only when a
+ * session has no real minute, always labelled SIMULATED.
  */
-export function quoteAtMinute(dataset, store, symbol, dayIndex, tick = 0) {
+function simulatedStepPath(bar, symbol) {
+  const anchors = intradayPath(bar, symbol);
+  const path = [];
+  for (let step = 0; step < MINUTES_PER_SESSION; step += 1) {
+    const position = (step / (MINUTES_PER_SESSION - 1)) * (anchors.length - 1);
+    const left = Math.floor(position);
+    const right = Math.min(anchors.length - 1, left + 1);
+    const ratio = position - left;
+    path.push(anchors[left] + (anchors[right] - anchors[left]) * ratio);
+  }
+  return path;
+}
+
+/**
+ * Quote for one symbol at one minute step (0 = 09:30, 389 = 15:59).
+ * `source` is never hidden: if the month index has not loaded the quote is
+ * UNAVAILABLE rather than silently simulated.
+ */
+export function quoteAtMinute(dataset, store, symbol, dayIndex, step = 0) {
   const ticker = tickerData(dataset, symbol);
   const bars = barsFor(dataset, symbol);
   if (!ticker || !bars.length) return null;
   const bar = bars[dayIndex];
   const date = bar ? bar[0] : currentDate(dataset, dayIndex);
-  const index = Math.max(0, Math.min(TICKS_PER_DAY - 1, Number(tick) || 0));
-  const tickTime = minuteTickClock(index);
+  const index = Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(step) || 0));
+  const tickTime = minuteStepClock(index);
   const prevClose = prevCloseAt(dataset, symbol, dayIndex);
   const fallback = fallbackPrice(bars, dayIndex);
-  const state = date ? store.tickState(symbol, monthOf(date)) : 'idle';
-  const entry = date ? store.getTick(symbol, date, index) : null;
+  const state = date ? store.minuteIndexState(symbol, monthOf(date)) : 'idle';
+  const entry = date ? store.getMinutePrice(symbol, date, index) : null;
 
   let last = fallback;
   let source = SOURCE.UNAVAILABLE;
   let reason = '';
   let minuteTime = '';
   let lagMinutes = 0;
-  let volume = 0;
 
   if (entry) {
     last = entry.p;
     source = SOURCE.REAL_MINUTE;
-    minuteTime = entry.mt || '';
+    minuteTime = entry.minuteTime || '';
     lagMinutes = Number(entry.lag) || 0;
-    volume = Number(entry.v) || 0;
   } else if (!bar) {
     reason = 'missingBar';
   } else if (state === 'missing' || state === 'ready') {
-    // The manifest covers this symbol/month but no usable minute exists here.
-    const path = intradayPath(bar, symbol);
-    last = path[index];
+    last = simulatedStepPath(bar, symbol)[index];
     source = SOURCE.SIMULATED;
     reason = 'noMinute';
     minuteTime = tickTime;
@@ -116,10 +135,11 @@ export function quoteAtMinute(dataset, store, symbol, dayIndex, tick = 0) {
     symbol,
     date,
     tick: index,
+    step: index,
     tickTime,
     minuteTime,
     lagMinutes,
-    volume,
+    volume: 0,
     last: round(last, 4),
     prevClose,
     changePct,
@@ -164,7 +184,7 @@ function benchmarkReturnAt(dataset, store, run) {
 }
 
 export function summaryAtMinute(run, dataset, store) {
-  const tick = Math.max(0, Math.min(TICKS_PER_DAY - 1, Number(run.tick) || 0));
+  const tick = Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(run.tick) || 0));
   const quotes = quotesAtMinute(dataset, store, run.dayIndex, tick);
   const total = equity(run.account, quotes);
   const rows = positionRows(run.account, quotes).map((row) => ({
@@ -190,17 +210,20 @@ export function summaryAtMinute(run, dataset, store) {
     dayIndex: run.dayIndex,
     startIndex: Math.max(1, Number(run.startIndex) || 1),
     tick,
-    tickTime: minuteTickClock(tick),
+    step: tick,
+    tickTime: minuteStepClock(tick),
+    totalSteps: MINUTES_PER_SESSION,
+    hourTick: hourTickNumber(tick),
     date: currentDate(dataset, run.dayIndex),
     totalDays,
     sourceCounts: sourceCounts(tradableQuotes),
     splitEvents: run.lastSplitEvents || [],
-    reachedEnd: run.dayIndex >= totalDays - 1 && tick >= TICKS_PER_DAY - 1,
+    reachedEnd: run.dayIndex >= totalDays - 1 && tick >= MINUTES_PER_SESSION - 1,
   };
 }
 
 export function tradeAtMinute(run, dataset, store, { symbol, side, qty, tick = run.tick || 0 }) {
-  const index = Math.max(0, Math.min(TICKS_PER_DAY - 1, Number(tick) || 0));
+  const index = Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(tick) || 0));
   const quote = quoteAtMinute(dataset, store, symbol, run.dayIndex, index);
   const ticker = tickerData(dataset, symbol);
   if (!quote || !ticker) return { ok: false, error: 'error.unknownTicker' };
@@ -242,13 +265,52 @@ export function tradeAtMinute(run, dataset, store, { symbol, side, qty, tick = r
   };
 }
 
-function currentDayCandle(dataset, store, symbol, dayIndex, tick) {
+function simulatedStepCandles(bar, symbol, step, timeframe) {
+  const path = simulatedStepPath(bar, symbol);
+  const size = { '5m': 5, '15m': 15, '1h': 60 }[timeframe] || 5;
+  const five = [];
+  for (let start = 0; start <= step; start += 5) {
+    const group = path.slice(start, Math.min(start + 5, step + 1));
+    five.push({
+      d: bar[0],
+      time: clockText(570 + start),
+      bucket: 570 + start,
+      o: group[0],
+      h: Math.max(...group),
+      l: Math.min(...group),
+      c: group[group.length - 1],
+      v: Math.round(((bar[5] || 0) / 78) * (group.length / 5)),
+      partial: group.length < 5,
+      count: group.length,
+    });
+  }
+  if (timeframe === '5m') return five.map(({ bucket, count, ...candle }) => candle);
+  const factor = size / 5;
+  const out = [];
+  for (let index = 0; index < five.length; index += factor) {
+    const group = five.slice(index, index + factor);
+    const partial = group.some((candle) => candle.partial);
+    out.push({
+      d: bar[0],
+      time: group[0].time,
+      o: group[0].o,
+      h: Math.max(...group.map((candle) => candle.h)),
+      l: Math.min(...group.map((candle) => candle.l)),
+      c: group[group.length - 1].c,
+      v: group.reduce((sum, candle) => sum + candle.v, 0),
+      partial,
+    });
+  }
+  return out;
+}
+
+function currentDayCandle(dataset, store, symbol, dayIndex, step) {
   const bar = barsFor(dataset, symbol)[dayIndex];
   if (!bar) return { candle: null, source: SOURCE.UNAVAILABLE, reason: 'missingBar' };
   const date = bar[0];
-  const state = store.tickState(symbol, monthOf(date));
+  const state = store.minuteIndexState(symbol, monthOf(date));
   const bars = store.getMinuteBars(symbol, date);
-  const completed = (bars || []).filter((item) => isMinuteCompleted(item, minuteTickMinute(tick)));
+  const completed = (bars || []).filter((item) => isMinuteCompleted(item, minuteStepMinute(step)));
   if (completed.length) {
     return {
       candle: {
@@ -264,10 +326,17 @@ function currentDayCandle(dataset, store, symbol, dayIndex, tick) {
     };
   }
   if (state === 'missing' || state === 'ready') {
-    const simulated = intradayBar(bar, symbol, tick);
+    const path = simulatedStepPath(bar, symbol);
+    const visible = path.slice(0, step + 1);
     return {
       candle: {
-        d: date, end: date, o: simulated.o, h: simulated.h, l: simulated.l, c: simulated.c, v: simulated.v,
+        d: date,
+        end: date,
+        o: path[0],
+        h: Math.max(...visible),
+        l: Math.min(...visible),
+        c: path[step],
+        v: Math.round(((bar[5] || 0) * (step + 1)) / MINUTES_PER_SESSION),
       },
       source: SOURCE.SIMULATED,
       reason: 'noMinute',
@@ -277,13 +346,13 @@ function currentDayCandle(dataset, store, symbol, dayIndex, tick) {
 }
 
 /**
- * Candles limited to data that has already finished at the current tick.
+ * Candles limited to data that has already finished at the current minute step.
  * 1m returns only completed real minutes. 5m/15m/1h aggregate completed minutes
  * and mark the in-progress bucket partial. Daily and longer reuse real raw bars
  * plus a current-day candle built from completed minutes.
  */
-export function minuteCandlesFor(dataset, store, symbol, dayIndex, tick, timeframe, currentPrice) {
-  const index = Math.max(0, Math.min(TICKS_PER_DAY - 1, Number(tick) || 0));
+export function minuteCandlesFor(dataset, store, symbol, dayIndex, step, timeframe, currentPrice) {
+  const index = Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(step) || 0));
   const bars = barsFor(dataset, symbol);
   if (!bars.length) return { candles: [], labels: [], intraday: false, source: SOURCE.UNAVAILABLE };
   const bar = bars[dayIndex];
@@ -297,7 +366,7 @@ export function minuteCandlesFor(dataset, store, symbol, dayIndex, tick, timefra
         : aggregateCompletedMinutes(minuteBars, timeframe, index);
       const labels = candles.length
         ? [candles[0].time, candles[candles.length - 1].time]
-        : ['09:30', minuteTickClock(index)];
+        : ['09:30', minuteStepClock(index)];
       return {
         candles,
         labels,
@@ -306,11 +375,12 @@ export function minuteCandlesFor(dataset, store, symbol, dayIndex, tick, timefra
         partial: Boolean(candles[candles.length - 1]?.partial),
       };
     }
-    const state = date ? store.tickState(symbol, monthOf(date)) : 'idle';
+    const state = date ? store.minuteIndexState(symbol, monthOf(date)) : 'idle';
     if (timeframe !== '1m' && bar && (state === 'missing' || state === 'ready')) {
+      const candles = simulatedStepCandles(bar, symbol, index, timeframe);
       return {
-        candles: buildIntradayCandles(bar, symbol, index, timeframe, currentPrice),
-        labels: ['09:30', minuteTickClock(index)],
+        candles,
+        labels: [candles[0]?.time || '09:30', minuteStepClock(index)],
         intraday: true,
         source: SOURCE.SIMULATED,
         partial: true,
@@ -319,7 +389,7 @@ export function minuteCandlesFor(dataset, store, symbol, dayIndex, tick, timefra
     }
     return {
       candles: [],
-      labels: ['09:30', minuteTickClock(index)],
+      labels: ['09:30', minuteStepClock(index)],
       intraday: true,
       source: state === 'missing' || state === 'ready' ? SOURCE.SIMULATED : SOURCE.UNAVAILABLE,
       reason: 'noMinute',
@@ -340,8 +410,9 @@ export function minuteCandlesFor(dataset, store, symbol, dayIndex, tick, timefra
   };
 }
 
-export function coverageAtMinute(dataset, store, dayIndex, tick = 0) {
-  const quotes = quotesAtMinute(dataset, store, dayIndex, tick);
+export function coverageAtMinute(dataset, store, dayIndex, step = 0) {
+  const index = Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(step) || 0));
+  const quotes = quotesAtMinute(dataset, store, dayIndex, index);
   const date = currentDate(dataset, dayIndex);
   const symbols = Object.keys(quotes).filter((symbol) => {
     const ticker = tickerData(dataset, symbol);
@@ -350,8 +421,9 @@ export function coverageAtMinute(dataset, store, dayIndex, tick = 0) {
   const tradableQuotes = Object.fromEntries(symbols.map((symbol) => [symbol, quotes[symbol]]));
   return {
     date,
-    tick,
-    tickTime: minuteTickClock(tick),
+    tick: index,
+    tickTime: minuteStepClock(index),
+    hourTick: hourTickNumber(index),
     counts: sourceCounts(tradableQuotes),
     symbols: symbols.length,
     realSymbols: symbols.filter((symbol) => quotes[symbol]?.source === SOURCE.REAL_MINUTE),

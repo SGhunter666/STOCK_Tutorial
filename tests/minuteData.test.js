@@ -6,7 +6,8 @@ import {
   suite, test, assert, assertEqual, assertClose,
 } from './harness.js';
 import {
-  MinuteDataStore, MINUTE_SOURCES, MINUTE_TICK_TIMES, minuteTickClock, minuteTickMinute,
+  MinuteDataStore, MINUTE_SOURCES, MINUTE_TICK_TIMES, MINUTES_PER_SESSION,
+  minuteStepClock, minuteStepMinute, hourTickNumber,
   monthOf, nextMonth, isMinuteCompleted, completedMinuteBars, aggregateCompletedMinutes,
   minuteCandles,
 } from '../js/history/minuteData.js';
@@ -14,7 +15,9 @@ import {
   quoteAtMinute, summaryAtMinute, tradeAtMinute, minuteCandlesFor, coverageAtMinute,
   modelBidAsk, MINUTE_SPREAD_BPS, MINUTE_SLIPPAGE_BPS,
 } from '../js/history/minuteReplayEngine.js';
-import { createHistoryRun, applySplitsThrough } from '../js/history/replayEngine.js';
+import {
+  createHistoryRun, applySplitsThrough, historyStepsPerDay, advanceHistoryTick,
+} from '../js/history/replayEngine.js';
 import { getHistoryScenario } from '../js/data/historyScenarios.js';
 import { TICKS_PER_DAY } from '../js/market/calendar.js';
 
@@ -37,6 +40,8 @@ function tickEntry(index, price) {
   };
 }
 
+const HOURLY_STEPS = [0, 60, 120, 180, 240, 300, 360, 389];
+
 function tickFile(symbol, month, days) {
   return { symbol, month, tickTimes: MINUTE_TICK_TIMES, days };
 }
@@ -47,13 +52,17 @@ function manifestFor(symbol, months, { days = 22, bars = 8580 } = {}) {
     records[month] = {
       file: `ticks/${symbol}/${symbol}_${month}.json`,
       minuteFile: `sip/1Min/raw/regular_session/${symbol}/${symbol}_${month}.csv.gz`,
+      minuteIndexFile: `minute-index/${symbol}/${symbol}_${month}.json`,
       tickDays: days,
       fullDays: days,
       partialDays: 0,
       ticks: days * TICKS_PER_DAY,
       minuteBars: bars,
+      minuteIndexDays: days,
+      minuteIndexEntries: days * MINUTES_PER_SESSION,
       tickBytes: 100,
       minuteBytes: 1000,
+      minuteIndexBytes: 1000,
     };
   }
   return {
@@ -62,6 +71,8 @@ function manifestFor(symbol, months, { days = 22, bars = 8580 } = {}) {
     root: ROOT,
     tickTimes: MINUTE_TICK_TIMES,
     tickMinutes: [571, 631, 691, 751, 811, 871, 931, 960],
+    sessionMinutes: MINUTES_PER_SESSION,
+    hourlyTickSteps: [0, 60, 120, 180, 240, 300, 360, 389],
     calendar: { start: '2022-01-03', end: '2022-12-30', days: 251, months },
     symbols: {
       [symbol]: {
@@ -115,6 +126,7 @@ function minuteCsv(date = '2022-01-03', count = 391) {
 const DATASET = {
   id: 'minute-test',
   adjusted: false,
+  intraday: { mode: 'minute', sessionMinutes: MINUTES_PER_SESSION },
   tickers: [
     {
       symbol: 'NVDA',
@@ -143,12 +155,19 @@ const DATASET = {
   ],
 };
 
+function indexFile(symbol, month, days) {
+  return { symbol, month, sessionMinutes: MINUTES_PER_SESSION, days };
+}
+
 function realStore(options = {}) {
   const manifest = manifestFor('NVDA', ['2022-01']);
   const routes = {
     'minute-manifest.json': manifest,
-    '/NVDA_2022-01.json': tickFile('NVDA', '2022-01', {
+    'ticks/NVDA/NVDA_2022-01.json': tickFile('NVDA', '2022-01', {
       '2022-01-03': Array.from({ length: 8 }, (_, index) => tickEntry(index, 100.5 + index)),
+    }),
+    'minute-index/NVDA/NVDA_2022-01.json': indexFile('NVDA', '2022-01', {
+      '2022-01-03': Array.from({ length: MINUTES_PER_SESSION }, (_, index) => 100.5 + index * 0.1),
     }),
     '/NVDA_2022-01.csv.gz': minuteCsv(),
   };
@@ -273,9 +292,15 @@ test('a minute bar is completed only at or after its close', () => {
   const bar = { minutes: 570 };
   assert(!isMinuteCompleted(bar, 570), '09:30 bar is not complete at 09:30');
   assert(isMinuteCompleted(bar, 571), 'complete at 09:31');
-  assertEqual(minuteTickClock(0), '09:31', 'tick 0 clock');
-  assertEqual(minuteTickClock(7), '16:00', 'tick 7 clock');
-  assertEqual(minuteTickMinute(7), 960, 'last tick minute');
+  assertEqual(minuteStepClock(0), '09:31', 'first minute step');
+  assertEqual(minuteStepClock(60), '10:31', 'hour step');
+  assertEqual(minuteStepClock(MINUTES_PER_SESSION - 1), '16:00', 'last step');
+  assertEqual(minuteStepMinute(MINUTES_PER_SESSION - 1), 960, 'last step minute');
+  assertEqual(hourTickNumber(0), 1, 'first hourly tick');
+  assertEqual(hourTickNumber(60), 2, 'second hourly tick');
+  assertEqual(hourTickNumber(1), 0, 'between hourly ticks');
+  assertEqual(historyStepsPerDay(DATASET), MINUTES_PER_SESSION, '390 minute steps');
+  assertEqual(historyStepsPerDay({ tickers: [] }), 8, 'daily scenarios keep 8 ticks');
 });
 
 test('completed bars never include a future minute', async () => {
@@ -283,12 +308,12 @@ test('completed bars never include a future minute', async () => {
   await store.loadManifest();
   await store.ensureMinuteMonth('NVDA', '2022-01');
   const bars = store.getMinuteBars('NVDA', '2022-01-03');
-  const atTick0 = completedMinuteBars(bars, '2022-01-03', 0);
-  assertEqual(atTick0.length, 1, 'only the 09:30 minute');
-  assertEqual(atTick0[0].time, '09:30', '09:30');
-  const atTick1 = completedMinuteBars(bars, '2022-01-03', 1);
-  assertEqual(atTick1.length, 61, '09:30 through 10:30');
-  assertEqual(atTick1[atTick1.length - 1].time, '10:30', 'last completed');
+  const atStart = completedMinuteBars(bars, '2022-01-03', 0);
+  assertEqual(atStart.length, 1, 'only the 09:30 minute');
+  assertEqual(atStart[0].time, '09:30', '09:30');
+  const atHour = completedMinuteBars(bars, '2022-01-03', 60);
+  assertEqual(atHour.length, 61, '09:30 through 10:30');
+  assertEqual(atHour[atHour.length - 1].time, '10:30', 'last completed');
 });
 
 test('5m buckets use completed minutes and mark the in-progress candle partial', async () => {
@@ -296,7 +321,7 @@ test('5m buckets use completed minutes and mark the in-progress candle partial',
   await store.loadManifest();
   await store.ensureMinuteMonth('NVDA', '2022-01');
   const bars = store.getMinuteBars('NVDA', '2022-01-03');
-  const candles = aggregateCompletedMinutes(bars, '5m', 1);
+  const candles = aggregateCompletedMinutes(bars, '5m', 60);
   assertEqual(candles.length, 13, '09:30 to 10:30 buckets');
   assertEqual(candles[0].time, '09:30', 'first bucket');
   assertEqual(candles[candles.length - 1].time, '10:30', 'last bucket');
@@ -309,10 +334,10 @@ test('15m and 1h buckets respect the current tick boundary', async () => {
   await store.loadManifest();
   await store.ensureMinuteMonth('NVDA', '2022-01');
   const bars = store.getMinuteBars('NVDA', '2022-01-03');
-  const fifteen = aggregateCompletedMinutes(bars, '15m', 1);
+  const fifteen = aggregateCompletedMinutes(bars, '15m', 60);
   assertEqual(fifteen.length, 5, '09:30..10:30');
   assert(fifteen[fifteen.length - 1].partial, 'last 15m partial');
-  const hourly = aggregateCompletedMinutes(bars, '1h', 1);
+  const hourly = aggregateCompletedMinutes(bars, '1h', 60);
   assertEqual(hourly.length, 2, '09:30 and 10:30 buckets');
   assert(!hourly[0].partial, '09:30-10:29 bucket completed at 10:30');
   assert(hourly[1].partial, '10:30 bucket partial');
@@ -323,7 +348,7 @@ test('1m candles only contain closed minutes', async () => {
   await store.loadManifest();
   await store.ensureMinuteMonth('NVDA', '2022-01');
   const bars = store.getMinuteBars('NVDA', '2022-01-03');
-  const candles = minuteCandles(bars, 2);
+  const candles = minuteCandles(bars, 120);
   assertEqual(candles.length, 121, '09:30 through 11:30');
   assertEqual(candles[candles.length - 1].time, '11:30', 'last closed');
 });
@@ -336,7 +361,7 @@ test('chart never reads a wild future minute', async () => {
   const wild = { ...bars[0], minutes: 631, time: '10:31', high: 9999, close: 9999 };
   const poisoned = [...bars, wild];
   const info = minuteCandlesFor(
-    DATASET, { ...store, getMinuteBars: () => poisoned }, 'NVDA', 0, 1, '1m',
+    DATASET, { ...store, getMinuteBars: () => poisoned }, 'NVDA', 0, 60, '1m',
   );
   assertEqual(info.candles.length, 61, '61 completed minutes');
   assert(info.candles.every((candle) => candle.h < 9000), 'future high not leaked');
@@ -349,9 +374,10 @@ test('quotes come from real completed ticks with modelled spread', async () => {
   const store = realStore();
   await store.loadManifest();
   await store.ensureTickMonth('NVDA', '2022-01');
-  const quote = quoteAtMinute(DATASET, store, 'NVDA', 0, 1);
+  await store.ensureMinuteIndexMonth('NVDA', '2022-01');
+  const quote = quoteAtMinute(DATASET, store, 'NVDA', 0, 60);
   assertEqual(quote.source, MINUTE_SOURCES.REAL_MINUTE, 'real minute');
-  assertEqual(quote.last, 101.5, 'tick close');
+  assertEqual(quote.last, 106.5, 'minute close');
   assertEqual(quote.tickTime, '10:31', 'tick clock');
   assertEqual(quote.minuteTime, '10:30', 'completed minute');
   assertEqual(quote.lagMinutes, 0, 'no lag');
@@ -367,6 +393,7 @@ test('a missing minute day falls back to SIMULATED and stays labelled', async ()
   const store = realStore();
   await store.loadManifest();
   await store.ensureTickMonth('NVDA', '2022-01');
+  await store.ensureMinuteIndexMonth('NVDA', '2022-01');
   const quote = quoteAtMinute(DATASET, store, 'NVDA', 1, 0);
   assertEqual(quote.source, MINUTE_SOURCES.SIMULATED, 'simulated fallback');
   assertEqual(quote.reason, 'noMinute', 'reason');
@@ -390,6 +417,7 @@ test('buy fills at the ask plus slippage with fee and source metadata', async ()
   const store = realStore();
   await store.loadManifest();
   await store.ensureTickMonth('NVDA', '2022-01');
+  await store.ensureMinuteIndexMonth('NVDA', '2022-01');
   const run = { ...createHistoryRun('minute-test'), dayIndex: 0 };
   const result = tradeAtMinute(run, DATASET, store, { symbol: 'NVDA', side: 'buy', qty: 10 });
   assert(result.ok, 'fill ok');
@@ -407,6 +435,7 @@ test('sell fills at the bid minus slippage', async () => {
   const store = realStore();
   await store.loadManifest();
   await store.ensureTickMonth('NVDA', '2022-01');
+  await store.ensureMinuteIndexMonth('NVDA', '2022-01');
   let run = { ...createHistoryRun('minute-test'), dayIndex: 0 };
   run = tradeAtMinute(run, DATASET, store, { symbol: 'NVDA', side: 'buy', qty: 10 }).run;
   const result = tradeAtMinute(run, DATASET, store, {
@@ -422,12 +451,15 @@ test('summary reports real, simulated and unavailable counts', async () => {
   const store = realStore();
   await store.loadManifest();
   await store.ensureSymbolsMonth(['NVDA', 'QQQ'], '2022-01');
+  await store.ensureSymbolsMinuteIndex(['NVDA', 'QQQ'], '2022-01');
   const run = { ...createHistoryRun('minute-test'), dayIndex: 1, tick: 0 };
   const sum = summaryAtMinute(run, DATASET, store);
   assertEqual(sum.sourceCounts.REAL_MINUTE, 0, 'no real on missing day');
   assertEqual(sum.sourceCounts.SIMULATED, 1, 'tradable symbol simulated; benchmark excluded');
   assertEqual(sum.date, '2022-01-04', 'date');
-  assertEqual(sum.tickTime, '09:31', 'minute tick clock');
+  assertEqual(sum.tickTime, '09:31', 'minute step clock');
+  assertEqual(sum.totalSteps, MINUTES_PER_SESSION, '390 steps');
+  assertEqual(sum.hourTick, 1, 'first hour tick');
   const coverage = coverageAtMinute(DATASET, store, 0, 0);
   assertEqual(coverage.counts.REAL_MINUTE, 1, 'NVDA real');
   assertEqual(coverage.symbols, 1, 'benchmark excluded');
@@ -460,14 +492,19 @@ test('raw split prices and minute prices stay consistent with cost basis', async
           AMZN: manifestFor('AMZN', ['2022-06']).symbols.AMZN,
         },
       },
-      '/AMZN_2022-06.json': tickFile('AMZN', '2022-06', {
+      'ticks/AMZN/AMZN_2022-06.json': tickFile('AMZN', '2022-06', {
         '2022-06-03': [tickEntry(0, 2440)],
         '2022-06-06': [tickEntry(0, 122.5)],
+      }),
+      'minute-index/AMZN/AMZN_2022-06.json': indexFile('AMZN', '2022-06', {
+        '2022-06-03': Array.from({ length: MINUTES_PER_SESSION }, () => 2440),
+        '2022-06-06': Array.from({ length: MINUTES_PER_SESSION }, () => 122.5),
       }),
     }),
   });
   await store.loadManifest();
   await store.ensureTickMonth('AMZN', '2022-06');
+  await store.ensureMinuteIndexMonth('AMZN', '2022-06');
   let run = createHistoryRun('split-minute');
   run = tradeAtMinute({ ...run, dayIndex: 0 }, splitDataset, store, {
     symbol: 'AMZN', side: 'buy', qty: 1,
@@ -479,6 +516,7 @@ test('raw split prices and minute prices stay consistent with cost basis', async
   assertEqual(adjusted.account.cash, cashBefore, 'no duplicate cash adjustment');
   const quote = quoteAtMinute(splitDataset, store, 'AMZN', 1, 0);
   assertEqual(quote.source, MINUTE_SOURCES.REAL_MINUTE, 'post-split minute');
+  assertEqual(quote.minuteTime, '09:30', 'first completed minute');
   assertClose(quote.last, 122.5, 0.001, 'post-split price');
   const again = applySplitsThrough(adjusted, splitDataset, 1);
   assertEqual(again.account.positions.AMZN.qty, 20, 'split applied once');
@@ -488,6 +526,7 @@ test('daily candles build the current session from completed minutes', async () 
   const store = realStore();
   await store.loadManifest();
   await store.ensureMinuteMonth('NVDA', '2022-01');
+  await store.ensureMinuteIndexMonth('NVDA', '2022-01');
   const info = minuteCandlesFor(DATASET, store, 'NVDA', 0, 0, '1d');
   assertEqual(info.candles.length, 1, 'current day only');
   assertEqual(info.source, MINUTE_SOURCES.REAL_MINUTE, 'real source');
@@ -504,6 +543,7 @@ test('rolling caches stay bounded across a full year of replay', async () => {
     version: 1,
     root: ROOT,
     tickTimes: MINUTE_TICK_TIMES,
+    sessionMinutes: MINUTES_PER_SESSION,
     symbols: {},
     summary: { symbols: 20, tradingDays: 251, minuteBars: 0 },
   };
@@ -512,7 +552,9 @@ test('rolling caches stay bounded across a full year of replay', async () => {
       months: Object.fromEntries(months.map((month) => [month, {
         file: `ticks/${symbol}/${symbol}_${month}.json`,
         minuteFile: `sip/1Min/raw/regular_session/${symbol}/${symbol}_${month}.csv.gz`,
+        minuteIndexFile: `minute-index/${symbol}/${symbol}_${month}.json`,
         tickDays: 21,
+        minuteIndexDays: 21,
         minuteBars: 8190,
       }])),
       minuteMonths: 12,
@@ -524,13 +566,15 @@ test('rolling caches stay bounded across a full year of replay', async () => {
     }
     if (url.endsWith('.json')) {
       const match = url.match(/\/([A-Z0-9]+)\/([A-Z0-9]+)_(\d{4}-\d{2})\.json$/);
+      const payload = {
+        symbol: match ? match[2] : 'S0',
+        month: match ? match[3] : '2022-01',
+        days: {},
+      };
+      if (url.includes('/minute-index/')) payload.sessionMinutes = MINUTES_PER_SESSION;
       return {
         ok: true,
-        text: async () => JSON.stringify({
-          symbol: match ? match[2] : 'S0',
-          month: match ? match[3] : '2022-01',
-          days: {},
-        }),
+        text: async () => JSON.stringify(payload),
         headers: { get: () => null },
       };
     }
@@ -554,12 +598,15 @@ test('rolling caches stay bounded across a full year of replay', async () => {
   await store.loadManifest();
   for (const month of months) {
     await store.ensureSymbolsMonth(symbols, month);
+    await store.ensureSymbolsMinuteIndex(symbols, month);
     await store.ensureMinuteMonth('S0', month);
   }
   const stats = store.cacheStats();
   assert(stats.tickMonths <= 4, `tick cache bounded (${stats.tickMonths})`);
   assert(stats.minuteMonths <= 2, `minute cache bounded (${stats.minuteMonths})`);
+  assert(stats.minuteIndexMonths <= 2, `minute index cache bounded (${stats.minuteIndexMonths})`);
   assertEqual(stats.tickFetches, 20 * 12, 'tick fetch count');
+  assertEqual(stats.minuteIndexFetches, 20 * 12, 'minute index fetch count');
   assert(stats.bytesLoaded > 0, 'bytes tracked');
   assert(store.monthStates.size <= 20, 'ready state entries are not retained');
   store.dispose();
@@ -616,13 +663,22 @@ test('installed tick indexes match raw one-minute closes', async () => {
     assert(record, `${symbol} June record`);
     const days = await store.ensureTickMonth(symbol, '2022-06');
     await store.ensureMinuteMonth(symbol, '2022-06');
+    await store.ensureMinuteIndexMonth(symbol, '2022-06');
     const dates = Object.keys(days).slice(0, 3);
     for (const date of dates) {
       const bars = store.getMinuteBars(symbol, date);
       assert(bars && bars.length, `${symbol} ${date} minute bars`);
+      for (const step of [0, 60, 120, MINUTES_PER_SESSION - 1]) {
+        const minute = store.getMinutePrice(symbol, date, step);
+        if (!minute) continue;
+        const completed = bars.filter((bar) => bar.minutes + 1 <= minuteStepMinute(step));
+        assert(completed.length, `${symbol} ${date} step ${step} completed minutes`);
+        assertClose(minute.p, completed[completed.length - 1].close, 1e-5, `${symbol} ${date} step ${step}`);
+        assertEqual(minute.lag, step - (completed[completed.length - 1].minutes - 570), `${symbol} ${date} step ${step} lag`);
+      }
       for (const entry of days[date]) {
         const index = MINUTE_TICK_TIMES.indexOf(entry.t);
-        const cutoff = minuteTickMinute(index);
+        const cutoff = minuteStepMinute(HOURLY_STEPS[index]);
         const completed = bars.filter((bar) => bar.minutes + 1 <= cutoff);
         assert(completed.length, `${symbol} ${date} ${entry.t} completed minute`);
         const last = completed[completed.length - 1];
@@ -653,12 +709,15 @@ test('a full 2022 replay keeps tick and minute caches bounded', async () => {
     : 0;
   for (const month of months) {
     await store.ensureSymbolsMonth(symbols, month);
+    await store.ensureSymbolsMinuteIndex(symbols, month);
     await store.ensureMinuteMonth(symbols[0], month);
   }
   const stats = store.cacheStats();
   assert(stats.tickMonths <= 4, `tick cache ${stats.tickMonths}`);
   assert(stats.minuteMonths <= 2, `minute cache ${stats.minuteMonths}`);
+  assert(stats.minuteIndexMonths <= 2, `minute index cache ${stats.minuteIndexMonths}`);
   assertEqual(stats.tickFetches, symbols.length * months.length, 'tick fetch count');
+  assertEqual(stats.minuteIndexFetches, symbols.length * months.length, 'minute index fetch count');
   assertEqual(stats.minuteFetches, months.length, 'minute fetch count');
   assert(stats.bytesLoaded > 5_000_000, `loaded ${stats.bytesLoaded} bytes`);
   if (memoryBefore) {
@@ -677,11 +736,47 @@ test('the first 2022 session quotes NVDA from the real minute tick', async () =>
   const store = realPilotStore();
   await store.loadManifest();
   await store.ensureTickMonth('NVDA', '2022-02');
+  await store.ensureMinuteIndexMonth('NVDA', '2022-02');
   const quote = quoteAtMinute(dataset, store, 'NVDA', 20, 0);
   assertEqual(quote.date, '2022-02-01', 'warm-up date');
   assertEqual(quote.source, MINUTE_SOURCES.REAL_MINUTE, 'real source');
   assertEqual(quote.minuteTime, '09:30', 'completed minute');
   assertClose(quote.last, 248.125, 0.001, '09:31 price');
+});
+
+test('one clock step advances one minute and closes after 390 steps', async () => {
+  const manifest = await installedManifest();
+  if (!manifest) return;
+  const response = await fetch('../data/real/alpaca/2022-pilot/history.json');
+  assert(response.ok, 'history installed');
+  const dataset = await response.json();
+  const store = realPilotStore();
+  await store.loadManifest();
+  await store.ensureSymbolsMonth(['NVDA'], '2022-02');
+  await store.ensureSymbolsMinuteIndex(['NVDA'], '2022-02');
+  let run = { ...createHistoryRun('minute-test'), dayIndex: 20, tick: 0 };
+  let sum = summaryAtMinute(run, dataset, store);
+  assertEqual(sum.tickTime, '09:31', 'first minute');
+  assertEqual(sum.totalSteps, MINUTES_PER_SESSION, '390 steps');
+  assertEqual(sum.hourTick, 1, 'first hourly tick');
+  ({ run } = advanceHistoryTick(run, dataset));
+  sum = summaryAtMinute(run, dataset, store);
+  assertEqual(sum.tickTime, '09:32', 'one step is one minute');
+  assertEqual(sum.hourTick, 0, 'between hourly ticks');
+  for (let index = 1; index < 60; index += 1) ({ run } = advanceHistoryTick(run, dataset));
+  sum = summaryAtMinute(run, dataset, store);
+  assertEqual(sum.tickTime, '10:31', 'sixty steps reach 10:31');
+  assertEqual(sum.hourTick, 2, 'second hourly tick');
+  for (let index = 60; index < MINUTES_PER_SESSION - 1; index += 1) {
+    ({ run } = advanceHistoryTick(run, dataset));
+  }
+  sum = summaryAtMinute(run, dataset, store);
+  assertEqual(sum.tickTime, '16:00', 'last minute');
+  assertEqual(sum.hourTick, 8, 'last hourly tick');
+  const closed = advanceHistoryTick(run, dataset);
+  assert(closed.dayClosed, 'day closes after 390 steps');
+  assertEqual(closed.run.dayIndex, 21, 'next session');
+  assertEqual(closed.run.tick, 0, 'resets to first minute');
 });
 
 test('the local 2022 pilot files agree when installed', async () => {

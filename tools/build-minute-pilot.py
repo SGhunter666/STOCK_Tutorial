@@ -31,6 +31,8 @@ TICK_TIMES = ["09:31", "10:31", "11:31", "12:31", "13:31", "14:31", "15:31", "16
 TICK_MINUTES = [int(text[:2]) * 60 + int(text[3:]) for text in TICK_TIMES]
 SESSION_START = 9 * 60 + 30
 SESSION_END = 16 * 60
+SESSION_MINUTES = 390
+HOURLY_TICK_STEPS = [0, 60, 120, 180, 240, 300, 360, 389]
 MONTH_PATTERN = "%Y-%m"
 
 
@@ -101,6 +103,16 @@ def read_minute_day(path: Path) -> dict[str, list[dict]]:
     for bars in days.values():
         bars.sort(key=lambda bar: bar["minutes"])
     return days
+
+
+def build_minute_index(day: list[dict]) -> list[float | None]:
+    """One close per regular-session minute (09:30..15:59), null if no trade."""
+    closes: list[float | None] = [None] * SESSION_MINUTES
+    for bar in day:
+        index = bar["minutes"] - SESSION_START
+        if 0 <= index < SESSION_MINUTES:
+            closes[index] = round(bar["close"], 6)
+    return closes
 
 
 def build_ticks(day: list[dict]) -> list[dict]:
@@ -181,6 +193,7 @@ def main() -> int:
     totals = {
         "minuteBars": 0, "tickEntries": 0, "symbolDays": 0,
         "fullSymbolDays": 0, "partialSymbolDays": 0, "simulatedSymbolDays": 0,
+        "minuteIndexEntries": 0, "minuteIndexDays": 0, "minuteIndexBytes": 0,
     }
 
     for symbol in symbols:
@@ -218,8 +231,10 @@ def main() -> int:
                     continue
                 days = read_minute_day(minute_path)
                 month_days = {}
+                minute_index_days = {}
                 month_tick_entries = 0
                 minute_bar_count = 0
+                minute_index_entries = 0
                 full_days = 0
                 partial_days = 0
                 for date in calendar:
@@ -227,6 +242,10 @@ def main() -> int:
                         continue
                     day = days.get(date, [])
                     minute_bar_count += len(day)
+                    closes = build_minute_index(day) if day else []
+                    if closes and any(value is not None for value in closes):
+                        minute_index_days[date] = closes
+                        minute_index_entries += sum(1 for value in closes if value is not None)
                     ticks = build_ticks(day) if day else []
                     if not ticks:
                         continue
@@ -247,22 +266,38 @@ def main() -> int:
                     "tickTimes": TICK_TIMES,
                     "days": month_days,
                 }, separators=(",", ":")), encoding="utf-8")
+                index_rel = f"minute-index/{symbol}/{symbol}_{month}.json"
+                index_path = root / index_rel
+                index_path.parent.mkdir(parents=True, exist_ok=True)
+                index_path.write_text(json.dumps({
+                    "symbol": symbol,
+                    "month": month,
+                    "sessionMinutes": SESSION_MINUTES,
+                    "days": minute_index_days,
+                }, separators=(",", ":")), encoding="utf-8")
                 month_records[month] = {
                     "file": tick_rel,
                     "minuteFile": str(minute_path.relative_to(root)).replace(os.sep, "/"),
+                    "minuteIndexFile": index_rel,
                     "tickDays": len(month_days),
                     "fullDays": full_days,
                     "partialDays": partial_days,
                     "ticks": month_tick_entries,
                     "minuteBars": minute_bar_count,
+                    "minuteIndexDays": len(minute_index_days),
+                    "minuteIndexEntries": minute_index_entries,
                     "tickBytes": tick_path.stat().st_size,
                     "minuteBytes": minute_path.stat().st_size,
+                    "minuteIndexBytes": index_path.stat().st_size,
                 }
                 totals["minuteBars"] += minute_bar_count
                 totals["tickEntries"] += month_tick_entries
                 totals["symbolDays"] += len(month_days)
                 totals["fullSymbolDays"] += full_days
                 totals["partialSymbolDays"] += partial_days
+                totals["minuteIndexEntries"] += minute_index_entries
+                totals["minuteIndexDays"] += len(minute_index_days)
+                totals["minuteIndexBytes"] += index_path.stat().st_size
         if symbol != benchmark:
             real_dates = sum(record["tickDays"] for record in month_records.values())
             totals["simulatedSymbolDays"] += max(0, len(calendar) - real_dates)
@@ -306,6 +341,8 @@ def main() -> int:
             "manifest": f"{str(root).replace(os.sep, '/')}/minute-manifest.json",
             "tickTimes": TICK_TIMES,
             "tickMinutes": TICK_MINUTES,
+            "sessionMinutes": SESSION_MINUTES,
+            "hourlyTickSteps": HOURLY_TICK_STEPS,
         },
         "note": (
             "Raw prices with real one-minute bars. Ticks use only a completed minute at or before "
@@ -324,6 +361,8 @@ def main() -> int:
         "session": {"open": "09:30", "close": "16:00"},
         "tickTimes": TICK_TIMES,
         "tickMinutes": TICK_MINUTES,
+        "sessionMinutes": SESSION_MINUTES,
+        "hourlyTickSteps": HOURLY_TICK_STEPS,
         "root": str(root).replace(os.sep, "/"),
         "history": f"{str(root).replace(os.sep, '/')}/history.json",
         "calendar": {"start": calendar[0], "end": calendar[-1], "days": len(calendar), "months": months},
@@ -353,6 +392,9 @@ def main() -> int:
         "fullSymbolDays": totals["fullSymbolDays"],
         "partialSymbolDays": totals["partialSymbolDays"],
         "simulatedSymbolDays": totals["simulatedSymbolDays"],
+        "minuteIndexEntries": totals["minuteIndexEntries"],
+        "minuteIndexDays": totals["minuteIndexDays"],
+        "minuteIndexBytes": totals["minuteIndexBytes"],
         "splits": {
             ticker["symbol"]: [split["date"] for split in ticker["splits"]]
             for ticker in tickers if ticker["splits"]

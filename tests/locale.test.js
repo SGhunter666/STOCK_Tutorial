@@ -735,6 +735,7 @@ test('minute source, coverage and fill labels are localised', () => {
     'source', 'real', 'simulated', 'unavailable', 'shortReal', 'shortSim', 'shortUnavailable',
     'realNote', 'simNote', 'loadingNote', 'lag', 'bid', 'ask', 'spread', 'slippage',
     'fillPrice', 'fillNote', 'partial', 'noMinute', 'noCandles', 'loading', 'monthLoading',
+    'minuteOf', 'hourTick',
     'coverageTitle', 'coverageSubtitle', 'coverageSymbols', 'coverageMonth', 'coverageBars',
     'coverageManifest', 'coverageCache', 'coverageNoSymbol', 'allReal', 'fallbackBanner',
     'unavailableBanner', 'chartNoteReal', 'chartNoteSim', 'tradeSource', 'legend',

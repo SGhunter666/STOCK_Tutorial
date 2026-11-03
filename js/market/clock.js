@@ -12,6 +12,18 @@ export class MarketClock {
     this.running = false;
     this.timer = null;
     this.suspended = false;
+    this.tickMs = null;
+  }
+
+  /** Per-speed interval override, used by the minute replay (1 s = 1 minute). */
+  setTickMs(mapping) {
+    this.tickMs = mapping || null;
+    if (this.running) this._restartTimer();
+  }
+
+  clearTickMs() {
+    this.tickMs = null;
+    if (this.running) this._restartTimer();
   }
 
   setSpeed(speed) {
@@ -44,7 +56,7 @@ export class MarketClock {
   _restartTimer() {
     this._clearTimer();
     if (!this.running || this.suspended) return;
-    const ms = SPEED_MS[this.speed] || SPEED_MS[1];
+    const ms = (this.tickMs && this.tickMs[this.speed]) || SPEED_MS[this.speed] || SPEED_MS[1];
     this.timer = setInterval(() => {
       if (!this.running || this.suspended) return;
       try {

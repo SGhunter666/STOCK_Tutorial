@@ -21,6 +21,26 @@ export const MINUTE_TICK_MINUTES = Object.freeze([
   571, 631, 691, 751, 811, 871, 931, 960,
 ]);
 
+/** Regular-session minutes traded by the minute replay (09:30..15:59). */
+export const MINUTES_PER_SESSION = 390;
+/** Step indexes that land on the eight hourly checkpoint ticks. */
+export const HOURLY_TICK_STEPS = Object.freeze([0, 60, 120, 180, 240, 300, 360, 389]);
+
+export function minuteStepClock(step) {
+  const value = Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(step) || 0));
+  return clockText(571 + value);
+}
+
+export function minuteStepMinute(step) {
+  return 571 + Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(step) || 0));
+}
+
+/** 1-based hourly checkpoint number, or 0 when the step is between checkpoints. */
+export function hourTickNumber(step) {
+  const index = HOURLY_TICK_STEPS.indexOf(Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(step) || 0)));
+  return index + 1;
+}
+
 const SYMBOL_PATTERN = /^[A-Z0-9.^-]{1,16}$/;
 const MONTH_PATTERN = /^[0-9]{4}-[0-9]{2}$/;
 const DATE_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
@@ -48,8 +68,8 @@ export function isMinuteCompleted(bar, tickMinute) {
   return Boolean(bar) && Number.isFinite(bar.minutes) && bar.minutes + 1 <= tickMinute;
 }
 
-export function completedMinuteBars(bars, date, tick) {
-  const cutoff = minuteTickMinute(tick);
+export function completedMinuteBars(bars, date, step) {
+  const cutoff = minuteStepMinute(step);
   return (bars || []).filter((bar) => bar.date === date && isMinuteCompleted(bar, cutoff));
 }
 
@@ -64,7 +84,7 @@ function clockText(minutes) {
  * The bucket containing the current tick is returned as a partial candle built
  * only from minutes that have already finished.
  */
-export function aggregateCompletedMinutes(bars, timeframe, tick) {
+export function aggregateCompletedMinutes(bars, timeframe, step) {
   const size = { '5m': 5, '15m': 15, '1h': 60 }[timeframe];
   if (!size) {
     return (bars || []).map((bar) => ({
@@ -79,7 +99,7 @@ export function aggregateCompletedMinutes(bars, timeframe, tick) {
       partial: false,
     }));
   }
-  const cutoff = minuteTickMinute(tick);
+  const cutoff = minuteStepMinute(step);
   const groups = new Map();
   for (const bar of bars || []) {
     if (!isMinuteCompleted(bar, cutoff)) continue;
@@ -111,8 +131,8 @@ export function aggregateCompletedMinutes(bars, timeframe, tick) {
 }
 
 /** One-minutes bars that finished at or before the current tick. */
-export function minuteCandles(bars, tick) {
-  const cutoff = minuteTickMinute(tick);
+export function minuteCandles(bars, step) {
+  const cutoff = minuteStepMinute(step);
   return (bars || [])
     .filter((bar) => isMinuteCompleted(bar, cutoff))
     .map((bar) => ({
@@ -197,6 +217,7 @@ function createLru(limit) {
 export class MinuteDataStore {
   constructor({
     manifestPath, root = '', fetchImpl = null, tickCacheLimit = 4, minuteCacheLimit = 2,
+    minuteIndexCacheLimit = 2,
   } = {}) {
     this.manifestPath = safeRelativePath(manifestPath);
     this.root = String(root || '').replace(/^\.?\//, '').replace(/\/$/, '');
@@ -205,14 +226,16 @@ export class MinuteDataStore {
     this.manifestPromise = null;
     this.tickCache = createLru(tickCacheLimit);
     this.minuteCache = createLru(minuteCacheLimit);
+    this.minuteIndexCache = createLru(minuteIndexCacheLimit);
     this.monthStates = new Map();
     this.minuteStates = new Map();
+    this.minuteIndexStates = new Map();
     this.controllers = new Set();
     this.disposed = false;
     this.stats = {
-      manifestFetches: 0, tickFetches: 0, minuteFetches: 0,
-      tickCacheHits: 0, minuteCacheHits: 0, failures: 0, aborted: 0,
-      bytesLoaded: 0, minuteBars: 0,
+      manifestFetches: 0, tickFetches: 0, minuteFetches: 0, minuteIndexFetches: 0,
+      tickCacheHits: 0, minuteCacheHits: 0, minuteIndexCacheHits: 0,
+      failures: 0, aborted: 0, bytesLoaded: 0, minuteBars: 0, minuteIndexEntries: 0,
     };
   }
 
@@ -266,6 +289,14 @@ export class MinuteDataStore {
     const key = `${safeSymbol(symbol)}|${safeMonth(month)}`;
     if (this.minuteCache.has(key)) return 'ready';
     return this.minuteStates.get(key) || 'idle';
+  }
+
+  minuteIndexState(symbol, month) {
+    const ticker = safeSymbol(symbol);
+    const period = safeMonth(month);
+    const bundle = this.minuteIndexCache.get(period);
+    if (bundle && bundle[ticker]) return 'ready';
+    return this.minuteIndexStates.get(`${ticker}|${period}`) || 'idle';
   }
 
   urlFor(relativePath) {
@@ -339,6 +370,101 @@ export class MinuteDataStore {
 
   async prefetchMonth(symbols, month, options = {}) {
     return this.ensureSymbolsMonth(symbols, month, options);
+  }
+
+  async ensureMinuteIndexMonth(symbol, month, { signal } = {}) {
+    if (this.disposed) throw new Error('minute.error.disposed');
+    const ticker = safeSymbol(symbol);
+    const period = safeMonth(month);
+    const key = `${ticker}|${period}`;
+    const cached = this.minuteIndexCache.get(period);
+    if (cached && cached[ticker]) {
+      this.stats.minuteIndexCacheHits += 1;
+      return cached[ticker];
+    }
+    if (!this.manifest) await this.loadManifest();
+    const record = this.monthRecord(ticker, period);
+    if (!record?.minuteIndexFile) {
+      this.minuteIndexStates.set(key, 'missing');
+      return null;
+    }
+    const controller = new AbortController();
+    this.controllers.add(controller);
+    this.minuteIndexStates.set(key, 'loading');
+    try {
+      const response = await this.fetchImpl(this.urlFor(record.minuteIndexFile), {
+        cache: 'no-cache',
+        signal: signal || controller.signal,
+      });
+      if (!response || !response.ok) {
+        this.minuteIndexStates.set(key, 'missing');
+        this.stats.failures += 1;
+        throw new Error('minute.error.minuteIndex');
+      }
+      const text = await response.text();
+      const payload = JSON.parse(text);
+      if (
+        !payload || payload.symbol !== ticker || payload.month !== period
+        || !payload.days || Number(payload.sessionMinutes) !== MINUTES_PER_SESSION
+      ) {
+        throw new Error('minute.error.minuteIndex');
+      }
+      if (this.disposed) throw new Error('minute.error.disposed');
+      this.stats.minuteIndexFetches += 1;
+      this.stats.bytesLoaded += text.length;
+      const bundle = this.minuteIndexCache.get(period) || {};
+      bundle[ticker] = payload.days;
+      this.minuteIndexCache.set(period, bundle);
+      this.minuteIndexStates.delete(key);
+      return payload.days;
+    } catch (error) {
+      if (this.disposed) {
+        this.stats.aborted += 1;
+        throw new Error('minute.error.disposed');
+      }
+      if (this.minuteIndexStates.get(key) === 'loading') {
+        this.minuteIndexStates.set(key, 'missing');
+      }
+      throw error;
+    } finally {
+      this.controllers.delete(controller);
+    }
+  }
+
+  async ensureSymbolsMinuteIndex(symbols, month, { signal } = {}) {
+    const period = safeMonth(month);
+    const unique = [...new Set((symbols || []).map((symbol) => safeSymbol(symbol)))];
+    return Promise.allSettled(unique.map(
+      (symbol) => this.ensureMinuteIndexMonth(symbol, period, { signal }),
+    ));
+  }
+
+  /**
+   * Last real minute close at or before `step` (0 = 09:30, 389 = 15:59).
+   * Returns undefined when the month index is not loaded, null when the day or
+   * the elapsed session has no trade, so callers can label loading vs simulated.
+   */
+  getMinutePrice(symbol, date, step) {
+    const ticker = safeSymbol(symbol);
+    const day = safeDate(date);
+    const period = monthOf(day);
+    const bundle = this.minuteIndexCache.get(period);
+    if (!bundle || !bundle[ticker]) return undefined;
+    const closes = bundle[ticker]?.[day];
+    if (!closes || !closes.length) return null;
+    const target = Math.max(0, Math.min(MINUTES_PER_SESSION - 1, Number(step) || 0));
+    for (let index = Math.min(target, closes.length - 1); index >= 0; index -= 1) {
+      if (Number.isFinite(closes[index])) {
+        this.stats.minuteIndexCacheHits += 1;
+        return {
+          p: closes[index],
+          minuteIndex: index,
+          minuteTime: clockText(570 + index),
+          lag: target - index,
+        };
+      }
+    }
+    return null;
   }
 
   /** Returns the real tick entry, or null when the month/day has no usable minute. */
@@ -423,12 +549,15 @@ export class MinuteDataStore {
     return (bars || []).filter((bar) => bar.date === date);
   }
 
-  /** Prefetch the following month's tick indexes while the current one is used. */
+  /** Prefetch the following month's tick and minute indexes while the current one is used. */
   async prefetchAround(symbols, date) {
     const month = monthOf(date);
     const upcoming = nextMonth(month);
-    if (upcoming) return this.prefetchMonth(symbols, upcoming);
-    return [];
+    if (!upcoming) return [];
+    return Promise.allSettled([
+      this.prefetchMonth(symbols, upcoming),
+      this.ensureSymbolsMinuteIndex(symbols, upcoming),
+    ]);
   }
 
   coverage(symbol) {
@@ -447,6 +576,7 @@ export class MinuteDataStore {
       ...this.stats,
       tickMonths: this.tickCache.size(),
       minuteMonths: this.minuteCache.size(),
+      minuteIndexMonths: this.minuteIndexCache.size(),
     };
   }
 
@@ -456,8 +586,10 @@ export class MinuteDataStore {
     this.controllers.clear();
     this.tickCache.clear();
     this.minuteCache.clear();
+    this.minuteIndexCache.clear();
     this.monthStates.clear();
     this.minuteStates.clear();
+    this.minuteIndexStates.clear();
     this.manifest = null;
     this.manifestPromise = null;
   }
