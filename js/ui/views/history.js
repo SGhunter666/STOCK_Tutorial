@@ -24,6 +24,9 @@ import { TICKS_PER_DAY, sessionClock } from '../../market/calendar.js';
 import { confirmModal } from '../components.js';
 import { sectorLabel } from '../labels.js';
 
+const OFFLINE_HISTORY = typeof window !== 'undefined' && Boolean(window.__SMA_HISTORY_DATA__);
+const LIST_SCENARIOS = HISTORY_SCENARIOS.filter((scenario) => !(OFFLINE_HISTORY && scenario.realDataPath));
+
 export function createHistoryListView(ctx) {
   const { i18n, store, router } = ctx;
   const t = (key, p) => i18n.t(key, p);
@@ -36,7 +39,7 @@ export function createHistoryListView(ctx) {
       <article class="history-card">
         <header class="history-card__head">
           <div>
-            <span class="pill pill--ok">${t('history.realDataBadge')}</span>
+            <span class="pill pill--ok">${t(scenario.badgeKey || 'history.realDataBadge')}</span>
             <h2 class="history-card__title">${t(scenario.titleKey)}</h2>
             <p class="history-card__subtitle">${t(scenario.subtitleKey)}</p>
           </div>
@@ -79,7 +82,7 @@ export function createHistoryListView(ctx) {
           </div>
         </div>
         <div class="history-cards">
-          ${HISTORY_SCENARIOS.map((scenario) => scenarioCard(scenario, state)).join('')}
+          ${LIST_SCENARIOS.map((scenario) => scenarioCard(scenario, state)).join('')}
         </div>
         <div class="callout callout--warning history-disclaimer">
           <span class="callout__label">${t('history.disclaimerLabel')}</span>
@@ -455,8 +458,11 @@ export function createHistoryScenarioView(ctx, scenarioId) {
   }
 
   function errorPage() {
+    const message = scenario && scenario.realDataPath
+      ? t('history.realDataLoadError')
+      : t('history.loadError');
     return `<div class="history-page">${pageHead({ eyebrow: t('history.eyebrow'), title: t('history.title') })}
-      <div class="card history-loading"><span>${t('history.loadError')}</span><button class="btn btn--ghost btn--sm" type="button" data-go="/history">${t('history.backToList')}</button></div></div>`;
+      <div class="card history-loading"><span>${message}</span><button class="btn btn--ghost btn--sm" type="button" data-go="/history">${t('history.backToList')}</button></div></div>`;
   }
 
   function template(state) {
@@ -474,6 +480,15 @@ export function createHistoryScenarioView(ctx, scenarioId) {
             <button class="btn btn--ghost btn--sm" type="button" data-reset="true">${icon('refresh', { size: 14 })} ${t('history.resetShort')}</button>`,
         })}
         ${controls(sum)}
+        ${sum.splitEvents && sum.splitEvents.length ? `
+          <div class="callout callout--warning history-split-notice">
+            <span class="callout__label">${t('history.splitNoticeLabel')}</span>
+            <p>${sum.splitEvents.map((event) => t('history.splitNotice', {
+              ticker: event.symbol,
+              newRate: num(event.newRate, i18n.locale, 0),
+              oldRate: num(event.oldRate, i18n.locale, 0),
+            })).join(' ')}</p>
+          </div>` : ''}
         <div class="stat-grid">
           ${statCard({ id: 'hist-equity', label: t('history.statEquity'), value: money(sum.total, i18n.locale), sub: t('history.sinceStartPct', { pct: pct(sum.returnPct, i18n.locale, 2) }), tone: sum.pnl > 0 ? 'up' : sum.pnl < 0 ? 'down' : '', iconName: 'portfolio' })}
           ${statCard({ id: 'hist-cash', label: t('history.statCash'), value: money(sum.cash, i18n.locale), sub: t('history.statCashSub'), iconName: 'glossary' })}
@@ -497,7 +512,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
           <span class="history-source__icon">${icon('info', { size: 16 })}</span>
           <div>
             <strong>${t('history.sourceTitle')}</strong>
-            <p>${t('history.sourceNote')} ${t('history.adjustedNote')}</p>
+            <p>${scenario.realDataPath ? t('history.sourceNoteRaw') : `${t('history.sourceNote')} ${t('history.adjustedNote')}`}</p>
           </div>
         </div>
       </div>`;

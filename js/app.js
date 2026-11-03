@@ -95,6 +95,7 @@ import { createTradeView } from './ui/views/trading.js';
 import { createOptionsView } from './ui/views/options.js';
 import { createFuturesView } from './ui/views/futures.js';
 import { createPortfolioView } from './ui/views/portfolio.js';
+import { createTaxView } from './ui/views/tax.js';
 import { createSandboxView } from './ui/views/sandbox.js';
 import { createChallengesView } from './ui/views/challenges.js';
 import { createBoundariesView } from './ui/views/boundaries.js';
@@ -103,6 +104,7 @@ import { createGlossaryView } from './ui/views/glossary.js';
 import { createSettingsView } from './ui/views/settings.js';
 import { createRoadmapView } from './ui/views/roadmap.js';
 import { createHistoryListView, createHistoryScenarioView } from './ui/views/history.js';
+import { createRealDataView } from './ui/views/realdata.js';
 import { showOnboarding } from './ui/onboarding.js';
 
 const MODE_KEY = 'sma.mode';
@@ -1880,6 +1882,9 @@ function renderRoute(route) {
     case 'portfolio':
       view = createPortfolioView(ctx);
       break;
+    case 'tax':
+      view = createTaxView(ctx);
+      break;
     case 'sandbox':
       view = createSandboxView(ctx);
       break;
@@ -1899,6 +1904,9 @@ function renderRoute(route) {
       view = segments[1]
         ? createHistoryScenarioView(ctx, segments[1])
         : createHistoryListView(ctx);
+      break;
+    case 'realdata':
+      view = createRealDataView(ctx);
       break;
     case 'options':
       view = createOptionsView(ctx);

@@ -306,6 +306,8 @@ export function createHistoryRun(scenarioId, startCash = HISTORY_START_CASH) {
     tick: 0,
     account: createAccount(startCash),
     selectedTicker: null,
+    appliedSplits: {},
+    lastSplitEvents: [],
     createdAt: Date.now(),
   };
 }
@@ -325,7 +327,96 @@ export function ensureHistoryRun(existing, scenarioId, dataset) {
     dayIndex,
   ));
   const tick = Math.max(0, Math.min(TICKS_PER_DAY - 1, Number(existing.tick) || 0));
-  return { ...existing, dayIndex, startIndex, tick };
+  return {
+    ...existing,
+    dayIndex,
+    startIndex,
+    tick,
+    appliedSplits: existing.appliedSplits || {},
+    lastSplitEvents: existing.lastSplitEvents || [],
+  };
+}
+
+/**
+ * Applies every true split whose ex-date is on or before `dayIndex`.
+ *
+ * Forward splits multiply the share count and keep the total cost basis, so the
+ * average cost per share falls by the split ratio. Reverse splits that create a
+ * fractional share cash out the fraction at the split-day open and record the
+ * realised difference. Splits are recorded in `appliedSplits`, so jumping over a
+ * date applies each event exactly once.
+ */
+export function applySplitsThrough(run, dataset, dayIndex) {
+  if (!run || !dataset || !run.account) return run;
+  const date = currentDate(dataset, dayIndex);
+  if (!date) return run;
+  const applied = { ...(run.appliedSplits || {}) };
+  const events = [];
+  for (const ticker of dataset.tickers) {
+    for (const split of ticker.splits || []) {
+      if (split.date > date) continue;
+      if (applied[ticker.symbol] && split.date <= applied[ticker.symbol]) continue;
+      events.push({ ...split, symbol: ticker.symbol, name: ticker.name });
+    }
+  }
+  events.sort((a, b) => a.date.localeCompare(b.date) || a.symbol.localeCompare(b.symbol));
+
+  if (!events.length) {
+    const lastSplitDate = (run.lastSplitEvents || []).reduce(
+      (latest, event) => (event.date > latest ? event.date : latest),
+      '',
+    );
+    return lastSplitDate && lastSplitDate < date
+      ? { ...run, lastSplitEvents: [] }
+      : run;
+  }
+
+  let account = run.account;
+  for (const event of events) {
+    const position = account.positions[event.symbol];
+    if (position && position.qty > 0) {
+      const ratio = Number(event.ratio);
+      if (!Number.isFinite(ratio) || ratio <= 0) {
+        applied[event.symbol] = event.date;
+        continue;
+      }
+      const rawQty = position.qty * ratio;
+      const wholeQty = Math.floor(rawQty + 1e-9);
+      const fraction = rawQty - wholeQty;
+      let qty = ratio > 1 ? Math.round(rawQty) : rawQty;
+      let costBasis = position.costBasis;
+      let cash = account.cash;
+      let realized = account.realizedPnl || 0;
+      if (ratio < 1 && fraction > 1e-9) {
+        const bars = barsFor(dataset, event.symbol);
+        const splitIndex = bars.findIndex((bar) => bar[0] >= event.date);
+        const bar = splitIndex >= 0 ? bars[splitIndex] : bars[bars.length - 1];
+        const price = bar ? bar[1] : 0;
+        const fractionCost = position.costBasis * (fraction / rawQty);
+        const cashInLieu = fraction * price;
+        cash += cashInLieu;
+        realized += cashInLieu - fractionCost;
+        costBasis = position.costBasis - fractionCost;
+        qty = wholeQty;
+      }
+      const positions = { ...account.positions };
+      if (qty > 1e-9) positions[event.symbol] = { qty, costBasis };
+      else delete positions[event.symbol];
+      account = {
+        ...account,
+        cash,
+        positions,
+        realizedPnl: realized,
+      };
+    }
+    applied[event.symbol] = event.date;
+  }
+  return {
+    ...run,
+    account,
+    appliedSplits: applied,
+    lastSplitEvents: events,
+  };
 }
 
 export function barCount(dataset) {
@@ -538,6 +629,7 @@ export function summary(run, dataset) {
     startIndex,
     date: currentDate(dataset, run.dayIndex),
     totalDays: barCount(dataset),
+    splitEvents: run.lastSplitEvents || [],
     reachedEnd: run.dayIndex >= barCount(dataset) - 1,
   };
 }
@@ -578,6 +670,7 @@ export function summaryAtTick(run, dataset) {
     tick,
     date: currentDate(dataset, run.dayIndex),
     totalDays,
+    splitEvents: run.lastSplitEvents || [],
     reachedEnd: run.dayIndex >= totalDays - 1 && tick >= TICKS_PER_DAY - 1,
   };
 }

@@ -9,7 +9,7 @@ import { HISTORY_SCENARIOS, HISTORY_SECTOR_PACKS, getHistoryScenario, eventsUpTo
 import {
   createHistoryRun, ensureHistoryRun, quoteAt, advanceRun, tradeAtClose, summary,
   barCount, currentDate, HISTORY_WARMUP, intradayPath, intradayBar, quoteAtTick,
-  tradeAtTick, advanceHistoryTick, summaryAtTick, historyCandles,
+  tradeAtTick, advanceHistoryTick, summaryAtTick, historyCandles, applySplitsThrough,
 } from '../js/history/replayEngine.js';
 import { TICKS_PER_DAY } from '../js/market/calendar.js';
 import { createGameState, hydrateState, serializeState } from '../js/game/gameState.js';
@@ -22,7 +22,7 @@ let datasets = null;
 async function loadDatasets() {
   if (datasets) return datasets;
   datasets = {};
-  for (const scenario of HISTORY_SCENARIOS) {
+  for (const scenario of HISTORY_SCENARIOS.filter((entry) => !entry.realDataPath)) {
     const response = await fetch(`../data/history/${scenario.fileName}`);
     assert(response.ok, `dataset ${scenario.fileName} loads`);
     datasets[scenario.id] = await response.json();
@@ -30,9 +30,9 @@ async function loadDatasets() {
   return datasets;
 }
 
-test('all scenarios load and match their metadata', async () => {
+test('all adjusted scenarios load and match their metadata', async () => {
   const data = await loadDatasets();
-  for (const scenario of HISTORY_SCENARIOS) {
+  for (const scenario of HISTORY_SCENARIOS.filter((entry) => !entry.realDataPath)) {
     const dataset = data[scenario.id];
     assertEqual(dataset.id, scenario.id, 'dataset id');
     assertEqual(dataset.adjusted, true, 'prices marked adjusted');
@@ -49,6 +49,40 @@ test('all scenarios load and match their metadata', async () => {
       assertEqual(ticker.bars.length, scenario.approxDays, `${scenario.id} ${ticker.symbol} aligned bars`);
     }
   }
+});
+
+test('raw Alpaca scenario metadata points at the local dataset', async () => {
+  const scenario = getHistoryScenario('real-2016-2026');
+  assert(scenario, 'raw scenario exists');
+  assertEqual(scenario.symbols.length, 75, '75-symbol universe');
+  assert(scenario.approxDays >= 2700, 'raw scenario has a long calendar');
+  assertEqual(scenario.badgeKey, 'history.rawDataBadge', 'raw badge');
+  assertEqual(scenario.realDataPath, 'data/real/alpaca/long-2016-2026/history.json', 'local path');
+  assertEqual(scenario.events[0].date, '2016-06-24', 'first event inside the raw window');
+
+  const response = await fetch(`../${scenario.realDataPath}`);
+  if (!response.ok) {
+    console.warn('[history] raw Alpaca dataset is not installed; skipping data assertions');
+    return;
+  }
+  const dataset = await response.json();
+  const count = dataset.tickers[0].bars.length;
+  assertEqual(dataset.id, scenario.id, 'raw dataset id');
+  assertEqual(dataset.adjusted, false, 'raw prices marked unadjusted');
+  assertEqual(dataset.tickers.length, 75, 'raw tickers');
+  assert(count >= 2700, 'raw dataset has a long calendar');
+  assert(dataset.start >= '2016-01-04' && dataset.start <= '2016-01-10', 'raw start');
+  assert(dataset.end >= '2026-10-30', 'raw end is current');
+  for (const ticker of dataset.tickers) {
+    assertEqual(ticker.bars.length, count, `${ticker.symbol} aligned`);
+  }
+  const aapl = dataset.tickers.find((ticker) => ticker.symbol === 'AAPL');
+  assert(aapl.splits && aapl.splits.some((split) => split.date === '2020-08-31' && split.ratio === 4), 'AAPL split');
+  const ge = dataset.tickers.find((ticker) => ticker.symbol === 'GE');
+  assert(ge.splits && ge.splits.some((split) => split.date === '2021-08-02' && split.ratio === 0.125), 'GE reverse split');
+  const hon = dataset.tickers.find((ticker) => ticker.symbol === 'HON');
+  assert(!hon.splits || hon.splits.length === 0, 'HON has no applied splits');
+  assert(hon.otherActions && hon.otherActions.some((action) => action.date === '2026-06-29' && action.reason === 'priceRatioMismatch'), 'HON mismatch kept out of splits');
 });
 
 test('sector packs contain at least ten real symbols each', async () => {
@@ -349,4 +383,133 @@ test('scenario metadata has tips and event text keys', () => {
       assert(/^\d{4}-\d{2}-\d{2}$/.test(event.date), 'event date format');
     }
   }
+});
+
+suite('Historical split adjustment');
+
+function splitDataset() {
+  const dates = ['2020-08-28', '2020-08-31', '2021-07-30', '2021-08-02'];
+  const bar = (date, price) => [date, price, price + 1, price - 1, price, 1000];
+  return {
+    id: 'split-test',
+    adjusted: false,
+    tickers: [
+      {
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        benchmark: false,
+        bars: dates.map((date) => bar(date, date === '2020-08-31' ? 25 : 100)),
+        splits: [{ date: '2020-08-31', ratio: 4, newRate: 4, oldRate: 1 }],
+      },
+      {
+        symbol: 'GE',
+        name: 'General Electric',
+        benchmark: false,
+        bars: dates.map((date) => bar(date, 80)),
+        splits: [{ date: '2021-08-02', ratio: 0.125, newRate: 1, oldRate: 8 }],
+      },
+      {
+        symbol: 'QQQ',
+        name: 'Invesco QQQ Trust',
+        benchmark: true,
+        bars: dates.map((date) => bar(date, 200)),
+      },
+    ],
+  };
+}
+
+function splitRun(positions, cash = 5000) {
+  const run = createHistoryRun('split-test', 10000);
+  return {
+    ...run,
+    dayIndex: 0,
+    account: { ...run.account, cash, positions },
+  };
+}
+
+test('forward split multiplies quantity and keeps total cost', () => {
+  const dataset = splitDataset();
+  const run = splitRun({ AAPL: { qty: 10, costBasis: 1000 } });
+  const next = applySplitsThrough(run, dataset, 1);
+  assertEqual(next.account.positions.AAPL.qty, 40, 'four-for-one quantity');
+  assertClose(next.account.positions.AAPL.costBasis, 1000, 0.001, 'cost basis unchanged');
+  assertEqual(next.account.cash, 5000, 'cash unchanged');
+  assertEqual(next.appliedSplits.AAPL, '2020-08-31', 'split recorded');
+  assertEqual(next.lastSplitEvents.length, 1, 'split notice');
+  assertEqual(next.lastSplitEvents[0].symbol, 'AAPL', 'notice ticker');
+});
+
+test('splits are applied only once and the notice persists for that day', () => {
+  const dataset = splitDataset();
+  const run = splitRun({ AAPL: { qty: 10, costBasis: 1000 } });
+  const once = applySplitsThrough(run, dataset, 1);
+  const twice = applySplitsThrough(once, dataset, 1);
+  assertEqual(twice.account.positions.AAPL.qty, 40, 'quantity not doubled again');
+  assertClose(twice.account.positions.AAPL.costBasis, 1000, 0.001, 'cost basis stable');
+  assertEqual(twice.lastSplitEvents.length, 1, 'notice persists on the split day');
+  const later = applySplitsThrough(twice, dataset, 2);
+  assertEqual(later.lastSplitEvents.length, 0, 'notice clears on a later day');
+});
+
+test('reverse split cashes out the fractional share', () => {
+  const dataset = splitDataset();
+  const run = splitRun({ GE: { qty: 10, costBasis: 1000 } });
+  const next = applySplitsThrough(run, dataset, 3);
+  assertEqual(next.account.positions.GE.qty, 1, 'one whole share remains');
+  assertClose(next.account.positions.GE.costBasis, 800, 0.001, 'fraction cost removed');
+  assertEqual(next.account.cash, 5020, 'cash in lieu at the split open');
+  assertClose(next.account.realizedPnl, -180, 0.001, 'fraction realised loss');
+  assertEqual(next.appliedSplits.GE, '2021-08-02', 'reverse split recorded');
+});
+
+test('a jump applies every split crossed exactly once', () => {
+  const dataset = splitDataset();
+  const run = splitRun({
+    AAPL: { qty: 10, costBasis: 1000 },
+    GE: { qty: 10, costBasis: 1000 },
+  });
+  const next = applySplitsThrough(run, dataset, 3);
+  assertEqual(next.account.positions.AAPL.qty, 40, 'AAPL forward split');
+  assertEqual(next.account.positions.GE.qty, 1, 'GE reverse split');
+  assertEqual(next.lastSplitEvents.length, 2, 'both notices');
+  assertEqual(next.account.cash, 5020, 'GE cash in lieu');
+});
+
+test('no split is applied before its ex-date', () => {
+  const dataset = splitDataset();
+  const run = splitRun({ AAPL: { qty: 10, costBasis: 1000 } });
+  const next = applySplitsThrough(run, dataset, 0);
+  assertEqual(next, run, 'same run object before the ex-date');
+  assertEqual(next.account.positions.AAPL.qty, 10, 'quantity unchanged');
+});
+
+test('summary exposes the split notice used by the replay banner', () => {
+  const dataset = splitDataset();
+  const run = applySplitsThrough(splitRun({ AAPL: { qty: 10, costBasis: 1000 } }), dataset, 1);
+  const sum = summaryAtTick(run, dataset);
+  assertEqual(sum.splitEvents.length, 1, 'one split event');
+  assertEqual(sum.splitEvents[0].symbol, 'AAPL', 'split ticker');
+  assertEqual(sum.splitEvents[0].newRate, 4, 'split new rate');
+});
+
+test('reverse split closes a position smaller than one whole share', () => {
+  const dataset = splitDataset();
+  const run = splitRun({ GE: { qty: 3, costBasis: 300 } });
+  const next = applySplitsThrough(run, dataset, 3);
+  assert(!next.account.positions.GE, 'position removed');
+  assertClose(next.account.cash, 5030, 0.001, 'cash in lieu for 0.375 share');
+  assertClose(next.account.realizedPnl, -270, 0.001, 'fraction cost realised');
+});
+
+test('sell after a forward split uses the split-adjusted quantity and cost', () => {
+  const dataset = splitDataset();
+  const run = applySplitsThrough(
+    { ...splitRun({ AAPL: { qty: 10, costBasis: 1000 } }), dayIndex: 1 },
+    dataset,
+    1,
+  );
+  const result = tradeAtTick(run, dataset, { symbol: 'AAPL', side: 'sell', qty: 40, tick: 0 });
+  assert(result.ok, 'sell succeeds');
+  assertClose(result.trade.realized, -1, 0.001, 'cost basis was not multiplied by the split');
+  assertEqual(result.run.account.positions.AAPL, undefined, 'position closed');
 });

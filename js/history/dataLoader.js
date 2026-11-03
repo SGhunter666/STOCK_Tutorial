@@ -10,8 +10,11 @@ export async function loadHistoryDataset(scenario) {
   if (embedded && embedded[scenario.id]) return embedded[scenario.id];
   if (cache.has(scenario.id)) return cache.get(scenario.id);
 
-  const response = await fetch(`./data/history/${scenario.fileName}`, { cache: 'no-cache' });
-  if (!response.ok) throw new Error(`Failed to load ${scenario.fileName}: ${response.status}`);
+  const path = scenario.realDataPath
+    ? `./${scenario.realDataPath}`
+    : `./data/history/${scenario.fileName}`;
+  const response = await fetch(path, { cache: 'no-cache' });
+  if (!response.ok) throw new Error(`Failed to load ${path}: ${response.status}`);
   const dataset = await response.json();
   cache.set(scenario.id, dataset);
   return dataset;

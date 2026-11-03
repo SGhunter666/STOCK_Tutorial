@@ -4,7 +4,7 @@
  */
 import {
   ensureHistoryRun, createHistoryRun, advanceRun, advanceToNextEvent, tradeAtTick,
-  advanceHistoryTick,
+  advanceHistoryTick, applySplitsThrough,
 } from './replayEngine.js';
 
 export function runFor(state, scenarioId) {
@@ -17,16 +17,18 @@ export function ensureRunInStore(store, scenarioId, dataset) {
   const existing = state.historyRuns[scenarioId];
   if (existing && existing.account) {
     const normalized = ensureHistoryRun(existing, scenarioId, dataset);
+    const withSplits = applySplitsThrough(normalized, dataset, normalized.dayIndex);
     if (
-      normalized.dayIndex !== existing.dayIndex
-      || normalized.startIndex !== existing.startIndex
-      || normalized.tick !== existing.tick
+      withSplits.dayIndex !== existing.dayIndex
+      || withSplits.startIndex !== existing.startIndex
+      || withSplits.tick !== existing.tick
+      || withSplits !== normalized
     ) {
       store.update((draft) => {
-        draft.historyRuns[scenarioId] = normalized;
+        draft.historyRuns[scenarioId] = withSplits;
       }, { type: 'history:run-normalized', scenarioId });
     }
-    return normalized;
+    return withSplits;
   }
   const run = createHistoryRun(scenarioId);
   store.update((draft) => {
@@ -39,9 +41,10 @@ export function ensureRunInStore(store, scenarioId, dataset) {
 export function advanceHistory(store, scenarioId, dataset, scenario, { days = 1, toNextEvent = false } = {}) {
   const state = store.get();
   const current = ensureRunInStore(store, scenarioId, dataset);
-  const next = toNextEvent
+  const advanced = toNextEvent
     ? advanceToNextEvent(current, dataset, scenario)
     : advanceRun(current, dataset, days);
+  const next = applySplitsThrough(advanced, dataset, advanced.dayIndex);
   store.update((draft) => {
     draft.historyRuns[scenarioId] = next;
   }, { type: 'history:advance', scenarioId, days });
@@ -50,10 +53,12 @@ export function advanceHistory(store, scenarioId, dataset, scenario, { days = 1,
 
 export function tickHistory(store, scenarioId, dataset) {
   const current = ensureRunInStore(store, scenarioId, dataset);
-  const result = advanceHistoryTick(current, dataset);
-  if (result.run !== current) {
+  const rawResult = advanceHistoryTick(current, dataset);
+  const next = applySplitsThrough(rawResult.run, dataset, rawResult.run.dayIndex);
+  const result = next === rawResult.run ? rawResult : { ...rawResult, run: next };
+  if (next !== current) {
     store.update((draft) => {
-      draft.historyRuns[scenarioId] = result.run;
+      draft.historyRuns[scenarioId] = next;
     }, {
       type: 'history:tick',
       scenarioId,

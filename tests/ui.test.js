@@ -16,6 +16,9 @@ import { createQuantView } from '../js/ui/views/quant.js';
 import { createMacroView } from '../js/ui/views/macro.js';
 import { createMarketView } from '../js/ui/views/market.js';
 import { createSettingsView } from '../js/ui/views/settings.js';
+import { createTaxView } from '../js/ui/views/tax.js';
+import { createRealDataView } from '../js/ui/views/realdata.js';
+import { createHistoryListView } from '../js/ui/views/history.js';
 import { createMultiAssetView } from '../js/ui/views/multiasset.js';
 import { setupFund, fundBuy, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
 import { COMPANIES } from '../js/data/companies.js';
@@ -294,6 +297,68 @@ test('market view exposes the optional live data channel and settings path', () 
   assert(host.textContent.includes('market.liveSetup'), 'unconfigured feed explains setup');
   assert(host.querySelector('[data-go="/settings"]'), 'settings link renders');
   assert(host.querySelector('[data-live-feed-refresh]') === null, 'refresh is hidden before a URL is configured');
+  view.destroy();
+  host.remove();
+});
+
+test('tax view renders the UK estimate and recalculates for an ISA', () => {
+  const state = createGameState({ seed: 'ui-tax' });
+  state.account.trades = [
+    { id: 1, side: 'buy', ticker: 'AURA', qty: 1000, price: 10, fee: 0, levy: 0, day: 69, tick: 0 },
+    { id: 2, side: 'sell', ticker: 'AURA', qty: 1000, price: 20, fee: 0, levy: 0, day: 105, tick: 0 },
+  ];
+  const { ctx } = makeCtx(state);
+  const view = createTaxView(ctx);
+  const host = mountView(view);
+  assert(host.querySelector('[data-tax-form]'), 'tax assumptions form renders');
+  assert(host.querySelector('#tax-cgt'), 'CGT stat card renders');
+  assert(host.textContent.includes('tax.disposalsTitle'), 'disposals card renders');
+  assert(host.textContent.includes('£'), 'GBP amounts render');
+  const select = host.querySelector('[name="accountType"]');
+  select.value = 'isa';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  assert(host.textContent.includes('tax.isaExempt'), 'ISA exemption note renders');
+  view.destroy();
+  host.remove();
+});
+
+test('real data viewer renders actual daily candles from a local feed', async () => {
+  const state = createGameState({ seed: 'ui-realdata' });
+  const { ctx } = makeCtx(state);
+  const dailyCsv = `timestamp,open,high,low,close,volume,trade_count,vwap
+2020-01-02T05:00:00Z,158.78,160.73,158.33,160.62,25472631,100,159.5
+2020-01-03T05:00:00Z,158.32,159.94,158.06,158.62,24389239,100,159.1
+2020-01-06T05:00:00Z,158.92,159.55,157.6,158.7,20123456,100,158.6
+`;
+  const fetchImpl = async (url) => {
+    if (url.includes('/1Day/')) return { ok: true, status: 200, text: async () => dailyCsv };
+    return { ok: false, status: 404 };
+  };
+  const view = createRealDataView(ctx, { fetchImpl });
+  const host = mountView(view);
+  assert(host.querySelector('[data-realdata-ticker]'), 'ticker selector renders');
+  assert(host.querySelector('[data-realdata-date]'), 'date selector renders');
+  assert(host.querySelector('[data-realdata-timeframe="1m"]'), 'minute timeframe renders');
+  assert(host.querySelector('#realdata-chart'), 'chart canvas renders');
+  assert(host.textContent.includes('realdata.readOnly'), 'read-only badge renders');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert(host.textContent.includes('realdata.infoSubtitle'), 'quote card renders after loading');
+  assert(host.textContent.includes('realdata.open'), 'OHLC labels render');
+  assertEqual(host.querySelectorAll('[data-realdata-date] option').length, 3, 'three daily dates');
+  assert(host.textContent.includes('realdata.chartNoteDaily'), 'daily chart note renders');
+  view.destroy();
+  host.remove();
+});
+
+test('history list exposes the raw Alpaca scenario card', () => {
+  const state = createGameState({ seed: 'ui-history-raw' });
+  const { ctx } = makeCtx(state);
+  const view = createHistoryListView(ctx);
+  const host = mountView(view);
+  assert(host.querySelector('[data-open="real-2016-2026"]'), 'raw scenario open button renders');
+  assert(host.textContent.includes('history.rawDataBadge'), 'raw badge renders');
+  assert(host.textContent.includes('history.scenario.real.title'), 'raw title renders');
+  assert(host.textContent.includes('history.scenario.real.period'), 'raw period renders');
   view.destroy();
   host.remove();
 });

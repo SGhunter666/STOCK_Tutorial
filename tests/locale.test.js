@@ -240,10 +240,11 @@ test('historical replay content is localised', () => {
   const { check, missing } = required();
   [
     'nav.history', 'history.eyebrow', 'history.title', 'history.subtitle',
-    'history.realDataBadge', 'history.periodLabel', 'history.universeLabel',
+    'history.realDataBadge', 'history.rawDataBadge', 'history.periodLabel', 'history.universeLabel',
     'history.durationLabel', 'history.tickersCount', 'history.daysCount',
     'history.startHint', 'history.continueHint', 'history.start', 'history.continue',
-    'history.sourceTitle', 'history.sourceNote', 'history.adjustedNote',
+    'history.sourceTitle', 'history.sourceNote', 'history.sourceNoteRaw', 'history.adjustedNote',
+    'history.splitNoticeLabel', 'history.splitNotice',
     'history.disclaimerLabel', 'history.disclaimer', 'history.scenarioEyebrow',
     'history.independentAccount', 'history.currentDate', 'history.day', 'history.dayShort',
     'history.dayOf', 'history.nextEvent', 'history.atEnd', 'history.reset',
@@ -266,7 +267,7 @@ test('historical replay content is localised', () => {
     'history.tradesTitle', 'history.tradesSubtitle', 'history.noTrades',
     'history.eventsTitle', 'history.eventsSubtitle', 'history.eventsEmpty',
     'history.tipsTitle', 'history.independentLabel', 'history.independentNote',
-    'history.loading', 'history.loadError', 'history.backToList', 'history.buyToast',
+    'history.loading', 'history.loadError', 'history.realDataLoadError', 'history.backToList', 'history.buyToast',
     'history.sellToast', 'history.eventReached', 'history.endReached',
     'history.allGroups', 'history.filterPlaceholder', 'history.noMatches',
     'sector.realestate', 'sector.energy', 'sector.communication', 'error.benchmarkNotTradable',
@@ -280,6 +281,7 @@ test('historical replay content is localised', () => {
     check(scenario.descKey);
     check(scenario.periodKey);
     check(scenario.difficultyKey);
+    if (scenario.badgeKey) check(scenario.badgeKey);
     scenario.tips.forEach((key) => check(key));
     for (const event of scenario.events) {
       check(event.titleKey);
@@ -644,6 +646,10 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'roadmap.p12.i3', 'roadmap.p12.i4',
     'roadmap.p13.title', 'roadmap.p13.text', 'roadmap.p13.i1', 'roadmap.p13.i2',
     'roadmap.p13.i3', 'roadmap.p13.i4',
+    'roadmap.p14.title', 'roadmap.p14.text', 'roadmap.p14.i1', 'roadmap.p14.i2',
+    'roadmap.p14.i3', 'roadmap.p14.i4',
+    'roadmap.p15.title', 'roadmap.p15.text', 'roadmap.p15.i1', 'roadmap.p15.i2',
+    'roadmap.p15.i3', 'roadmap.p15.i4',
     'locked.eyebrow', 'locked.subtitle', 'locked.options.title', 'locked.options.text',
     'locked.options.i1', 'locked.options.i2', 'locked.options.i3', 'locked.options.i4',
     'locked.challenges.title', 'locked.challenges.text', 'locked.challenges.i1',
@@ -651,6 +657,70 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'locked.notAvailableText', 'locked.backToAcademy',
     'unlock.category.market', 'unlock.category.trading', 'unlock.category.options',
     'unlock.category.futures',
+  ].forEach((key) => check(key));
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
+suite('UK tax copy');
+
+test('tax lab labels, warnings, limitations and sources are localised', () => {
+  const { check, missing } = required();
+  check('nav.tax');
+  [
+    'tax.eyebrow', 'tax.title', 'tax.subtitle', 'tax.formTitle', 'tax.formSubtitle',
+    'tax.accountType', 'tax.gia', 'tax.isaOption', 'tax.incomeBand',
+    'tax.bandBasic', 'tax.bandHigher', 'tax.bandAdditional',
+    'tax.taxableIncome', 'tax.taxableIncomeHint', 'tax.fxRate', 'tax.fxRateHint',
+    'tax.isaContributions', 'tax.isaHint', 'tax.ukShares', 'tax.ukSharesHint',
+    'tax.recalculate', 'tax.estimateBadge',
+    'tax.cgt', 'tax.cgtSub', 'tax.dividendTax', 'tax.dividendTaxSub',
+    'tax.sdrt', 'tax.sdrtSub', 'tax.totalTax', 'tax.totalTaxSub',
+    'tax.cgtTitle', 'tax.cgtSubtitle', 'tax.grossProceeds', 'tax.allowableCosts',
+    'tax.gains', 'tax.losses', 'tax.netGain', 'tax.aea', 'tax.taxableGain',
+    'tax.cgtDue', 'tax.basicSlice', 'tax.higherSlice',
+    'tax.disposalsTitle', 'tax.disposalsSubtitle', 'tax.noDisposals',
+    'tax.date', 'tax.ticker', 'tax.quantity', 'tax.proceeds', 'tax.costBasis',
+    'tax.gain', 'tax.matching', 'tax.matchDetail',
+    'tax.dividendsTitle', 'tax.dividendsSubtitle', 'tax.dividendGross',
+    'tax.dividendAllowance', 'tax.dividendTaxable', 'tax.dividendBasic',
+    'tax.dividendHigher', 'tax.dividendAdditional', 'tax.dividendTaxDue',
+    'tax.dividendAmount', 'tax.noDividends',
+    'tax.isaTitle', 'tax.isaNote', 'tax.isaExempt', 'tax.isaAllowance',
+    'tax.isaUsed', 'tax.isaRemaining', 'tax.isaExcess',
+    'tax.warningTitle', 'tax.warning.poolMismatch', 'tax.warning.excludedTrades',
+    'tax.warning.isaExcess',
+    'tax.aboutTitle', 'tax.aboutSubtitle', 'tax.disclaimer',
+    'tax.limitation.estimateOnly', 'tax.limitation.simulatedPrices',
+    'tax.limitation.fixedFxRate', 'tax.limitation.sameDayFifo',
+    'tax.limitation.tradeLogLimit', 'tax.limitation.dividendLogLimit',
+    'tax.limitation.excludedAssets',
+    'tax.source.cgt', 'tax.source.shares', 'tax.source.dividends',
+    'tax.source.isa', 'tax.source.sdrt',
+    'tax.empty', 'tax.errorTitle', 'tax.errorHint',
+    'error.ukTaxYear', 'error.ukTaxAccount', 'error.ukTaxIncome', 'error.ukTaxFx',
+  ].forEach((key) => check(key));
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
+suite('Real K-line viewer copy');
+
+test('real data viewer labels, errors and coverage notes are localised', () => {
+  const { check, missing } = required();
+  check('nav.realData');
+  [
+    'realdata.eyebrow', 'realdata.title', 'realdata.subtitle', 'realdata.readOnly',
+    'realdata.controlsTitle', 'realdata.controlsSubtitle', 'realdata.ticker',
+    'realdata.date', 'realdata.timeframe', 'realdata.tf.1d', 'realdata.tf.1m',
+    'realdata.tf.5m', 'realdata.tf.15m', 'realdata.tf.1h', 'realdata.benchmark',
+    'realdata.chartTitle', 'realdata.chartSubtitle', 'realdata.chartNoteDaily',
+    'realdata.chartNoteIntraday', 'realdata.infoTitle', 'realdata.infoSubtitle',
+    'realdata.open', 'realdata.high', 'realdata.low', 'realdata.close',
+    'realdata.volume', 'realdata.minuteInfo', 'realdata.rawNote', 'realdata.noData',
+    'realdata.noMinute', 'realdata.loading',
+    'realdata.coverageTitle', 'realdata.coverageSubtitle', 'realdata.coverageDaily',
+    'realdata.coverageMinute', 'realdata.coverageRaw', 'realdata.coverageLicense',
+    'realdata.error.missing', 'realdata.error.fetch', 'realdata.error.gzipUnsupported',
+    'realdata.error.symbol', 'realdata.error.month',
   ].forEach((key) => check(key));
   assertEqual(missing.length, 0, missing.join('\n'));
 });

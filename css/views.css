@@ -1756,3 +1756,73 @@
 @media (max-width: 1080px) {
   .boundary-grid { grid-template-columns: 1fr; }
 }
+
+/* ----------------------------- tax lab ----------------------------- */
+.tax-page .card { margin-bottom: 14px; }
+
+.tax-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.tax-form .field span.muted {
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.tax-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.tax-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 12px;
+}
+
+.tax-empty { margin: 0 0 12px; }
+
+@media (max-width: 1080px) {
+  .tax-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .tax-form { grid-template-columns: 1fr; }
+}
+
+/* -------------------------- real data viewer -------------------------- */
+.realdata-page .card { margin-bottom: 14px; }
+
+.realdata-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.realdata-page #realdata-status.is-error {
+  color: var(--down);
+}
+
+.realdata-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1080px) {
+  .realdata-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .realdata-controls { grid-template-columns: 1fr; }
+}
