@@ -363,6 +363,19 @@ test('history list exposes the raw Alpaca scenario card', () => {
   host.remove();
 });
 
+test('history list exposes the 2022 real-minute pilot card', () => {
+  const state = createGameState({ seed: 'ui-history-minute' });
+  const { ctx } = makeCtx(state);
+  const view = createHistoryListView(ctx);
+  const host = mountView(view);
+  assert(host.querySelector('[data-open="2022-hikes-minutes"]'), 'pilot scenario open button renders');
+  assert(host.textContent.includes('history.minuteBadge'), 'pilot badge renders');
+  assert(host.textContent.includes('history.scenario.2022minute.title'), 'pilot title renders');
+  assert(host.textContent.includes('history.scenario.2022minute.desc'), 'pilot description renders');
+  view.destroy();
+  host.remove();
+});
+
 test('settings view includes the live data controls', () => {
   const state = createGameState({ seed: 'ui-settings-live' });
   const { ctx } = makeCtx(state);

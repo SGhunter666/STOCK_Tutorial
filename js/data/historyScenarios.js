@@ -75,6 +75,26 @@ const LONG_SYMBOLS = [
   'QQQ',
 ];
 
+/** 20 core names used by the real-minute 2022 pilot, plus the QQQ benchmark. */
+export const MINUTE_PILOT_SYMBOLS = [
+  'NVDA', 'AMD', 'MSFT', 'CRM', 'AMGN', 'GILD', 'ISRG', 'DXCM', 'PLD', 'AMT',
+  'PYPL', 'NDAQ', 'AMZN', 'TSLA', 'CAT', 'HON', 'XOM', 'CVX', 'NEE', 'DUK',
+];
+
+const EVENTS_2022 = [
+  { date: '2022-01-03', titleKey: 'history.events.2022.e1.title', textKey: 'history.events.2022.e1.text', tone: 'neutral' },
+  { date: '2022-01-26', titleKey: 'history.events.2022.e2.title', textKey: 'history.events.2022.e2.text', tone: 'down' },
+  { date: '2022-03-16', titleKey: 'history.events.2022.e3.title', textKey: 'history.events.2022.e3.text', tone: 'down' },
+  { date: '2022-05-04', titleKey: 'history.events.2022.e4.title', textKey: 'history.events.2022.e4.text', tone: 'down' },
+  { date: '2022-06-15', titleKey: 'history.events.2022.e5.title', textKey: 'history.events.2022.e5.text', tone: 'down' },
+  { date: '2022-09-21', titleKey: 'history.events.2022.e6.title', textKey: 'history.events.2022.e6.text', tone: 'down' },
+  { date: '2022-10-13', titleKey: 'history.events.2022.e7.title', textKey: 'history.events.2022.e7.text', tone: 'neutral' },
+  { date: '2022-11-10', titleKey: 'history.events.2022.e8.title', textKey: 'history.events.2022.e8.text', tone: 'up' },
+  { date: '2022-12-14', titleKey: 'history.events.2022.e9.title', textKey: 'history.events.2022.e9.text', tone: 'down' },
+  { date: '2022-12-28', titleKey: 'history.events.2022.e10.title', textKey: 'history.events.2022.e10.text', tone: 'down' },
+  { date: '2022-12-30', titleKey: 'history.events.2022.e11.title', textKey: 'history.events.2022.e11.text', tone: 'down' },
+];
+
 export const HISTORY_SCENARIOS = [
   {
     id: '2008-crisis',
@@ -193,19 +213,27 @@ export const HISTORY_SCENARIOS = [
     difficultyKey: 'history.scenario.2022.difficulty',
     symbols: [...SECTOR_UNIVERSE, 'QQQ'],
     tips: ['history.scenario.2022.tip1', 'history.scenario.2022.tip2', 'history.scenario.2022.tip3'],
-    events: [
-      { date: '2022-01-03', titleKey: 'history.events.2022.e1.title', textKey: 'history.events.2022.e1.text', tone: 'neutral' },
-      { date: '2022-01-26', titleKey: 'history.events.2022.e2.title', textKey: 'history.events.2022.e2.text', tone: 'down' },
-      { date: '2022-03-16', titleKey: 'history.events.2022.e3.title', textKey: 'history.events.2022.e3.text', tone: 'down' },
-      { date: '2022-05-04', titleKey: 'history.events.2022.e4.title', textKey: 'history.events.2022.e4.text', tone: 'down' },
-      { date: '2022-06-15', titleKey: 'history.events.2022.e5.title', textKey: 'history.events.2022.e5.text', tone: 'down' },
-      { date: '2022-09-21', titleKey: 'history.events.2022.e6.title', textKey: 'history.events.2022.e6.text', tone: 'down' },
-      { date: '2022-10-13', titleKey: 'history.events.2022.e7.title', textKey: 'history.events.2022.e7.text', tone: 'neutral' },
-      { date: '2022-11-10', titleKey: 'history.events.2022.e8.title', textKey: 'history.events.2022.e8.text', tone: 'up' },
-      { date: '2022-12-14', titleKey: 'history.events.2022.e9.title', textKey: 'history.events.2022.e9.text', tone: 'down' },
-      { date: '2022-12-28', titleKey: 'history.events.2022.e10.title', textKey: 'history.events.2022.e10.text', tone: 'down' },
-      { date: '2022-12-30', titleKey: 'history.events.2022.e11.title', textKey: 'history.events.2022.e11.text', tone: 'down' },
+    events: EVENTS_2022,
+  },
+  {
+    id: '2022-hikes-minutes',
+    fileName: '2022-hikes-minutes.json',
+    realDataPath: 'data/real/alpaca/2022-pilot/history.json',
+    minuteDataPath: 'data/real/alpaca/2022-pilot/minute-manifest.json',
+    approxDays: 251,
+    titleKey: 'history.scenario.2022minute.title',
+    subtitleKey: 'history.scenario.2022minute.subtitle',
+    descKey: 'history.scenario.2022minute.desc',
+    periodKey: 'history.scenario.2022minute.period',
+    difficultyKey: 'history.scenario.2022.difficulty',
+    badgeKey: 'history.minuteBadge',
+    symbols: [...MINUTE_PILOT_SYMBOLS, 'QQQ'],
+    tips: [
+      'history.scenario.2022minute.tip1',
+      'history.scenario.2022minute.tip2',
+      'history.scenario.2022minute.tip3',
     ],
+    events: EVENTS_2022,
   },
 ];
 

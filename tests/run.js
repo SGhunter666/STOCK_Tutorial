@@ -10,6 +10,7 @@ import './macro.test.js';
 import './liveFeed.test.js';
 import './ukTax.test.js';
 import './realData.test.js';
+import './minuteData.test.js';
 import './assets.test.js';
 import './ui.test.js';
 

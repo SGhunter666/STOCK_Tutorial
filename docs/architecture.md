@@ -393,9 +393,9 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | ISA 与 SDRT | ISA 账户的 CGT 与股息税为 0，仍显示 £20,000 额度与超额提示；SDRT 只对显式标记为英国股票的买入计收 0.5%，并计入成本基础，ETF 与未标记标的默认不计 |
 | 数据边界 | 交易日志上限 250 笔、股息记录上限 160 笔；做空 / 期权 / 期货 / 基金 / 债券 / FX / 商品 / 加密资产不参与估算；成本池不足时输出警告而不是伪造成本；结果明确标记 `educationalOnly` |
 | 界面 | 新增 `/tax` 税务实验室与导航项；表单可切换 GIA / ISA、税率档、应纳税所得额、汇率、ISA 投入与英国股票假设；结果展示 CGT / 股息 / SDRT 汇总、卖出与股息明细、匹配方式、警告、限制与来源链接 |
-| 双语与测试 | 新增 `tax.*`、`error.ukTax*`、`roadmap.p14 / p15` 中英键；`tests/ukTax.test.js` 覆盖同日 / 30 天 / 31 天 / 成本池、AEA、18% / 24%、股息三档、ISA、SDRT、FX、税年过滤与输入错误；285 项测试全部通过 |
+| 双语与测试 | 新增 `tax.*`、`error.ukTax*`、`roadmap.p14 / p15` 中英键；`tests/ukTax.test.js` 覆盖同日 / 30 天 / 31 天 / 成本池、AEA、18% / 24%、股息三档、ISA、SDRT、FX、税年过滤与输入错误；当前 312 项测试全部通过 |
 
-**尚未完成**：真实行情供应商、服务端 API Proxy、真实分钟历史与公司行为、美国税制 / Wash Sale、数据授权看板与监管课程仍需外部凭证、授权与后端运行环境；在缺少这些条件时不会伪造连接或真实数据。
+**尚未完成**：真实行情供应商、服务端 API Proxy、完整分钟历史与全部公司行为、美国税制 / Wash Sale、数据授权看板与监管课程仍需外部凭证、授权与后端运行环境；在缺少这些条件时不会伪造连接或真实数据。
 
 ## 30. 真实 K 线查看器（只读验证）
 
@@ -410,3 +410,21 @@ Phase 2（Stage 2–4，Unit 5–16）已完成，不改变上述分层，只在
 | 页面 | 新增 `ui/views/realdata.js` 与导航 `/realdata`：可选择 2020 场景的 115 只股票、日线或 2020-03 分钟线、1m / 5m / 15m / 1h 周期；展示实际 OHLCV、来源、覆盖与复权差异说明。历史实战的原始价场景在页面内显示拆股提示与原始数据来源 |
 | 边界 | 只读 viewer 不参与历史实战账户与交易；原始价场景接入日线交易与拆股，但分红 / spin-off 与 2016–2026 完整分钟历史未接入；Alpaca 历史始于 2016-01-04，2015 与 2008 场景不在覆盖范围；公开再分发原始 SIP 数据需要 Alpaca 授权 |
 | 测试 | 新增 `tests/realData.test.js`：日线 / 分钟 CSV、纽约时段、5 分钟聚合、日线窗口、gzip 本地加载、404 与非法代码；`history.test.js` 新增原始价场景元数据与正向 / 反向拆股、跳日只应用一次、小数现金结算测试；UI 冒烟测试挂载查看器并断言真实日线卡片 |
+
+## 31. 2022 真实分钟交易试点
+
+`2022-hikes-minutes` 是历史实战的第六个场景，复用 2022 加息事件与日期，先用 20 只核心股票 + QQQ 验证真实分钟行情能驱动盘中 tick、图表与虚拟成交；不扩展到全部 115 只，也不为覆盖缺口生成虚构分钟线。
+
+| 方向 | 主要改动 |
+| --- | --- |
+| 数据目录 | 原始 CSV 位于 `data/real/alpaca/2022-pilot`（已被 `.gitignore` 忽略）：日线 `sip/1Day/raw/<SYM>/<SYM>_2022.csv`，分钟 `sip/1Min/raw/regular_session/<SYM>/<SYM>_2022-MM.csv.gz`；生成物为 `history.json`、`minute-manifest.json` 与 `ticks/<SYM>/<SYM>_2022-MM.json` |
+| 构建脚本 | `tools/build-minute-pilot.py` 读取真实日线 / 分钟 CSV，按 QQQ 日历取所有股票共同交易日；每个交易日只写真实 tick，08 个 tick 分别取 09:31 / 10:31 / 11:31 / 12:31 / 13:31 / 14:31 / 15:31 / 16:00 ET 之前最后一根已完成 1 分钟收盘价；用原始价格比例校验拆股，比例异常的 action 移入 `otherActions` |
+| 数据层 | `history/minuteData.js` 提供 `MinuteDataStore`：manifest 校验、按 `symbol/month` 加载 tick 索引、按月 LRU（默认 4 个月 tick、2 个月完整分钟）、下月预取、`dispose()` 中止挂起请求；符号、月份、日期与相对路径全部校验，拒绝 `..` |
+| 时间隔离 | 只有 `minutes + 1 <= tickMinute` 的分钟可用；1m 只返回已完成分钟；5m / 15m / 1h 按 09:30 起点分桶，当前桶只含已完成分钟并标记 `partial`；日线及以上用真实日线加“当前日已完成分钟”构造当日 K，不读取未来收盘 |
+| 行情来源 | `quoteAtMinute` 为每个报价附 `REAL_MINUTE` / `SIMULATED` / `UNAVAILABLE`：有真实 tick 为 REAL；该月索引已加载但当日无分钟为 SIMULATED（日线 OHLC 路径）；索引尚未加载为 UNAVAILABLE 并禁止交易，避免静默回退 |
+| 撮合 | 以真实分钟收盘价为中间价，模拟 2 bp 买卖价差与 5 bp 滑点；买入按 ask + 滑点、卖出按 bid − 滑点成交，另收 $1 佣金；交易记录写入 `dataSource`、`tickTime`、`fillTime`、`bid`、`ask`、`quotePrice`、`spreadBps`、`slippageBps`、`minuteTime` 与 `quoteLagMinutes`，并明确说明 OHLCV 不能还原逐笔成交 |
+| 拆股 | 继续使用 `applySplitsThrough`；原始日线与拆股后分钟价一致，持仓数量 / 成本基础只调整一次；2022 试点校验 AMZN 20:1、DXCM 4:1、NDAQ 3:1、TSLA 3:1 |
+| 界面 | 历史场景新增真实分钟卡片；交易页新增 1m 周期、来源徽标、买卖价差、成交时间、覆盖卡片与来源提示；当日存在 SIMULATED 时显示警告横幅，存在 UNAVAILABLE 时禁止下单；ticker 表、持仓、成交记录均显示来源 |
+| 离线与路由 | 离线单文件版过滤该场景（需要本地分钟文件）；切换路由时 `destroy()` 调用 `dispose()` 中止请求并清空缓存，晚到的响应不会写回 |
+| 测试 | 新增 `tests/minuteData.test.js`：manifest / 路径校验、tick-only 不拉取分钟 CSV、LRU 上限、404 缺失、dispose 竞态、已完成分钟边界、5m / 15m / 1h 时间隔离、真实 / 模拟 / 不可用回退、价差与滑点撮合、拆股一致性、12 个月滚动缓存内存上限；`locale.test.js` 与 `ui.test.js` 补双语键与场景卡片；共 312 项测试 |
+| 边界 | 仅 2022 年与 20 只核心股票；没有盘口 / 逐笔成交 / 队列位置，价差与滑点是教学模型；分红、spin-off、完整 2016–2026 分钟历史与全部 115 只股票尚未接入；原始 SIP 数据公开再分发需要 Alpaca 授权 |

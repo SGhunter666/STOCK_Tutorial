@@ -75,7 +75,7 @@ function pushTrade(account, trade) {
 }
 
 export function buy(account, {
-  ticker, qty, price, fee, day = 0, tick = 0, allowDebit = false, levyRate = 0,
+  ticker, qty, price, fee, day = 0, tick = 0, allowDebit = false, levyRate = 0, meta = null,
 }) {
   const quantity = Math.floor(qty);
   if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -110,6 +110,7 @@ export function buy(account, {
     trades: account.trades,
   };
   const trade = pushTrade(draft, {
+    ...(meta || {}),
     ticker,
     side: 'buy',
     qty: quantity,
@@ -126,7 +127,7 @@ export function buy(account, {
 }
 
 export function sell(account, {
-  ticker, qty, price, fee, day = 0, tick = 0, capitalGainsRate = 0, levyRate = 0,
+  ticker, qty, price, fee, day = 0, tick = 0, capitalGainsRate = 0, levyRate = 0, meta = null,
 }) {
   const quantity = Math.floor(qty);
   if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -167,6 +168,7 @@ export function sell(account, {
     trades: account.trades,
   };
   const trade = pushTrade(draft, {
+    ...(meta || {}),
     ticker,
     side: 'sell',
     qty: quantity,

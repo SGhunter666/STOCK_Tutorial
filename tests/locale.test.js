@@ -725,6 +725,30 @@ test('real data viewer labels, errors and coverage notes are localised', () => {
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 
+suite('Real minute pilot copy');
+
+test('minute source, coverage and fill labels are localised', () => {
+  const { check, missing } = required();
+  check('history.minuteBadge');
+  check('history.tf.1m');
+  [
+    'source', 'real', 'simulated', 'unavailable', 'shortReal', 'shortSim', 'shortUnavailable',
+    'realNote', 'simNote', 'loadingNote', 'lag', 'bid', 'ask', 'spread', 'slippage',
+    'fillPrice', 'fillNote', 'partial', 'noMinute', 'noCandles', 'loading', 'monthLoading',
+    'coverageTitle', 'coverageSubtitle', 'coverageSymbols', 'coverageMonth', 'coverageBars',
+    'coverageManifest', 'coverageCache', 'coverageNoSymbol', 'allReal', 'fallbackBanner',
+    'unavailableBanner', 'chartNoteReal', 'chartNoteSim', 'tradeSource', 'legend',
+  ].forEach((key) => check(`history.minute.${key}`));
+  [
+    'minuteLoadError', 'sourceNoteMinute',
+    'scenario.2022minute.title', 'scenario.2022minute.subtitle', 'scenario.2022minute.desc',
+    'scenario.2022minute.period', 'scenario.2022minute.tip1', 'scenario.2022minute.tip2',
+    'scenario.2022minute.tip3',
+  ].forEach((key) => check(`history.${key}`));
+  check('error.dataUnavailable');
+  assertEqual(missing.length, 0, missing.join('\n'));
+});
+
 suite('Career mode copy');
 
 test('career rank names, requirements and salary UI are localised', () => {

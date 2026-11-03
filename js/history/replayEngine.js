@@ -218,7 +218,7 @@ function weekKey(dateText) {
   return date.toISOString().slice(0, 10);
 }
 
-function aggregateByPeriod(candles, timeframe) {
+export function aggregateByPeriod(candles, timeframe) {
   const keyFor = timeframe === '1w'
     ? (candle) => weekKey(candle.d)
     : timeframe === '1mo'
