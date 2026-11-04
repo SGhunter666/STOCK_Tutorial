@@ -14,25 +14,17 @@ import {
 import { loadHistoryDataset } from '../../history/dataLoader.js';
 import {
   runFor, ensureRunInStore, advanceHistory, tradeHistory, resetHistory, selectTicker,
-  tickHistory, tradeHistoryMinute,
+  tickHistory,
 } from '../../history/replayActions.js';
 import {
   summaryAtTick, quoteAtTick, quotesAtTick, currentDate, historyCandles, localeDateText,
   HISTORY_FEE, HISTORY_TIMEFRAMES,
 } from '../../history/replayEngine.js';
-import {
-  MinuteDataStore, monthOf, minuteStepClock, hourTickNumber, MINUTES_PER_SESSION,
-} from '../../history/minuteData.js';
-import {
-  summaryAtMinute, quoteAtMinute, quotesAtMinute, minuteCandlesFor, coverageAtMinute,
-  MINUTE_SPREAD_BPS, MINUTE_SLIPPAGE_BPS,
-} from '../../history/minuteReplayEngine.js';
 import { TICKS_PER_DAY, sessionClock } from '../../market/calendar.js';
 import { confirmModal } from '../components.js';
 import { sectorLabel } from '../labels.js';
 
-const OFFLINE_HISTORY = typeof window !== 'undefined' && Boolean(window.__SMA_HISTORY_DATA__);
-const LIST_SCENARIOS = HISTORY_SCENARIOS.filter((scenario) => !(OFFLINE_HISTORY && scenario.realDataPath));
+const LIST_SCENARIOS = HISTORY_SCENARIOS;
 
 export function createHistoryListView(ctx) {
   const { i18n, store, router } = ctx;
@@ -142,71 +134,17 @@ export function createHistoryScenarioView(ctx, scenarioId) {
   let groupFilter = 'all';
   let query = '';
   let timeframe = '1d';
-  let minuteMode = false;
-  let minuteStore = null;
-  let minuteError = false;
-  let minuteLoading = '';
-  let prepareToken = 0;
-  let destroyed = false;
 
   function run(state) {
     return runFor(state, scenarioId);
   }
 
   function summaryFor(state) {
-    const current = run(state);
-    if (minuteMode && minuteStore) return summaryAtMinute(current, dataset, minuteStore);
-    return summaryAtTick(current, dataset);
+    return summaryAtTick(run(state), dataset);
   }
 
   function tickerOf(symbol) {
     return dataset.tickers.find((entry) => entry.symbol === symbol);
-  }
-
-  function monthSessionCount(month) {
-    return dataset.tickers[0].bars.filter((bar) => bar && bar[0].startsWith(month)).length;
-  }
-
-  async function prepareRun(current, { minutes = true } = {}) {
-    if (!minuteMode || !minuteStore || !current) return;
-    const token = prepareToken + 1;
-    prepareToken = token;
-    const date = currentDate(dataset, current.dayIndex);
-    const month = monthOf(date);
-    const symbols = dataset.tickers.map((entry) => entry.symbol);
-    minuteLoading = month;
-    try {
-      await minuteStore.ensureSymbolsMonth(symbols, month);
-      await minuteStore.ensureSymbolsMinuteIndex(symbols, month);
-      const info = minuteStore.symbolInfo(selectedTicker);
-      if (minutes && info?.months?.[month]) {
-        try {
-          await minuteStore.ensureMinuteMonth(selectedTicker, month);
-        } catch (error) {
-          console.warn('[history] minute month failed', error);
-        }
-      }
-      if (token === prepareToken) minuteLoading = '';
-      await minuteStore.prefetchAround(symbols, date);
-    } catch (error) {
-      console.warn('[history] minute index failed', error);
-    }
-    if (token !== prepareToken || destroyed) return;
-    minuteLoading = '';
-    render(store.get());
-  }
-
-  async function initMinuteStore() {
-    minuteStore = new MinuteDataStore({
-      manifestPath: scenario.minuteDataPath || dataset.intraday?.manifest,
-      root: dataset.intraday?.root || '',
-    });
-    try {
-      await minuteStore.loadManifest();
-    } catch (error) {
-      console.error('[history] minute manifest failed', error);
-      minuteError = true;
-    }
   }
 
   async function loadData() {
@@ -219,9 +157,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     try {
       dataset = await loadHistoryDataset(scenario);
       ensureRunInStore(store, scenarioId, dataset);
-      minuteMode = Boolean(scenario.minuteDataPath || dataset.intraday?.mode === 'minute');
-      if (minuteMode && clock?.setTickMs) clock.setTickMs({ 1: 1000, 5: 200, 20: 50 });
-      if (minuteMode) await initMinuteStore();
       loading = false;
       const currentRun = run(store.get());
       const saved = currentRun && currentRun.selectedTicker;
@@ -229,7 +164,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       selectedTicker = usable
         ? saved
         : (dataset.tickers.find((entry) => !entry.benchmark)?.symbol || dataset.tickers[0].symbol);
-      if (minuteMode) await prepareRun(currentRun, { minutes: true });
       render(store.get());
     } catch (error) {
       console.error('[history] data load failed', error);
@@ -242,17 +176,11 @@ export function createHistoryScenarioView(ctx, scenarioId) {
   function currentQuote(state) {
     if (!dataset) return null;
     const current = run(state);
-    if (minuteMode && minuteStore) {
-      return quoteAtMinute(dataset, minuteStore, selectedTicker, current.dayIndex, current.tick || 0);
-    }
     return quoteAtTick(dataset, selectedTicker, current.dayIndex, current.tick || 0);
   }
 
   function quotesFor(state) {
     const current = run(state);
-    if (minuteMode && minuteStore) {
-      return quotesAtMinute(dataset, minuteStore, current.dayIndex, current.tick || 0);
-    }
     return quotesAtTick(dataset, current.dayIndex, current.tick || 0);
   }
 
@@ -261,108 +189,18 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     const quote = currentQuote(state);
     if (!quote || !currentRun) return { qty: 0, price: 0, fee: HISTORY_FEE, total: 0, error: '' };
     const quantity = Math.max(0, Math.floor(Number(qty) || 0));
-    const fillPrice = minuteMode ? (side === 'buy' ? quote.fillBuy : quote.fillSell) : quote.last;
+    const fillPrice = quote.last;
     const gross = quantity * fillPrice;
     const total = side === 'buy' ? gross + HISTORY_FEE : gross - HISTORY_FEE;
     const ticker = tickerOf(selectedTicker);
     let error = '';
-    if (minuteMode && quote.source === 'UNAVAILABLE') error = t('error.dataUnavailable');
-    else if (ticker && ticker.benchmark) error = t('error.benchmarkNotTradable');
+    if (ticker && ticker.benchmark) error = t('error.benchmarkNotTradable');
     else if (quantity <= 0) error = t('error.qtyInvalid');
     else if (side === 'buy' && total > currentRun.account.cash + 1e-9) error = t('error.insufficientCash');
     else if (side === 'sell' && quantity > (currentRun.account.positions[selectedTicker]?.qty || 0)) error = t('error.insufficientShares');
     return {
       qty: quantity, price: fillPrice, fee: HISTORY_FEE, total, gross, error, quote,
     };
-  }
-
-  function sourcePill(quote) {
-    if (!minuteMode || !quote) return '';
-    const key = quote.source === 'REAL_MINUTE'
-      ? 'history.minute.shortReal'
-      : quote.source === 'SIMULATED' ? 'history.minute.shortSim' : 'history.minute.shortUnavailable';
-    const tone = quote.source === 'REAL_MINUTE' ? 'ok' : 'warn';
-    return `<span class="pill pill--${tone}">${t(key)}</span>`;
-  }
-
-  function minuteStatusHtml(state) {
-    if (!minuteMode) return '';
-    const sum = summaryFor(state);
-    const counts = sum.sourceCounts || {};
-    if (minuteError) {
-      return `<div class="callout callout--warning"><span class="callout__label">${t('history.minute.source')}</span><p>${t('history.minuteLoadError')}</p></div>`;
-    }
-    if (minuteLoading) {
-      return `<div class="callout callout--tip"><span class="callout__label">${t('history.minute.source')}</span><p>${t('history.minute.monthLoading', { month: minuteLoading })}</p></div>`;
-    }
-    if ((counts.UNAVAILABLE || 0) > 0) {
-      return `<div class="callout callout--warning"><span class="callout__label">${t('history.minute.source')}</span><p>${t('history.minute.unavailableBanner', { count: counts.UNAVAILABLE })}</p></div>`;
-    }
-    if ((counts.SIMULATED || 0) > 0) {
-      return `<div class="callout callout--warning"><span class="callout__label">${t('history.minute.source')}</span><p>${t('history.minute.fallbackBanner', { count: counts.SIMULATED })}</p></div>`;
-    }
-    return `<div class="callout callout--tip"><span class="callout__label">${t('history.minute.source')}</span><p>${t('history.minute.allReal', { count: counts.REAL_MINUTE || 0 })}</p></div>`;
-  }
-
-  function minuteCoverageItems(state) {
-    if (!minuteMode || !minuteStore) return [];
-    const sum = summaryFor(state);
-    const quote = currentQuote(state);
-    const coverage = coverageAtMinute(dataset, minuteStore, run(state).dayIndex, run(state).tick || 0);
-    const month = monthOf(sum.date);
-    const info = minuteStore.symbolInfo(selectedTicker);
-    const record = info?.months?.[month];
-    const manifest = minuteStore.manifest;
-    const cache = minuteStore.cacheStats();
-    const sourceNote = quote?.source === 'REAL_MINUTE'
-      ? t('history.minute.realNote')
-      : quote?.source === 'SIMULATED' ? t('history.minute.simNote') : t('history.minute.loadingNote');
-    const items = [
-      sourceNote,
-      t('history.minute.coverageSymbols', {
-        real: coverage.realSymbols.length,
-        total: coverage.symbols,
-      }),
-      record
-        ? t('history.minute.coverageMonth', {
-          month, real: record.tickDays, days: monthSessionCount(month),
-        })
-        : t('history.minute.coverageNoSymbol'),
-      record ? t('history.minute.coverageBars', { bars: num(record.minuteBars, i18n.locale, 0) }) : '',
-      manifest
-        ? t('history.minute.coverageManifest', {
-          symbols: manifest.summary.symbols,
-          days: manifest.summary.tradingDays,
-          bars: num(manifest.summary.minuteBars, i18n.locale, 0),
-        })
-        : '',
-      t('history.minute.coverageCache', {
-        tickMonths: cache.tickMonths || 0,
-        minuteMonths: cache.minuteMonths || 0,
-      }),
-    ];
-    return items.filter(Boolean);
-  }
-
-  function coverageCard(state) {
-    if (!minuteMode) return '';
-    return card({
-      title: t('history.minute.coverageTitle'),
-      subtitle: t('history.minute.coverageSubtitle'),
-      body: `
-        <ul class="aside-list" id="minute-coverage-slot">${minuteCoverageItems(state).map((item) => `<li>${item}</li>`).join('')}</ul>
-        <p class="chart-note muted">${t('history.minute.legend')}</p>`,
-    });
-  }
-
-  function updateMinutePanels(state) {
-    if (!minuteMode) return;
-    const status = container.querySelector('#minute-status-slot');
-    if (status) status.innerHTML = minuteStatusHtml(state);
-    const coverage = container.querySelector('#minute-coverage-slot');
-    if (coverage) {
-      coverage.innerHTML = minuteCoverageItems(state).map((item) => `<li>${item}</li>`).join('');
-    }
   }
 
   function controls(sum) {
@@ -374,12 +212,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
         <div class="history-strip__date">
           <span class="field-label">${t('history.currentDate')}</span>
           <strong id="history-date">${localeDateText(sum.date, i18n.locale)}</strong>
-          <span class="muted" id="history-session">${minuteMode
-            ? `${minuteStepClock(sum.tick)} ET · ${t('history.minute.minuteOf', {
-              minute: sum.tick + 1,
-              total: sum.totalSteps || MINUTES_PER_SESSION,
-            })}${sum.hourTick ? ` · ${t('history.minute.hourTick', { tick: sum.hourTick, total: 8 })}` : ''}`
-            : `${sessionClock(sum.tick)} · ${t('history.tickOf', { tick: sum.tick + 1, total: TICKS_PER_DAY })}`}</span>
+          <span class="muted" id="history-session">${sessionClock(sum.tick)} · ${t('history.tickOf', { tick: sum.tick + 1, total: TICKS_PER_DAY })}</span>
           <span class="muted">${t('history.dayOf', { index: sum.dayIndex, total: sum.totalDays })}</span>
         </div>
         <div class="history-clock">
@@ -421,11 +254,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     const currentRun = run(state);
     const tick = currentRun.tick || 0;
     const quote = currentQuote(state);
-    if (minuteMode && minuteStore) {
-      return minuteCandlesFor(
-        dataset, minuteStore, selectedTicker, currentRun.dayIndex, tick, timeframe, quote?.last,
-      );
-    }
     return historyCandles(
       dataset, selectedTicker, currentRun.dayIndex, tick, timeframe, quote?.last,
     );
@@ -436,23 +264,9 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     const info = candlesFor(state);
     const position = currentRun.account.positions[selectedTicker];
     const tf = t(`history.tf.${timeframe}`);
-    let note;
-    if (minuteMode) {
-      if (info.source === 'REAL_MINUTE') {
-        note = t('history.minute.chartNoteReal', {
-          count: info.candles.length, tf, time: minuteStepClock(currentRun.tick || 0),
-        });
-        if (info.partial) note = `${note} · ${t('history.minute.partial')}`;
-      } else if (info.source === 'SIMULATED') {
-        note = t('history.minute.chartNoteSim', { count: info.candles.length, tf });
-      } else {
-        note = t('history.minute.noCandles');
-      }
-    } else {
-      note = info.intraday
-        ? t('history.chartNoteIntraday', { count: info.candles.length, tf })
-        : t('history.chartNote', { count: info.candles.length, tf });
-    }
+    const note = info.intraday
+      ? t('history.chartNoteIntraday', { count: info.candles.length, tf })
+      : t('history.chartNote', { count: info.candles.length, tf });
     return `${note}${position ? ` · ${t('history.avgCostLine', { cost: money(position.costBasis / position.qty, i18n.locale) })}` : ''}`;
   }
 
@@ -463,7 +277,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       subtitle: t('history.chartSubtitle'),
       actions: `
         ${segmented({
-          options: (minuteMode ? ['1m', ...HISTORY_TIMEFRAMES] : HISTORY_TIMEFRAMES)
+          options: HISTORY_TIMEFRAMES
             .map((value) => ({ value, label: t(`history.tf.${value}`) })),
           active: timeframe,
           attr: 'history-timeframe',
@@ -494,9 +308,8 @@ export function createHistoryScenarioView(ctx, scenarioId) {
             className: `ticket__side ticket__side--${side}`,
           })}
           <div class="ticket__field">
-            <span class="field-label" id="history-source-label">${t('history.selected')} ${sourcePill(est.quote)}</span>
+            <span class="field-label" id="history-source-label">${t('history.selected')}</span>
             <strong class="history-selected" id="history-selected-price">${selectedTicker} · ${money(est.quote ? est.quote.last : 0, i18n.locale)}</strong>
-            ${minuteMode && est.quote ? `<span class="field-hint" id="history-lag">${t('history.minute.lag', { time: est.quote.minuteTime || est.quote.tickTime, minutes: est.quote.lagMinutes || 0 })}</span>` : ''}
           </div>
           <div class="ticket__field">
             <span class="field-label">${t('trade.quantity')}</span>
@@ -508,17 +321,12 @@ export function createHistoryScenarioView(ctx, scenarioId) {
           </div>
           <div class="estimate">
             <div class="estimate-grid">
-              ${minuteMode && est.quote ? `
-                <div class="estimate-row"><span>${t('history.minute.bid')}</span><strong id="history-bid">${money(est.quote.bid, i18n.locale)}</strong></div>
-                <div class="estimate-row"><span>${t('history.minute.ask')}</span><strong id="history-ask">${money(est.quote.ask, i18n.locale)}</strong></div>` : ''}
-              <div class="estimate-row"><span>${minuteMode ? t('history.minute.fillPrice') : t('history.closePrice')}</span><strong id="history-price">${money(est.price, i18n.locale)}</strong></div>
+              <div class="estimate-row"><span>${t('history.closePrice')}</span><strong id="history-price">${money(est.price, i18n.locale)}</strong></div>
               <div class="estimate-row"><span>${t('trade.commission')}</span><strong id="history-fee">${money(est.fee, i18n.locale)}</strong></div>
               <div class="estimate-row estimate-row--total"><span>${buy ? t('trade.estimateTotal') : t('trade.estimateNet')}</span><strong id="history-total">${money(est.total, i18n.locale)}</strong></div>
             </div>
             <p class="inline-warning" id="history-warning" ${est.error ? '' : 'hidden'}>${est.error}</p>
-            <p class="estimate-note">${minuteMode
-              ? t('history.minute.fillNote', { spread: MINUTE_SPREAD_BPS, slippage: MINUTE_SLIPPAGE_BPS })
-              : t('history.fillNote')}</p>
+            <p class="estimate-note">${t('history.fillNote')}</p>
           </div>
           <button class="btn ${buy ? 'btn--primary' : 'btn--danger'} btn--block" type="button" id="history-submit" ${est.error ? 'disabled' : ''}>
             ${buy ? t('trade.submitBuy') : t('trade.submitSell')}
@@ -564,7 +372,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
           <table class="table history-table">
             <thead><tr>
               <th>${t('trade.ticker')}</th><th>${t('market.company')}</th><th class="num">${t('market.last')}</th>
-              <th class="num">${t('market.change')}</th>${minuteMode ? `<th>${t('history.minute.source')}</th>` : ''}<th class="num">${t('history.owned')}</th><th></th>
+              <th class="num">${t('market.change')}</th><th class="num">${t('history.owned')}</th><th></th>
             </tr></thead>
             <tbody>
               ${dataset.tickers.map((ticker) => {
@@ -579,7 +387,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
                   <td><span class="history-name">${ticker.name}</span><span class="sector-tag">${sectorLabel(ctx, ticker.sector)}</span><span class="exchange-tag">${exchange}</span></td>
                   <td class="num" data-hist-price="${ticker.symbol}">${money(quote.last, i18n.locale)}</td>
                   <td class="num ${quote.changePct > 0 ? 'up' : quote.changePct < 0 ? 'down' : 'flat'}" data-hist-change="${ticker.symbol}">${pct(quote.changePct, i18n.locale, 2)}</td>
-                  ${minuteMode ? `<td data-hist-source="${ticker.symbol}">${sourcePill(quote)}</td>` : ''}
                   <td class="num">${owned ? num(owned, i18n.locale, 0) : '—'}</td>
                   <td><button class="link-btn" type="button" data-select="${ticker.symbol}">${ticker.symbol === selectedTicker ? t('history.selectedLabel') : t('history.select')}</button></td>
                 </tr>`;
@@ -600,7 +407,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
         ? `<div class="table-wrap"><table class="table">
             <thead><tr><th>${t('trade.ticker')}</th><th class="num">${t('history.owned')}</th><th class="num">${t('portfolio.avgCost')}</th><th class="num">${t('portfolio.value')}</th><th class="num">${t('portfolio.pnl')}</th></tr></thead>
             <tbody>${sum.rows.map((row) => `<tr data-hist-position="${row.ticker}">
-              <td>${row.ticker}${minuteMode ? ` ${sourcePill({ source: row.source })}` : ''}</td>
+              <td>${row.ticker}</td>
               <td class="num">${num(row.qty, i18n.locale, 0)}</td>
               <td class="num">${money(row.avgCost, i18n.locale)}</td>
               <td class="num" data-pos-value="${row.ticker}">${money(row.value, i18n.locale)}</td>
@@ -618,7 +425,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       subtitle: t('history.tradesSubtitle'),
       body: trades.length
         ? `<div class="table-wrap"><table class="table">
-            <thead><tr><th>${t('trade.date')}</th><th>${t('trade.side')}</th><th>${t('trade.ticker')}</th><th class="num">${t('trade.quantity')}</th><th class="num">${t('trade.price')}</th>${minuteMode ? `<th>${t('history.minute.source')}</th>` : ''}<th class="num">${t('trade.realized')}</th></tr></thead>
+            <thead><tr><th>${t('trade.date')}</th><th>${t('trade.side')}</th><th>${t('trade.ticker')}</th><th class="num">${t('trade.quantity')}</th><th class="num">${t('trade.price')}</th><th class="num">${t('trade.realized')}</th></tr></thead>
             <tbody>${trades.map((trade) => {
               const bar = dataset.tickers[0].bars[trade.day];
               return `<tr>
@@ -627,7 +434,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
                 <td>${trade.ticker}</td>
                 <td class="num">${num(trade.qty, i18n.locale, 0)}</td>
                 <td class="num">${money(trade.price, i18n.locale)}</td>
-                ${minuteMode ? `<td>${sourcePill({ source: trade.dataSource })}${trade.tickTime ? `<span class="muted"> ${trade.tickTime}</span>` : ''}</td>` : ''}
                 <td class="num ${trade.realized > 0 ? 'up' : trade.realized < 0 ? 'down' : ''}">${trade.side === 'sell' ? signedMoney(trade.realized, i18n.locale) : '—'}</td>
               </tr>`;
             }).join('')}</tbody>
@@ -675,11 +481,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
   }
 
   function errorPage() {
-    const message = scenario && scenario.minuteDataPath
-      ? t('history.minuteLoadError')
-      : scenario && scenario.realDataPath
-        ? t('history.realDataLoadError')
-        : t('history.loadError');
+    const message = t('history.loadError');
     return `<div class="history-page">${pageHead({ eyebrow: t('history.eyebrow'), title: t('history.title') })}
       <div class="card history-loading"><span>${message}</span><button class="btn btn--ghost btn--sm" type="button" data-go="/history">${t('history.backToList')}</button></div></div>`;
   }
@@ -708,7 +510,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
               oldRate: num(event.oldRate, i18n.locale, 0),
             })).join(' ')}</p>
           </div>` : ''}
-        ${minuteMode ? `<div id="minute-status-slot">${minuteStatusHtml(state)}</div>` : ''}
         <div class="stat-grid">
           ${statCard({ id: 'hist-equity', label: t('history.statEquity'), value: money(sum.total, i18n.locale), sub: t('history.sinceStartPct', { pct: pct(sum.returnPct, i18n.locale, 2) }), tone: sum.pnl > 0 ? 'up' : sum.pnl < 0 ? 'down' : '', iconName: 'portfolio' })}
           ${statCard({ id: 'hist-cash', label: t('history.statCash'), value: money(sum.cash, i18n.locale), sub: t('history.statCashSub'), iconName: 'glossary' })}
@@ -726,18 +527,13 @@ export function createHistoryScenarioView(ctx, scenarioId) {
         <div class="history-bottom-grid">
           ${positionsCard(state)}
           ${tradesCard(state)}
-          ${coverageCard(state)}
           ${tipsCard()}
         </div>
         <div class="history-source history-source--compact">
           <span class="history-source__icon">${icon('info', { size: 16 })}</span>
           <div>
             <strong>${t('history.sourceTitle')}</strong>
-            <p>${minuteMode
-              ? t('history.sourceNoteMinute')
-              : scenario.realDataPath
-                ? t('history.sourceNoteRaw')
-                : `${t('history.sourceNote')} ${t('history.adjustedNote')}`}</p>
+            <p>${`${t('history.sourceNote')} ${t('history.adjustedNote')}`}</p>
           </div>
         </div>
       </div>`;
@@ -794,16 +590,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     set('history-price', money(est.price, i18n.locale));
     set('history-fee', money(est.fee, i18n.locale));
     set('history-total', money(est.total, i18n.locale));
-    if (minuteMode && est.quote) {
-      set('history-bid', money(est.quote.bid, i18n.locale));
-      set('history-ask', money(est.quote.ask, i18n.locale));
-      set('history-lag', t('history.minute.lag', {
-        time: est.quote.minuteTime || est.quote.tickTime,
-        minutes: est.quote.lagMinutes || 0,
-      }));
-      const label = container.querySelector('#history-source-label');
-      if (label) label.innerHTML = `${t('history.selected')} ${sourcePill(est.quote)}`;
-    }
     set('history-hint', side === 'buy'
       ? t('history.cashLine', { value: money(currentRun.account.cash, i18n.locale) })
       : t('history.sharesLine', { value: num(currentRun.account.positions[selectedTicker]?.qty || 0, i18n.locale, 0) }));
@@ -843,12 +629,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       cell.classList.toggle('down', quote.changePct < 0);
       cell.classList.toggle('flat', quote.changePct === 0);
     });
-    if (minuteMode) {
-      container.querySelectorAll('[data-hist-source]').forEach((cell) => {
-        const quote = quotes[cell.dataset.histSource];
-        cell.innerHTML = sourcePill(quote);
-      });
-    }
   }
 
   function patchPositions(state) {
@@ -875,37 +655,25 @@ export function createHistoryScenarioView(ctx, scenarioId) {
     const session = container.querySelector('#history-session');
     if (session) {
       const currentRun = run(state);
-      const clockText = minuteMode ? `${minuteStepClock(currentRun.tick || 0)} ET` : sessionClock(currentRun.tick || 0);
-      session.textContent = `${clockText} · ${minuteMode
-        ? t('history.minute.minuteOf', {
-          minute: (currentRun.tick || 0) + 1,
-          total: MINUTES_PER_SESSION,
-        })
-        : t('history.tickOf', {
-          tick: (currentRun.tick || 0) + 1,
-          total: TICKS_PER_DAY,
-        })}${minuteMode && hourTickNumber(currentRun.tick || 0)
-        ? ` · ${t('history.minute.hourTick', { tick: hourTickNumber(currentRun.tick || 0), total: 8 })}`
-        : ''}`;
+      session.textContent = `${sessionClock(currentRun.tick || 0)} · ${t('history.tickOf', {
+        tick: (currentRun.tick || 0) + 1,
+        total: TICKS_PER_DAY,
+      })}`;
     }
     const note = container.querySelector('#history-chart-note');
     if (note) note.textContent = chartNoteText(state);
-    updateMinutePanels(state);
   }
 
-  async function onClockTick() {
+  function onClockTick() {
     if (!dataset) return;
     const result = tickHistory(store, scenarioId, dataset);
-    if (result.dayClosed) {
-      await prepareRun(run(store.get()), { minutes: true });
-    }
     if (result.reachedEnd) {
       if (clock && clock.running) actions.toggleClock();
       render(store.get());
     }
   }
 
-  async function onClockFastForward() {
+  function onClockFastForward() {
     if (!dataset) return;
     const current = run(store.get());
     const currentSum = summaryFor(store.get());
@@ -914,8 +682,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       render(store.get());
       return;
     }
-    const next = advanceHistory(store, scenarioId, dataset, scenario, { days: 1 });
-    await prepareRun(next, { minutes: true });
+    advanceHistory(store, scenarioId, dataset, scenario, { days: 1 });
     if (summaryFor(store.get()).reachedEnd) {
       if (clock && clock.running) actions.toggleClock();
       render(store.get());
@@ -993,7 +760,6 @@ export function createHistoryScenarioView(ctx, scenarioId) {
           const latest = afterEvents[afterEvents.length - 1];
           toast(i18n.t('history.eventReached', { title: t(latest.titleKey), date: localeDateText(latest.date, i18n.locale) }), 'info', 4600);
         }
-        await prepareRun(next, { minutes: true });
         if (summaryFor(store.get()).reachedEnd) toast(i18n.t('history.endReached'), 'warning', 4200);
       });
     });
@@ -1017,7 +783,7 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       button.addEventListener('click', () => {
         selectedTicker = button.dataset.select;
         selectTicker(store, scenarioId, selectedTicker);
-        prepareRun(run(store.get()), { minutes: true });
+        render(store.get());
       });
     });
     container.querySelectorAll('[data-history-side]').forEach((button) => {
@@ -1049,21 +815,16 @@ export function createHistoryScenarioView(ctx, scenarioId) {
         toast(est.error, 'warning');
         return;
       }
-      const result = minuteMode
-        ? tradeHistoryMinute(store, scenarioId, dataset, minuteStore, { symbol: selectedTicker, side, qty: est.qty })
-        : tradeHistory(store, scenarioId, dataset, { symbol: selectedTicker, side, qty: est.qty });
+      const result = tradeHistory(store, scenarioId, dataset, { symbol: selectedTicker, side, qty: est.qty });
       if (!result.ok) {
         toast(i18n.t(result.error), 'warning');
         return;
       }
-      const sourceLine = minuteMode && result.trade.dataSource === 'SIMULATED'
-        ? ` · ${t('history.minute.shortSim')}`
-        : '';
       toast(i18n.t(side === 'buy' ? 'history.buyToast' : 'history.sellToast', {
         qty: est.qty,
         symbol: selectedTicker,
         price: money(result.trade.price, i18n.locale),
-      }) + sourceLine, result.trade.dataSource === 'SIMULATED' ? 'warning' : 'success');
+      }), 'success');
     });
     container.querySelectorAll('[data-go]').forEach((button) => {
       button.addEventListener('click', () => router.go(button.dataset.go));
@@ -1097,26 +858,14 @@ export function createHistoryScenarioView(ctx, scenarioId) {
       container.innerHTML = loadingPage();
       return;
     }
-    if (minuteMode && minuteStore && !minuteError && !minuteLoading) {
-      const date = currentDate(dataset, currentRun.dayIndex);
-      const month = monthOf(date);
-      if (minuteStore.tickState(selectedTicker, month) === 'idle') {
-        prepareRun(currentRun, { minutes: true });
-      }
-    }
     container.innerHTML = template(state);
     bind(state);
     renderChart(state);
   }
 
   function destroy() {
-    destroyed = true;
-    prepareToken += 1;
-    if (clock?.clearTickMs) clock.clearTickMs();
     if (chart) chart.destroy();
     chart = null;
-    if (minuteStore) minuteStore.dispose();
-    minuteStore = null;
   }
 
   return {

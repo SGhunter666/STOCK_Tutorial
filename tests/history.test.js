@@ -22,7 +22,7 @@ let datasets = null;
 async function loadDatasets() {
   if (datasets) return datasets;
   datasets = {};
-  for (const scenario of HISTORY_SCENARIOS.filter((entry) => !entry.realDataPath)) {
+  for (const scenario of HISTORY_SCENARIOS) {
     const response = await fetch(`../data/history/${scenario.fileName}`);
     assert(response.ok, `dataset ${scenario.fileName} loads`);
     datasets[scenario.id] = await response.json();
@@ -32,7 +32,7 @@ async function loadDatasets() {
 
 test('all adjusted scenarios load and match their metadata', async () => {
   const data = await loadDatasets();
-  for (const scenario of HISTORY_SCENARIOS.filter((entry) => !entry.realDataPath)) {
+  for (const scenario of HISTORY_SCENARIOS) {
     const dataset = data[scenario.id];
     assertEqual(dataset.id, scenario.id, 'dataset id');
     assertEqual(dataset.adjusted, true, 'prices marked adjusted');
@@ -49,40 +49,6 @@ test('all adjusted scenarios load and match their metadata', async () => {
       assertEqual(ticker.bars.length, scenario.approxDays, `${scenario.id} ${ticker.symbol} aligned bars`);
     }
   }
-});
-
-test('raw Alpaca scenario metadata points at the local dataset', async () => {
-  const scenario = getHistoryScenario('real-2016-2026');
-  assert(scenario, 'raw scenario exists');
-  assertEqual(scenario.symbols.length, 75, '75-symbol universe');
-  assert(scenario.approxDays >= 2700, 'raw scenario has a long calendar');
-  assertEqual(scenario.badgeKey, 'history.rawDataBadge', 'raw badge');
-  assertEqual(scenario.realDataPath, 'data/real/alpaca/long-2016-2026/history.json', 'local path');
-  assertEqual(scenario.events[0].date, '2016-06-24', 'first event inside the raw window');
-
-  const response = await fetch(`../${scenario.realDataPath}`);
-  if (!response.ok) {
-    console.warn('[history] raw Alpaca dataset is not installed; skipping data assertions');
-    return;
-  }
-  const dataset = await response.json();
-  const count = dataset.tickers[0].bars.length;
-  assertEqual(dataset.id, scenario.id, 'raw dataset id');
-  assertEqual(dataset.adjusted, false, 'raw prices marked unadjusted');
-  assertEqual(dataset.tickers.length, 75, 'raw tickers');
-  assert(count >= 2700, 'raw dataset has a long calendar');
-  assert(dataset.start >= '2016-01-04' && dataset.start <= '2016-01-10', 'raw start');
-  assert(dataset.end >= '2026-10-30', 'raw end is current');
-  for (const ticker of dataset.tickers) {
-    assertEqual(ticker.bars.length, count, `${ticker.symbol} aligned`);
-  }
-  const aapl = dataset.tickers.find((ticker) => ticker.symbol === 'AAPL');
-  assert(aapl.splits && aapl.splits.some((split) => split.date === '2020-08-31' && split.ratio === 4), 'AAPL split');
-  const ge = dataset.tickers.find((ticker) => ticker.symbol === 'GE');
-  assert(ge.splits && ge.splits.some((split) => split.date === '2021-08-02' && split.ratio === 0.125), 'GE reverse split');
-  const hon = dataset.tickers.find((ticker) => ticker.symbol === 'HON');
-  assert(!hon.splits || hon.splits.length === 0, 'HON has no applied splits');
-  assert(hon.otherActions && hon.otherActions.some((action) => action.date === '2026-06-29' && action.reason === 'priceRatioMismatch'), 'HON mismatch kept out of splits');
 });
 
 test('sector packs contain at least ten real symbols each', async () => {

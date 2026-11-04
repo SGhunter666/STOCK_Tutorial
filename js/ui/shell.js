@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { id: 'fund', path: '/fund', labelKey: 'nav.fund', icon: 'portfolio' },
   { id: 'quant', path: '/quant', labelKey: 'nav.quant', icon: 'options', requiresUnit: 'u16' },
   { id: 'history', path: '/history', labelKey: 'nav.history', icon: 'roadmap' },
-  { id: 'realdata', path: '/realdata', labelKey: 'nav.realData', icon: 'market', realDataOnly: true },
+  { id: 'exchange', path: '/exchange', labelKey: 'nav.exchange', icon: 'market' },
   { id: 'market', path: '/market', labelKey: 'nav.market', icon: 'market' },
   { id: 'macro', path: '/macro', labelKey: 'nav.macro', icon: 'roadmap', requiresUnit: 'u13' },
   { id: 'multiasset', path: '/multiasset', labelKey: 'nav.multiasset', icon: 'portfolio', requiresUnit: 'u13' },
@@ -36,8 +36,7 @@ const NAV_ITEMS = [
   { id: 'settings', path: '/settings', labelKey: 'nav.settings', icon: 'settings' },
 ];
 
-const OFFLINE_NAV = typeof window !== 'undefined' && Boolean(window.__SMA_HISTORY_DATA__);
-const VISIBLE_NAV = NAV_ITEMS.filter((item) => !(OFFLINE_NAV && item.realDataOnly));
+const VISIBLE_NAV = NAV_ITEMS;
 
 export function createShell({
   i18n, store, bus, clock, router, actions, sandbox = false,
@@ -59,7 +58,6 @@ export function createShell({
     if (path.startsWith('/fund')) return 'fund';
     if (path.startsWith('/quant')) return 'quant';
     if (path.startsWith('/tax')) return 'tax';
-    if (path.startsWith('/realdata')) return 'realdata';
     if (path.startsWith('/trade')) return 'trading';
     if (path.startsWith('/market')) return 'market';
     if (path.startsWith('/macro')) return 'macro';
@@ -72,6 +70,7 @@ export function createShell({
     if (path.startsWith('/challenges')) return 'challenges';
     if (path.startsWith('/boundaries')) return 'settings';
     if (path.startsWith('/history')) return 'history';
+    if (path.startsWith('/exchange')) return 'exchange';
     if (path.startsWith('/glossary')) return 'glossary';
     if (path.startsWith('/settings')) return 'settings';
     if (path.startsWith('/roadmap')) return 'roadmap';

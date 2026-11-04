@@ -75,12 +75,6 @@ const LONG_SYMBOLS = [
   'QQQ',
 ];
 
-/** 20 core names used by the real-minute 2022 pilot, plus the QQQ benchmark. */
-export const MINUTE_PILOT_SYMBOLS = [
-  'NVDA', 'AMD', 'MSFT', 'CRM', 'AMGN', 'GILD', 'ISRG', 'DXCM', 'PLD', 'AMT',
-  'PYPL', 'NDAQ', 'AMZN', 'TSLA', 'CAT', 'HON', 'XOM', 'CVX', 'NEE', 'DUK',
-];
-
 const EVENTS_2022 = [
   { date: '2022-01-03', titleKey: 'history.events.2022.e1.title', textKey: 'history.events.2022.e1.text', tone: 'neutral' },
   { date: '2022-01-26', titleKey: 'history.events.2022.e2.title', textKey: 'history.events.2022.e2.text', tone: 'down' },
@@ -149,33 +143,6 @@ export const HISTORY_SCENARIOS = [
     ],
   },
   {
-    id: 'real-2016-2026',
-    fileName: 'real-2016-2026.json',
-    realDataPath: 'data/real/alpaca/long-2016-2026/history.json',
-    approxDays: 2724,
-    titleKey: 'history.scenario.real.title',
-    subtitleKey: 'history.scenario.real.subtitle',
-    descKey: 'history.scenario.real.desc',
-    periodKey: 'history.scenario.real.period',
-    difficultyKey: 'history.scenario.real.difficulty',
-    badgeKey: 'history.rawDataBadge',
-    symbols: LONG_SYMBOLS,
-    tips: ['history.scenario.real.tip1', 'history.scenario.real.tip2', 'history.scenario.real.tip3'],
-    events: [
-      { date: '2016-06-24', titleKey: 'history.events.2015.e2.title', textKey: 'history.events.2015.e2.text', tone: 'down' },
-      { date: '2018-02-05', titleKey: 'history.events.2015.e3.title', textKey: 'history.events.2015.e3.text', tone: 'down' },
-      { date: '2018-12-24', titleKey: 'history.events.2015.e4.title', textKey: 'history.events.2015.e4.text', tone: 'down' },
-      { date: '2020-02-20', titleKey: 'history.events.2015.e5.title', textKey: 'history.events.2015.e5.text', tone: 'down' },
-      { date: '2020-03-23', titleKey: 'history.events.2015.e6.title', textKey: 'history.events.2015.e6.text', tone: 'neutral' },
-      { date: '2021-11-19', titleKey: 'history.events.2015.e7.title', textKey: 'history.events.2015.e7.text', tone: 'up' },
-      { date: '2022-03-16', titleKey: 'history.events.2015.e8.title', textKey: 'history.events.2015.e8.text', tone: 'down' },
-      { date: '2022-12-28', titleKey: 'history.events.2015.e9.title', textKey: 'history.events.2015.e9.text', tone: 'down' },
-      { date: '2023-03-10', titleKey: 'history.events.2015.e10.title', textKey: 'history.events.2015.e10.text', tone: 'down' },
-      { date: '2024-08-05', titleKey: 'history.events.2015.e11.title', textKey: 'history.events.2015.e11.text', tone: 'down' },
-      { date: '2025-01-27', titleKey: 'history.events.2015.e12.title', textKey: 'history.events.2015.e12.text', tone: 'down' },
-    ],
-  },
-  {
     id: '2020-covid',
     fileName: '2020-covid.json',
     approxDays: 253,
@@ -213,26 +180,6 @@ export const HISTORY_SCENARIOS = [
     difficultyKey: 'history.scenario.2022.difficulty',
     symbols: [...SECTOR_UNIVERSE, 'QQQ'],
     tips: ['history.scenario.2022.tip1', 'history.scenario.2022.tip2', 'history.scenario.2022.tip3'],
-    events: EVENTS_2022,
-  },
-  {
-    id: '2022-hikes-minutes',
-    fileName: '2022-hikes-minutes.json',
-    realDataPath: 'data/real/alpaca/2022-pilot/history.json',
-    minuteDataPath: 'data/real/alpaca/2022-pilot/minute-manifest.json',
-    approxDays: 251,
-    titleKey: 'history.scenario.2022minute.title',
-    subtitleKey: 'history.scenario.2022minute.subtitle',
-    descKey: 'history.scenario.2022minute.desc',
-    periodKey: 'history.scenario.2022minute.period',
-    difficultyKey: 'history.scenario.2022.difficulty',
-    badgeKey: 'history.minuteBadge',
-    symbols: [...MINUTE_PILOT_SYMBOLS, 'QQQ'],
-    tips: [
-      'history.scenario.2022minute.tip1',
-      'history.scenario.2022minute.tip2',
-      'history.scenario.2022minute.tip3',
-    ],
     events: EVENTS_2022,
   },
 ];

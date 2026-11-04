@@ -240,10 +240,10 @@ test('historical replay content is localised', () => {
   const { check, missing } = required();
   [
     'nav.history', 'history.eyebrow', 'history.title', 'history.subtitle',
-    'history.realDataBadge', 'history.rawDataBadge', 'history.periodLabel', 'history.universeLabel',
+    'history.realDataBadge', 'history.periodLabel', 'history.universeLabel',
     'history.durationLabel', 'history.tickersCount', 'history.daysCount',
     'history.startHint', 'history.continueHint', 'history.start', 'history.continue',
-    'history.sourceTitle', 'history.sourceNote', 'history.sourceNoteRaw', 'history.adjustedNote',
+    'history.sourceTitle', 'history.sourceNote', 'history.adjustedNote',
     'history.splitNoticeLabel', 'history.splitNotice',
     'history.disclaimerLabel', 'history.disclaimer', 'history.scenarioEyebrow',
     'history.independentAccount', 'history.currentDate', 'history.day', 'history.dayShort',
@@ -267,7 +267,7 @@ test('historical replay content is localised', () => {
     'history.tradesTitle', 'history.tradesSubtitle', 'history.noTrades',
     'history.eventsTitle', 'history.eventsSubtitle', 'history.eventsEmpty',
     'history.tipsTitle', 'history.independentLabel', 'history.independentNote',
-    'history.loading', 'history.loadError', 'history.realDataLoadError', 'history.backToList', 'history.buyToast',
+    'history.loading', 'history.loadError', 'history.backToList', 'history.buyToast',
     'history.sellToast', 'history.eventReached', 'history.endReached',
     'history.allGroups', 'history.filterPlaceholder', 'history.noMatches',
     'sector.realestate', 'sector.energy', 'sector.communication', 'error.benchmarkNotTradable',
@@ -699,54 +699,6 @@ test('tax lab labels, warnings, limitations and sources are localised', () => {
     'tax.empty', 'tax.errorTitle', 'tax.errorHint',
     'error.ukTaxYear', 'error.ukTaxAccount', 'error.ukTaxIncome', 'error.ukTaxFx',
   ].forEach((key) => check(key));
-  assertEqual(missing.length, 0, missing.join('\n'));
-});
-
-suite('Real K-line viewer copy');
-
-test('real data viewer labels, errors and coverage notes are localised', () => {
-  const { check, missing } = required();
-  check('nav.realData');
-  [
-    'realdata.eyebrow', 'realdata.title', 'realdata.subtitle', 'realdata.readOnly',
-    'realdata.controlsTitle', 'realdata.controlsSubtitle', 'realdata.ticker',
-    'realdata.date', 'realdata.timeframe', 'realdata.tf.1d', 'realdata.tf.1m',
-    'realdata.tf.5m', 'realdata.tf.15m', 'realdata.tf.1h', 'realdata.benchmark',
-    'realdata.chartTitle', 'realdata.chartSubtitle', 'realdata.chartNoteDaily',
-    'realdata.chartNoteIntraday', 'realdata.infoTitle', 'realdata.infoSubtitle',
-    'realdata.open', 'realdata.high', 'realdata.low', 'realdata.close',
-    'realdata.volume', 'realdata.minuteInfo', 'realdata.rawNote', 'realdata.noData',
-    'realdata.noMinute', 'realdata.loading',
-    'realdata.coverageTitle', 'realdata.coverageSubtitle', 'realdata.coverageDaily',
-    'realdata.coverageMinute', 'realdata.coverageRaw', 'realdata.coverageLicense',
-    'realdata.error.missing', 'realdata.error.fetch', 'realdata.error.gzipUnsupported',
-    'realdata.error.symbol', 'realdata.error.month',
-  ].forEach((key) => check(key));
-  assertEqual(missing.length, 0, missing.join('\n'));
-});
-
-suite('Real minute pilot copy');
-
-test('minute source, coverage and fill labels are localised', () => {
-  const { check, missing } = required();
-  check('history.minuteBadge');
-  check('history.tf.1m');
-  [
-    'source', 'real', 'simulated', 'unavailable', 'shortReal', 'shortSim', 'shortUnavailable',
-    'realNote', 'simNote', 'loadingNote', 'lag', 'bid', 'ask', 'spread', 'slippage',
-    'fillPrice', 'fillNote', 'partial', 'noMinute', 'noCandles', 'loading', 'monthLoading',
-    'minuteOf', 'hourTick',
-    'coverageTitle', 'coverageSubtitle', 'coverageSymbols', 'coverageMonth', 'coverageBars',
-    'coverageManifest', 'coverageCache', 'coverageNoSymbol', 'allReal', 'fallbackBanner',
-    'unavailableBanner', 'chartNoteReal', 'chartNoteSim', 'tradeSource', 'legend',
-  ].forEach((key) => check(`history.minute.${key}`));
-  [
-    'minuteLoadError', 'sourceNoteMinute',
-    'scenario.2022minute.title', 'scenario.2022minute.subtitle', 'scenario.2022minute.desc',
-    'scenario.2022minute.period', 'scenario.2022minute.tip1', 'scenario.2022minute.tip2',
-    'scenario.2022minute.tip3',
-  ].forEach((key) => check(`history.${key}`));
-  check('error.dataUnavailable');
   assertEqual(missing.length, 0, missing.join('\n'));
 });
 

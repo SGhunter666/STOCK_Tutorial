@@ -17,7 +17,7 @@ import { createMacroView } from '../js/ui/views/macro.js';
 import { createMarketView } from '../js/ui/views/market.js';
 import { createSettingsView } from '../js/ui/views/settings.js';
 import { createTaxView } from '../js/ui/views/tax.js';
-import { createRealDataView } from '../js/ui/views/realdata.js';
+import { createExchangeView } from '../js/ui/views/exchange.js';
 import { createHistoryListView } from '../js/ui/views/history.js';
 import { createMultiAssetView } from '../js/ui/views/multiasset.js';
 import { setupFund, fundBuy, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
@@ -322,56 +322,37 @@ test('tax view renders the UK estimate and recalculates for an ISA', () => {
   host.remove();
 });
 
-test('real data viewer renders actual daily candles from a local feed', async () => {
-  const state = createGameState({ seed: 'ui-realdata' });
-  const { ctx } = makeCtx(state);
-  const dailyCsv = `timestamp,open,high,low,close,volume,trade_count,vwap
-2020-01-02T05:00:00Z,158.78,160.73,158.33,160.62,25472631,100,159.5
-2020-01-03T05:00:00Z,158.32,159.94,158.06,158.62,24389239,100,159.1
-2020-01-06T05:00:00Z,158.92,159.55,157.6,158.7,20123456,100,158.6
-`;
-  const fetchImpl = async (url) => {
-    if (url.includes('/1Day/')) return { ok: true, status: 200, text: async () => dailyCsv };
-    return { ok: false, status: 404 };
-  };
-  const view = createRealDataView(ctx, { fetchImpl });
-  const host = mountView(view);
-  assert(host.querySelector('[data-realdata-ticker]'), 'ticker selector renders');
-  assert(host.querySelector('[data-realdata-date]'), 'date selector renders');
-  assert(host.querySelector('[data-realdata-timeframe="1m"]'), 'minute timeframe renders');
-  assert(host.querySelector('#realdata-chart'), 'chart canvas renders');
-  assert(host.textContent.includes('realdata.readOnly'), 'read-only badge renders');
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert(host.textContent.includes('realdata.infoSubtitle'), 'quote card renders after loading');
-  assert(host.textContent.includes('realdata.open'), 'OHLC labels render');
-  assertEqual(host.querySelectorAll('[data-realdata-date] option').length, 3, 'three daily dates');
-  assert(host.textContent.includes('realdata.chartNoteDaily'), 'daily chart note renders');
+test('simulated exchange renders 50 companies and records a player trade', () => {
+  const host = document.createElement('div');
+  host.id = 'exchange-root';
+  document.body.appendChild(host);
+  const view = createExchangeView({ i18n: fakeI18n, toast: () => {} });
+  view.mount(host);
+  const root = host;
+  assert(root.textContent.includes('exchange.title'), 'page title');
+  assertEqual(root.querySelectorAll('[data-sim-ticker] option').length, 50, '50 companies');
+  assert(root.querySelector('#sim-chart'), 'chart canvas');
+  assert(root.querySelector('#sim-book'), 'order book');
+  root.querySelector('[data-sim-step="1"]').click();
+  assertEqual(root.querySelector('#sim-clock').textContent, '09:30:01', 'one second step');
+  const form = root.querySelector('[data-sim-form]');
+  form.querySelector('[data-sim-qty]').value = '100';
+  form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  assert(root.querySelector('#sim-positions').textContent.includes('NCRT'), 'position row');
+  assert(root.querySelector('#sim-trades').textContent.includes('buy'), 'trade ledger');
+  assert(root.querySelector('#sim-summary').textContent.includes('exchange.equity'), 'equity summary');
   view.destroy();
   host.remove();
 });
 
-test('history list exposes the raw Alpaca scenario card', () => {
-  const state = createGameState({ seed: 'ui-history-raw' });
+test('history list exposes the curated 2022 scenario card', () => {
+  const state = createGameState({ seed: 'ui-history-2022' });
   const { ctx } = makeCtx(state);
   const view = createHistoryListView(ctx);
   const host = mountView(view);
-  assert(host.querySelector('[data-open="real-2016-2026"]'), 'raw scenario open button renders');
-  assert(host.textContent.includes('history.rawDataBadge'), 'raw badge renders');
-  assert(host.textContent.includes('history.scenario.real.title'), 'raw title renders');
-  assert(host.textContent.includes('history.scenario.real.period'), 'raw period renders');
-  view.destroy();
-  host.remove();
-});
-
-test('history list exposes the 2022 real-minute pilot card', () => {
-  const state = createGameState({ seed: 'ui-history-minute' });
-  const { ctx } = makeCtx(state);
-  const view = createHistoryListView(ctx);
-  const host = mountView(view);
-  assert(host.querySelector('[data-open="2022-hikes-minutes"]'), 'pilot scenario open button renders');
-  assert(host.textContent.includes('history.minuteBadge'), 'pilot badge renders');
-  assert(host.textContent.includes('history.scenario.2022minute.title'), 'pilot title renders');
-  assert(host.textContent.includes('history.scenario.2022minute.desc'), 'pilot description renders');
+  assert(host.querySelector('[data-open="2022-hikes"]'), '2022 scenario open button renders');
+  assert(host.textContent.includes('history.scenario.2022.title'), '2022 title renders');
+  assert(host.textContent.includes('history.scenario.2022.period'), '2022 period renders');
   view.destroy();
   host.remove();
 });

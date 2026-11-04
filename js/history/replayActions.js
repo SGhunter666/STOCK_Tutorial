@@ -6,7 +6,6 @@ import {
   ensureHistoryRun, createHistoryRun, advanceRun, advanceToNextEvent, tradeAtTick,
   advanceHistoryTick, applySplitsThrough,
 } from './replayEngine.js';
-import { tradeAtMinute } from './minuteReplayEngine.js';
 
 export function runFor(state, scenarioId) {
   return state.historyRuns ? state.historyRuns[scenarioId] : null;
@@ -74,16 +73,6 @@ export function tickHistory(store, scenarioId, dataset) {
 export function tradeHistory(store, scenarioId, dataset, payload) {
   const current = ensureRunInStore(store, scenarioId, dataset);
   const result = tradeAtTick(current, dataset, payload);
-  if (!result.ok) return result;
-  store.update((draft) => {
-    draft.historyRuns[scenarioId] = result.run;
-  }, { type: 'history:trade', scenarioId });
-  return result;
-}
-
-export function tradeHistoryMinute(store, scenarioId, dataset, minuteStore, payload) {
-  const current = ensureRunInStore(store, scenarioId, dataset);
-  const result = tradeAtMinute(current, dataset, minuteStore, payload);
   if (!result.ok) return result;
   store.update((draft) => {
     draft.historyRuns[scenarioId] = result.run;

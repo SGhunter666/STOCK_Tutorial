@@ -104,7 +104,7 @@ import { createGlossaryView } from './ui/views/glossary.js';
 import { createSettingsView } from './ui/views/settings.js';
 import { createRoadmapView } from './ui/views/roadmap.js';
 import { createHistoryListView, createHistoryScenarioView } from './ui/views/history.js';
-import { createRealDataView } from './ui/views/realdata.js';
+import { createExchangeView } from './ui/views/exchange.js';
 import { showOnboarding } from './ui/onboarding.js';
 
 const MODE_KEY = 'sma.mode';
@@ -1905,8 +1905,8 @@ function renderRoute(route) {
         ? createHistoryScenarioView(ctx, segments[1])
         : createHistoryListView(ctx);
       break;
-    case 'realdata':
-      view = createRealDataView(ctx);
+    case 'exchange':
+      view = createExchangeView(ctx);
       break;
     case 'options':
       view = createOptionsView(ctx);
