@@ -388,6 +388,8 @@
     "realestate": "房地产",
     "energy": "能源",
     "communication": "通信服务",
+    "consumer": "消费与零售",
+    "telecom": "电信服务",
     "etf": "ETF 基金"
   },
   "stockStyle": {
@@ -5971,17 +5973,18 @@
     "backToAcademy": "返回学习学院"
   },
   "exchange": {
-    "eyebrow": "虚构交易所 · Phase 2–3",
+    "eyebrow": "虚构交易所 · Phase 2–4",
     "title": "模拟交易所",
-    "subtitle": "现实 1 秒 = 模拟 1 秒。持久订单簿、做市商、模拟交易者和可完整追踪的资金账本。",
+    "subtitle": "现实 1 秒 = 模拟 1 秒。持久订单簿、做市商、模拟交易者、季度财报、宏观数据、新闻、分红拆股与可完整追踪的资金账本。",
     "simBadge": "模拟数据",
     "clockTitle": "模拟时钟",
-    "clockSubtitle": "暂停、单步 1 秒 / 1 分钟、切换速度；加速只改变节奏，不改变规则。",
+    "clockSubtitle": "暂停、单步 1 秒 / 1 分钟 / 1 日、切换速度；加速只改变节奏，不改变规则。",
     "session": "常规交易时段 09:30–16:00",
     "play": "继续",
     "pause": "暂停",
     "stepSecond": "+1 秒",
     "stepMinute": "+1 分钟",
+    "stepDay": "+1 日",
     "save": "保存",
     "reset": "重置",
     "saved": "交易所状态已保存到本地。",
@@ -6030,7 +6033,7 @@
     "cancel": "取消",
     "chartSubtitle": "只显示当前模拟时间之前已经成交的数据。",
     "chartNote": "{count} 根{tf} K · 当前时间 {time} · {date}",
-    "phaseNote": "这是 Phase 2–3 市场引擎；财报、新闻和宏观事件尚未接入。",
+    "phaseNote": "这是 Phase 2–4 市场引擎；季度财报、分红、拆股、确定性新闻与宏观数据已接入。",
     "pauseFirst": "提交玩家订单前请先暂停时钟。",
     "submitted": "订单{status}：成交 {filled}/{qty}。",
     "submittedPending": "{qty} 股订单已提交，将在下一个模拟秒激活。",
@@ -6050,6 +6053,236 @@
       "order.insufficientShares": "持仓不足。",
       "order.notFound": "找不到订单。",
       "order.notOpen": "订单已不在挂单状态。"
+    },
+    "companyProfile": "公司资料",
+    "companyProfileSubtitle": "基本面、最新财报与公司行为",
+    "sector": "板块",
+    "stageLabel": "阶段",
+    "riskLabel": "风险",
+    "marketCap": "市值",
+    "pe": "市盈率（年化）",
+    "dividendYield": "股息率",
+    "macroSensitivity": "宏观敏感度（增长/利率/能源）",
+    "reportRevenue": "营业收入",
+    "reportNetIncome": "净利润",
+    "reportEps": "EPS",
+    "reportGrossMargin": "毛利率",
+    "reportOperatingMargin": "营业利润率",
+    "reportNetMargin": "净利率",
+    "reportOperatingCashFlow": "经营现金流",
+    "reportAssets": "总资产",
+    "reportLiabilities": "总负债",
+    "reportEquity": "股东权益",
+    "reportCash": "现金",
+    "reportDividendPerShare": "每股年股息",
+    "reportPeriod": "季度",
+    "reportedOn": "发布于 {date}",
+    "reportedOnLabel": "报告日期",
+    "statementSplitFactor": "拆股调整",
+    "viewStatements": "查看完整三表",
+    "statementsEyebrow": "公司财报 · 完整三表",
+    "statementsTitle": "季度财务报表",
+    "statementsSubtitle": "利润表、资产负债表、现金流量表与关键比率",
+    "statementsNoState": "尚未找到模拟交易所存档。请先进入模拟交易所，再打开公司三表。",
+    "statementsSourceLabel": "数据说明",
+    "statementsNote": "本地模拟的简化季度报表：资产 = 负债 + 权益，现金流净变动与现金余额勾稽。真实财报口径、审计意见与同业比较尚未接入。",
+    "backToExchange": "返回模拟交易所",
+    "statementControls": "报表设置",
+    "incomeStatement": "利润表",
+    "balanceSheet": "资产负债表",
+    "cashFlowStatement": "现金流量表",
+    "statementRatios": "关键比率",
+    "statementLine": "项目",
+    "statementValue": "数值",
+    "statement": {
+      "revenue": "营业收入",
+      "cogs": "营业成本",
+      "grossProfit": "毛利润",
+      "operatingExpenses": "营业费用",
+      "operatingIncome": "营业利润",
+      "interestExpense": "利息费用",
+      "pretaxIncome": "税前利润",
+      "taxExpense": "所得税",
+      "netIncome": "净利润",
+      "eps": "每股收益 EPS",
+      "sharesOutstanding": "流通股数",
+      "dividendsPaid": "现金分红",
+      "cash": "现金",
+      "receivables": "应收账款",
+      "inventory": "存货",
+      "ppe": "固定资产",
+      "totalAssets": "总资产",
+      "debt": "有息负债",
+      "otherLiabilities": "其他负债",
+      "totalLiabilities": "总负债",
+      "equity": "股东权益",
+      "operatingCashFlow": "经营现金流",
+      "capex": "资本开支",
+      "investingCashFlow": "投资现金流",
+      "financingCashFlow": "融资现金流",
+      "debtIssuance": "新增负债",
+      "netChange": "现金净变动",
+      "freeCashFlow": "自由现金流",
+      "grossMargin": "毛利率",
+      "operatingMargin": "营业利润率",
+      "netMargin": "净利率",
+      "roe": "净资产收益率 ROE",
+      "debtToEquity": "负债 / 权益",
+      "bookValuePerShare": "每股净资产",
+      "annualDividendPerShare": "每股年股息",
+      "quarterlyDividendPerShare": "每股季度股息"
+    },
+    "splitAdjusted": "拆股调整 ×{factor}",
+    "noReport": "暂无已发布财报",
+    "dividends": "分红记录",
+    "dividendsTotal": "累计分红 {amount}",
+    "dividendPerShare": "每股股息",
+    "dividendAmount": "到账金额",
+    "noDividends": "暂无分红记录",
+    "events": "公司事件",
+    "eventsSubtitle": "财报、业绩指引、拆股与分红",
+    "macroTitle": "宏观经济",
+    "macroSubtitle": "每 21 个交易日发布一次；指标缓慢变化，并影响估值与行业表现。",
+    "macroNextEvent": "下一数据日 {date}",
+    "macroNoEvent": "尚无已发布数据",
+    "macroActual": "实际",
+    "macroForecast": "预期",
+    "macroSurprise": "意外",
+    "macroBubble": "{sector}板块估值偏高",
+    "macroPolicyRate": "政策利率",
+    "macroInflation": "通胀率",
+    "macroUnemployment": "失业率",
+    "macroGdp": "GDP 增长",
+    "macroCreditGrowth": "信贷增长",
+    "macroRiskAppetite": "风险偏好",
+    "macroEnergyPrice": "能源价格",
+    "macroConfidence": "消费者信心",
+    "macro": {
+      "regime": {
+        "normal": "正常",
+        "bull": "牛市",
+        "bear": "熊市",
+        "highVol": "高波动",
+        "crisis": "金融危机",
+        "liquidity": "流动性紧张",
+        "sectorBubble": "行业泡沫",
+        "recession": "衰退",
+        "recovery": "复苏"
+      }
+    },
+    "macroEvent": {
+      "cpi": {
+        "label": "CPI 通胀",
+        "summary": "CPI 实际 {actual}，预期 {forecast}。"
+      },
+      "payrolls": {
+        "label": "非农就业",
+        "summary": "新增就业 {actual}，预期 {forecast}。"
+      },
+      "centralBank": {
+        "label": "央行利率决议",
+        "summary": "政策利率 {actual}，预期 {forecast}。"
+      },
+      "gdp": {
+        "label": "GDP 增长",
+        "summary": "GDP 实际 {actual}，预期 {forecast}。"
+      },
+      "energy": {
+        "label": "能源价格冲击",
+        "summary": "能源价格 {actual}，预期 {forecast}。"
+      }
+    },
+    "newsTitle": "市场新闻",
+    "newsSubtitle": "本地模拟新闻，不是真实资讯",
+    "noNews": "暂无新闻",
+    "marketWide": "全市场",
+    "news": {
+      "productLaunch": {
+        "headline": "{name} 发布新一代产品，订单预期升温",
+        "summary": "{name} 发布新产品，市场预期未来两个季度需求上升。"
+      },
+      "analystUpgrade": {
+        "headline": "{ticker} 获机构上调评级",
+        "summary": "研究机构上调 {name} 评级与目标价，认为盈利能见度改善。"
+      },
+      "buyback": {
+        "headline": "{name} 宣布股票回购计划",
+        "summary": "公司计划回购股份，减少流通股并支撑每股收益。"
+      },
+      "contractWin": {
+        "headline": "{name} 赢得长期供货合同",
+        "summary": "新合同预计贡献稳定收入，并提升未来产能利用率。"
+      },
+      "analystDowngrade": {
+        "headline": "{ticker} 遭机构下调评级",
+        "summary": "研究机构下调 {name} 评级，担忧估值与需求放缓。"
+      },
+      "lawsuit": {
+        "headline": "{name} 面临监管调查",
+        "summary": "监管机构启动调查，潜在罚款与合规成本上升。"
+      },
+      "recall": {
+        "headline": "{name} 宣布产品召回",
+        "summary": "产品召回带来直接成本，并可能影响品牌与短期销售。"
+      },
+      "ceoExit": {
+        "headline": "{name} 首席执行官离职",
+        "summary": "管理层变动增加执行不确定性，市场关注继任安排。"
+      },
+      "sectorDemand": {
+        "headline": "{sector}板块需求超预期",
+        "summary": "行业订单与出货数据高于预期，板块收入前景改善。"
+      },
+      "sectorPolicy": {
+        "headline": "{sector}板块获得政策支持",
+        "summary": "新政策提供补贴或税收优惠，改善行业盈利能力。"
+      },
+      "sectorRegulation": {
+        "headline": "{sector}板块面临更严监管",
+        "summary": "监管要求收紧，可能提高合规成本并压缩利润率。"
+      },
+      "sectorInputCost": {
+        "headline": "{sector}板块成本压力上升",
+        "summary": "原材料或人工成本上涨，行业毛利率承压。"
+      },
+      "rateCut": {
+        "headline": "市场预期降息，风险偏好回升",
+        "summary": "利率预期下行为风险资产提供估值支撑。"
+      },
+      "riskAppetite": {
+        "headline": "资金流入风险资产",
+        "summary": "风险偏好改善，股票等风险资产获得资金流入。"
+      },
+      "rateHike": {
+        "headline": "利率上行，估值承压",
+        "summary": "利率上升提高折现率，成长股估值首先承压。"
+      },
+      "riskOff": {
+        "headline": "避险情绪升温",
+        "summary": "不确定性上升，资金转向避险资产，股票承压。"
+      }
+    },
+    "noEvents": "暂无公司事件",
+    "eventEarnings": "财报",
+    "eventEps": "EPS {eps} · 预期 {expected} · 意外 {surprise}",
+    "eventGuidance": "业绩指引",
+    "eventGuidanceText": "{quarter} · 指引 EPS {eps}（基准 {baseline}）",
+    "eventSplit": "拆股",
+    "eventSplitText": "{ratio}:1 拆股，持仓与价格已调整",
+    "eventDividend": "分红",
+    "eventDividendText": "{qty} 股 · 到账 {amount}",
+    "stage": {
+      "mature": "成熟",
+      "growth": "成长",
+      "highGrowth": "高成长",
+      "early": "早期",
+      "turnaround": "转型"
+    },
+    "risk": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "veryHigh": "极高"
     },
     "tf": {
       "1m": "1分",

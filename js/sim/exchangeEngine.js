@@ -11,8 +11,21 @@ import { SIM_SESSION_SECONDS } from './simulationClock.js';
 import {
   createMinuteSeries, applyTradeToSeries, finalizeDay, getSeriesCandles,
 } from './minuteSeries.js';
+import {
+  reportQuarterForDay, getQuarterReport, expectedEps, latestReportForDay,
+  reportHistoryForDay, plannedSplitsForQuarter, isDividendDay, dividendQuarterForDay,
+  isGuidanceDay, guidanceQuarterForDay, SIM_QUARTER_DAYS,
+} from './fundamentals.js';
+import { newsForDay } from './news.js';
+import {
+  advanceMacro, createMacroState,
+} from './macroEconomy.js';
+import {
+  macroImpactForCompany, macroDriftForCompany, sectorSpillovers,
+} from './industryModel.js';
 
 export const SIM_START_CASH = 100_000;
+export const SIM_EXCHANGE_SAVE_KEY = 'sma.sim-exchange-v1';
 export const SIM_FEE_BPS = 1;
 export const SIM_TRADER_TYPES = Object.freeze(['noise', 'momentum', 'value']);
 
@@ -62,6 +75,8 @@ function createCompanyState(company) {
     mmSize,
     book,
     series: createMinuteSeries(),
+    splitFactor: 1,
+    lastReportQuarter: reportQuarterForDay(0),
   };
 }
 
@@ -91,7 +106,7 @@ function refreshLiquidity(state, ticker) {
   const cs = state.companies[ticker];
   const company = cs.company;
   if (!company) return;
-  const inventoryRatio = cs.inventory / Math.max(1, company.avgVolume);
+  const inventoryRatio = cs.inventory / Math.max(1, company.avgVolume * cs.splitFactor);
   const inventoryShift = Math.max(-0.2, Math.min(0.2, inventoryRatio * company.impact * 0.5));
   const mid = cs.fairValue * (1 - inventoryShift);
   const half = Math.max(0.01, mid * company.spread / 20_000);
@@ -100,6 +115,23 @@ function refreshLiquidity(state, ticker) {
     ask: mid + half,
     size: cs.mmSize,
   });
+}
+
+/** Applies an overnight gap or event shock without rewriting the previous close. */
+function shockQuote(state, ticker, impact) {
+  if (!Number.isFinite(impact) || impact === 0) return false;
+  const cs = state.companies[ticker];
+  if (!cs) return false;
+  const factor = 1 + impact;
+  cs.last = Math.max(0.01, cs.last * factor);
+  cs.fairValue = Math.max(0.01, cs.fairValue * factor);
+  cs.open = Math.max(0.01, cs.open * factor);
+  cs.high = Math.max(0.01, cs.high * factor);
+  cs.low = Math.max(0.01, cs.low * factor);
+  cs.ema = Math.max(0.01, cs.ema * factor);
+  refreshLiquidity(state, ticker);
+  updateQuote(state, ticker);
+  return true;
 }
 
 function recordTrade(state, ticker, price, qty, meta) {
@@ -437,6 +469,240 @@ function updateFactors(state, rng) {
   }
 }
 
+function cancelCorporateOrders(state, ticker, reason) {
+  for (const order of state.orders) {
+    if (order.ticker !== ticker || !isLiveOrder(order)) continue;
+    const cs = state.companies[ticker];
+    if (cs) cs.book.removeOrder(order.id);
+    order.status = 'cancelled';
+    order.reason = reason;
+    order.active = false;
+  }
+}
+
+function applySplit(state, ticker, ratio, quarter) {
+  const cs = state.companies[ticker];
+  if (!cs || ratio <= 0) return;
+  cancelCorporateOrders(state, ticker, 'corporateAction');
+  const position = state.account.positions[ticker];
+  if (position) {
+    position.qty *= ratio;
+    position.avgCost /= ratio;
+  }
+  cs.splitFactor *= ratio;
+  cs.last /= ratio;
+  cs.fairValue /= ratio;
+  cs.prevClose /= ratio;
+  cs.open /= ratio;
+  cs.high /= ratio;
+  cs.low /= ratio;
+  cs.ema /= ratio;
+  cs.volume *= ratio;
+  cs.inventory *= ratio;
+  cs.mmSize *= ratio;
+  cs.book = new SimOrderBook(ticker);
+  refreshLiquidity(state, ticker);
+  updateQuote(state, ticker);
+  state.corporateActions.push({
+    type: 'split', ticker, ratio, quarter, day: state.dayIndex,
+  });
+  if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
+}
+
+function applyDividends(state, quarter) {
+  for (const ticker of Object.keys(state.companies)) {
+    const cs = state.companies[ticker];
+    const company = cs.company;
+    const annual = Math.max(0, company.financials.dividendPerShare);
+    const dps = annual / 4 / cs.splitFactor;
+    if (!Number.isFinite(dps) || dps <= 0) continue;
+    const position = state.account.positions[ticker];
+    const qty = position?.qty || 0;
+    const amount = round(qty * dps, 2);
+    if (amount > 0) {
+      state.account.cash += amount;
+      state.account.dividends.push({
+        ticker, qty, dps: round(dps, 4), amount, quarter, day: state.dayIndex,
+      });
+      if (state.account.dividends.length > 300) state.account.dividends.splice(0, 100);
+    }
+    const drop = Math.max(0, Math.min(dps, cs.last - 0.01));
+    cs.last = Math.max(0.01, cs.last - drop);
+    cs.fairValue = Math.max(0.01, cs.fairValue - drop);
+    cs.prevClose = Math.max(0.01, cs.prevClose - drop);
+    cs.open = Math.max(0.01, cs.open - drop);
+    cs.high = Math.max(0.01, cs.high - drop);
+    cs.low = Math.max(0.01, cs.low - drop);
+    cs.ema = Math.max(0.01, cs.ema - drop);
+    refreshLiquidity(state, ticker);
+    updateQuote(state, ticker);
+  }
+}
+
+function releaseReports(state) {
+  const latest = reportQuarterForDay(state.dayIndex);
+  for (const ticker of Object.keys(state.companies)) {
+    const cs = state.companies[ticker];
+    while (cs.lastReportQuarter < latest) {
+      const quarter = cs.lastReportQuarter + 1;
+      cs.lastReportQuarter = quarter;
+      const report = getQuarterReport(cs.company, quarter);
+      if (!report) continue;
+      const guidance = (state.guidance || []).find(
+        (item) => item.ticker === ticker && item.quarter === quarter,
+      );
+      const expected = guidance ? guidance.eps : expectedEps(cs.company, quarter);
+      const surprise = Math.abs(expected) > 1e-9
+        ? (report.income.eps - expected) / Math.abs(expected)
+        : 0;
+      const impact = Math.max(-0.08,
+        Math.min(0.08, surprise * cs.company.vol * 1.5));
+      shockQuote(state, ticker, impact);
+      state.reports.push({
+        type: 'earnings',
+        ticker,
+        quarter,
+        periodLabel: report.periodLabel,
+        reportDate: report.reportDate,
+        eps: report.income.eps,
+        expectedEps: expected,
+        surprise: round(surprise, 4),
+        impact: round(impact, 4),
+        guidance: Boolean(guidance),
+        day: state.dayIndex,
+      });
+      if (state.reports.length > 300) state.reports.splice(0, 100);
+    }
+  }
+}
+
+function releaseNews(state) {
+  if (state.dayIndex <= state.lastNewsDay) return;
+  const companies = Object.values(state.companies).map((cs) => cs.company);
+  const events = newsForDay({ seed: state.seed, dayIndex: state.dayIndex, companies });
+  for (const event of events) {
+    const impacts = new Map();
+    if (event.scope === 'company') {
+      if (state.companies[event.ticker]) impacts.set(event.ticker, event.impact);
+    } else if (event.scope === 'sector') {
+      for (const cs of Object.values(state.companies)) {
+        if (cs.company.sector === event.sector) {
+          impacts.set(cs.company.ticker, event.impact * 0.85);
+        }
+      }
+      for (const link of sectorSpillovers(event.sector)) {
+        const spill = event.impact * link.weight * 0.55;
+        if (!Number.isFinite(spill) || Math.abs(spill) < 1e-6) continue;
+        for (const cs of Object.values(state.companies)) {
+          if (cs.company.sector === link.sector) {
+            impacts.set(cs.company.ticker, (impacts.get(cs.company.ticker) || 0) + spill);
+          }
+        }
+      }
+    } else {
+      for (const cs of Object.values(state.companies)) {
+        impacts.set(cs.company.ticker, event.impact * cs.company.beta);
+      }
+    }
+    for (const [ticker, impact] of impacts.entries()) {
+      shockQuote(state, ticker, Math.max(-0.08, Math.min(0.08, impact)));
+    }
+    state.news.push({
+      ...event,
+      targets: impacts.size,
+      spillovers: event.scope === 'sector'
+        ? sectorSpillovers(event.sector).map((link) => link.sector)
+        : [],
+    });
+    if (state.news.length > 300) state.news.splice(0, 100);
+  }
+  state.lastNewsDay = state.dayIndex;
+}
+
+/** Daily overnight macro drift plus any release published today. */
+function applyMacro(state) {
+  if (state.dayIndex <= state.lastMacroDay) return;
+  const sectorTotals = {};
+  for (const cs of Object.values(state.companies)) {
+    const sector = cs.company.sector;
+    sectorTotals[sector] = sectorTotals[sector] || { sum: 0, count: 0 };
+    sectorTotals[sector].sum += cs.fairValue
+      / Math.max(0.01, cs.company.price / cs.splitFactor);
+    sectorTotals[sector].count += 1;
+  }
+  const sectorPerformance = {};
+  for (const [sector, totals] of Object.entries(sectorTotals)) {
+    sectorPerformance[sector] = totals.sum / Math.max(1, totals.count);
+  }
+  const result = advanceMacro({
+    seed: state.seed,
+    dayIndex: state.dayIndex,
+    macro: state.macro,
+    sectorPerformance,
+  });
+  state.macro = result.macro;
+  state.lastMacroDay = state.dayIndex;
+  for (const cs of Object.values(state.companies)) {
+    const drift = macroDriftForCompany({ macro: state.macro, company: cs.company });
+    const eventImpact = result.event
+      ? macroImpactForCompany({ event: result.event, company: cs.company })
+      : 0;
+    shockQuote(state, cs.company.ticker, drift + eventImpact);
+  }
+}
+
+/** Mid-quarter guidance changes the expectation used by the next release. */
+function releaseGuidance(state) {
+  if (!isGuidanceDay(state.dayIndex)) return;
+  const quarter = guidanceQuarterForDay(state.dayIndex);
+  const rng = createRng(`guidance:${state.seed}:${state.dayIndex}`);
+  const tickers = Object.keys(state.companies).sort();
+  const count = 2 + rng.int(0, 2);
+  const chosen = rng.shuffle(tickers).slice(0, count);
+  for (const ticker of chosen) {
+    const cs = state.companies[ticker];
+    if (!cs) continue;
+    if ((state.guidance || []).some(
+      (item) => item.ticker === ticker && item.quarter === quarter,
+    )) continue;
+    const baseline = expectedEps(cs.company, quarter);
+    if (!Number.isFinite(baseline) || baseline <= 0) continue;
+    const delta = Math.max(-0.15, Math.min(0.15, rng.normal() * 0.08));
+    const eps = round(baseline * (1 + delta), 4);
+    const impact = Math.max(-0.025, Math.min(0.025, delta * 0.25));
+    shockQuote(state, ticker, impact);
+    const event = {
+      type: 'guidance',
+      ticker,
+      quarter,
+      eps,
+      baseline: round(baseline, 4),
+      delta: round(delta, 4),
+      impact: round(impact, 4),
+      day: state.dayIndex,
+    };
+    state.guidance.push(event);
+    state.corporateActions.push(event);
+  }
+  if (state.guidance.length > 120) state.guidance.splice(0, 40);
+  if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
+}
+
+function applyCorporateActions(state) {
+  if (state.dayIndex > 0 && state.dayIndex % SIM_QUARTER_DAYS === 0) {
+    const quarter = state.dayIndex / SIM_QUARTER_DAYS;
+    for (const split of plannedSplitsForQuarter(quarter)) {
+      applySplit(state, split.ticker, split.ratio, quarter);
+    }
+    if (isDividendDay(state.dayIndex)) {
+      applyDividends(state, dividendQuarterForDay(state.dayIndex));
+    }
+  }
+  releaseGuidance(state);
+  releaseReports(state);
+  releaseNews(state);
+}
+
 function chooseSimulatedOrder(state, ticker, rng) {
   const cs = state.companies[ticker];
   const company = cs.company;
@@ -501,6 +767,13 @@ export function createExchangeEngine({ seed = 'sim-exchange-v1', cash = SIM_STAR
     quotes: {},
     orders: [],
     trades: [],
+    reports: [],
+    corporateActions: [],
+    news: [],
+    lastNewsDay: 0,
+    macro: createMacroState(),
+    lastMacroDay: 0,
+    guidance: [],
     account: {
       cash,
       initialCash: cash,
@@ -508,6 +781,7 @@ export function createExchangeEngine({ seed = 'sim-exchange-v1', cash = SIM_STAR
       realizedPnl: 0,
       fees: 0,
       trades: [],
+      dividends: [],
     },
     stats: { tradeCount: 0, volume: 0, seconds: 0 },
   };
@@ -544,6 +818,8 @@ export function advanceSecond(state) {
     }
     state.dayIndex += 1;
     state.second = 0;
+    applyMacro(state);
+    applyCorporateActions(state);
     for (const ticker of Object.keys(state.companies)) updateQuote(state, ticker);
     state.rngState = rng.getState();
     return state;
@@ -572,6 +848,13 @@ export function advanceMinute(state) {
   return advanceSeconds(state, 60);
 }
 
+/** Completes the current session and rolls into the next trading day. */
+export function advanceDay(state) {
+  const remaining = Math.max(1, SIM_SESSION_SECONDS - state.second);
+  for (let index = 0; index < remaining; index += 1) advanceSecond(state);
+  return state;
+}
+
 export function getCandles(state, ticker, timeframe = '1m') {
   const cs = state.companies[String(ticker || '').toUpperCase()];
   if (!cs) return [];
@@ -581,6 +864,22 @@ export function getCandles(state, ticker, timeframe = '1m') {
 export function getBook(state, ticker, levels = 6) {
   const cs = state.companies[String(ticker || '').toUpperCase()];
   return cs ? cs.book.snapshot(levels) : { ticker, bids: [], asks: [] };
+}
+
+export function latestReport(state, ticker) {
+  const cs = state.companies[String(ticker || '').toUpperCase()];
+  return cs ? latestReportForDay(cs.company, state.dayIndex) : null;
+}
+
+export function reportHistory(state, ticker, count = 4) {
+  const cs = state.companies[String(ticker || '').toUpperCase()];
+  return cs ? reportHistoryForDay(cs.company, state.dayIndex, count) : [];
+}
+
+export function dividendPerShare(state, ticker) {
+  const cs = state.companies[String(ticker || '').toUpperCase()];
+  if (!cs) return 0;
+  return round(Math.max(0, cs.company.financials.dividendPerShare) / cs.splitFactor, 4);
 }
 
 export function equity(state) {
@@ -628,6 +927,8 @@ export function serializeExchange(state) {
       inventory: cs.inventory,
       ema: cs.ema,
       series: cs.series,
+      splitFactor: cs.splitFactor,
+      lastReportQuarter: cs.lastReportQuarter,
       book: {
         mmBids: cs.book.mmBids.map((level) => ({ ...level })),
         mmAsks: cs.book.mmAsks.map((level) => ({ ...level })),
@@ -646,6 +947,13 @@ export function serializeExchange(state) {
     companies,
     orders: state.orders,
     trades: state.trades,
+    reports: state.reports,
+    corporateActions: state.corporateActions,
+    news: state.news,
+    lastNewsDay: state.lastNewsDay,
+    macro: state.macro,
+    lastMacroDay: state.lastMacroDay,
+    guidance: state.guidance,
     account: state.account,
     stats: state.stats,
   });
@@ -663,12 +971,27 @@ export function deserializeExchange(snapshot) {
   state.sectorFactors = data.sectorFactors || state.sectorFactors;
   state.orders = data.orders || [];
   state.trades = data.trades || [];
+  state.reports = data.reports || [];
+  state.corporateActions = data.corporateActions || [];
+  state.news = data.news || [];
+  state.lastNewsDay = Number.isFinite(data.lastNewsDay) ? data.lastNewsDay : state.dayIndex;
+  state.macro = { ...createMacroState(), ...(data.macro || {}) };
+  state.macro.events = Array.isArray(state.macro.events) ? state.macro.events : [];
+  state.lastMacroDay = Number.isFinite(data.lastMacroDay) ? data.lastMacroDay : state.dayIndex;
+  state.guidance = data.guidance || [];
   state.account = data.account || state.account;
+  state.account.dividends = state.account.dividends || [];
   state.stats = data.stats || state.stats;
+  const baselineReportQuarter = reportQuarterForDay(state.dayIndex);
   for (const [ticker, saved] of Object.entries(data.companies)) {
     const cs = state.companies[ticker];
     if (!cs) continue;
     Object.assign(cs, saved);
+    cs.splitFactor = Number.isFinite(saved.splitFactor) ? saved.splitFactor : 1;
+    cs.lastReportQuarter = Number.isFinite(saved.lastReportQuarter)
+      ? saved.lastReportQuarter
+      : baselineReportQuarter;
+    cs.mmSize = mmSizeFor(cs.company) * cs.splitFactor;
     cs.book = new SimOrderBook(ticker);
     cs.series = saved.series || createMinuteSeries();
     if (saved.book && saved.book.mmBids && saved.book.mmAsks) {

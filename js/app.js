@@ -105,6 +105,7 @@ import { createSettingsView } from './ui/views/settings.js';
 import { createRoadmapView } from './ui/views/roadmap.js';
 import { createHistoryListView, createHistoryScenarioView } from './ui/views/history.js';
 import { createExchangeView } from './ui/views/exchange.js';
+import { createExchangeStatementsView } from './ui/views/exchangeStatements.js';
 import { showOnboarding } from './ui/onboarding.js';
 
 const MODE_KEY = 'sma.mode';
@@ -1906,7 +1907,9 @@ function renderRoute(route) {
         : createHistoryListView(ctx);
       break;
     case 'exchange':
-      view = createExchangeView(ctx);
+      view = segments[1] === 'statements' && segments[2]
+        ? createExchangeStatementsView(ctx, String(segments[2]).toUpperCase())
+        : createExchangeView(ctx);
       break;
     case 'options':
       view = createOptionsView(ctx);

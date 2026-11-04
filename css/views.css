@@ -1818,8 +1818,80 @@
 .exchange-ticket__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
 .exchange-ticket label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .exchange-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.exchange-company { display: flex; flex-direction: column; gap: 10px; }
+.exchange-company__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.exchange-company__head strong { display: block; font-size: 15px; }
+.exchange-company__head .muted { display: block; margin-top: 2px; font-size: 12px; }
+.exchange-company__desc { margin: 0; font-size: 12px; line-height: 1.5; }
+.exchange-company__meta, .exchange-report__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.exchange-company__meta > div, .exchange-report__grid > div {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.exchange-company__meta span, .exchange-report__grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.exchange-company__meta strong, .exchange-report__grid strong {
+  display: block;
+  margin-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+.exchange-report { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border); }
+.exchange-report__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.exchange-report__head strong { display: block; font-size: 13px; }
+.exchange-report__head .muted { display: block; margin-top: 2px; font-size: 11.5px; }
+.exchange-events li { display: flex; flex-direction: column; gap: 2px; }
+.exchange-events li strong { font-size: 12px; }
+.exchange-events li span { font-size: 11.5px; }
+.exchange-news li { display: flex; flex-direction: column; gap: 3px; }
+.exchange-news__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.exchange-news__head strong { font-size: 12px; line-height: 1.4; }
+.exchange-news li span { font-size: 11.5px; line-height: 1.5; }
+.exchange-macro { display: flex; flex-direction: column; gap: 10px; }
+.exchange-macro__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.exchange-macro__head > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.exchange-macro__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.exchange-macro__grid > div {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.exchange-macro__grid span { display: block; color: var(--muted); font-size: 10px; letter-spacing: 0.03em; text-transform: uppercase; }
+.exchange-macro__grid strong { display: block; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.exchange-macro__event { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.exchange-macro__eventhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.exchange-macro__event .muted { margin: 0; font-size: 11.5px; line-height: 1.5; }
+.exchange-statements-page { display: flex; flex-direction: column; gap: 16px; }
+.exchange-statement-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.exchange-statement-controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.exchange-statement-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.exchange-statement-summary > div { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.exchange-statement-summary span { display: block; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+.exchange-statement-summary strong { display: block; margin-top: 3px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.exchange-statement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.exchange-statement-grid .table-wrap { max-height: 460px; overflow: auto; }
+@media (max-width: 1000px) {
+  .exchange-statement-grid { grid-template-columns: 1fr; }
+  .exchange-statement-summary { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .exchange-statement-controls { grid-template-columns: 1fr; }
+}
 @media (max-width: 1000px) {
   .exchange-layout { grid-template-columns: 1fr; }
   .exchange-quote { grid-template-columns: 1fr auto; }
   .exchange-quote__grid { grid-template-columns: 1fr 1fr; }
+  .exchange-company__meta, .exchange-report__grid { grid-template-columns: 1fr 1fr; }
 }

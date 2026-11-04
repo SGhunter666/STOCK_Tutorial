@@ -388,6 +388,8 @@
     "realestate": "Real estate",
     "energy": "Energy",
     "communication": "Communication services",
+    "consumer": "Consumer & retail",
+    "telecom": "Telecom services",
     "etf": "ETF"
   },
   "stockStyle": {
@@ -5971,17 +5973,18 @@
     "backToAcademy": "Back to Academy"
   },
   "exchange": {
-    "eyebrow": "Fictional exchange · Phase 2–3",
+    "eyebrow": "Fictional exchange · Phase 2–4",
     "title": "Simulated Exchange",
-    "subtitle": "One real second equals one simulated second. A persistent order book, market maker, simulated traders and a fully traceable ledger.",
+    "subtitle": "One real second equals one simulated second. A persistent order book, market maker, simulated traders, quarterly reports, macro data, news, dividends, splits and a fully traceable ledger.",
     "simBadge": "SIMULATED",
     "clockTitle": "Simulation clock",
-    "clockSubtitle": "Pause, step one second or one minute, and change speed without changing market rules.",
+    "clockSubtitle": "Pause, step one second, one minute or one day, and change speed without changing market rules.",
     "session": "Regular session 09:30–16:00",
     "play": "Resume",
     "pause": "Pause",
     "stepSecond": "+1 second",
     "stepMinute": "+1 minute",
+    "stepDay": "+1 day",
     "save": "Save",
     "reset": "Reset",
     "saved": "Exchange state saved locally.",
@@ -6030,7 +6033,7 @@
     "cancel": "Cancel",
     "chartSubtitle": "Only trades already executed at the current simulation time are shown.",
     "chartNote": "{count} {tf} candles · current time {time} · {date}",
-    "phaseNote": "This is a Phase 2–3 market engine. Financial statements, news and macro events are not connected yet.",
+    "phaseNote": "This is the Phase 2–4 market engine. Quarterly reports, dividends, splits, deterministic news and macro data are connected.",
     "pauseFirst": "Pause the clock before submitting a player order.",
     "submitted": "Order {status}: {filled}/{qty} filled.",
     "submittedPending": "{qty} shares submitted; the order activates on the next simulated second.",
@@ -6050,6 +6053,236 @@
       "order.insufficientShares": "Insufficient shares for this order.",
       "order.notFound": "Order not found.",
       "order.notOpen": "Order is no longer open."
+    },
+    "companyProfile": "Company profile",
+    "companyProfileSubtitle": "Fundamentals, latest report and corporate actions",
+    "sector": "Sector",
+    "stageLabel": "Stage",
+    "riskLabel": "Risk",
+    "marketCap": "Market cap",
+    "pe": "P/E (annualised)",
+    "dividendYield": "Dividend yield",
+    "macroSensitivity": "Macro sensitivity (growth/rates/energy)",
+    "reportRevenue": "Revenue",
+    "reportNetIncome": "Net income",
+    "reportEps": "EPS",
+    "reportGrossMargin": "Gross margin",
+    "reportOperatingMargin": "Operating margin",
+    "reportNetMargin": "Net margin",
+    "reportOperatingCashFlow": "Operating cash flow",
+    "reportAssets": "Total assets",
+    "reportLiabilities": "Total liabilities",
+    "reportEquity": "Shareholders' equity",
+    "reportCash": "Cash",
+    "reportDividendPerShare": "Annual dividend/share",
+    "reportPeriod": "Quarter",
+    "reportedOn": "Reported {date}",
+    "reportedOnLabel": "Report date",
+    "statementSplitFactor": "Split adjustment",
+    "viewStatements": "View full statements",
+    "statementsEyebrow": "Company filings · Full statements",
+    "statementsTitle": "Quarterly financial statements",
+    "statementsSubtitle": "Income statement, balance sheet, cash flow and key ratios",
+    "statementsNoState": "No simulated-exchange save was found. Open the Simulated Exchange first.",
+    "statementsSourceLabel": "Data note",
+    "statementsNote": "Simplified local quarterly statements: assets = liabilities + equity and cash-flow changes reconcile to the cash balance. Real filing standards, audit opinions and peer comparisons are not connected.",
+    "backToExchange": "Back to Simulated Exchange",
+    "statementControls": "Statement controls",
+    "incomeStatement": "Income statement",
+    "balanceSheet": "Balance sheet",
+    "cashFlowStatement": "Cash-flow statement",
+    "statementRatios": "Key ratios",
+    "statementLine": "Line item",
+    "statementValue": "Value",
+    "statement": {
+      "revenue": "Revenue",
+      "cogs": "Cost of revenue",
+      "grossProfit": "Gross profit",
+      "operatingExpenses": "Operating expenses",
+      "operatingIncome": "Operating income",
+      "interestExpense": "Interest expense",
+      "pretaxIncome": "Pre-tax income",
+      "taxExpense": "Income tax",
+      "netIncome": "Net income",
+      "eps": "EPS",
+      "sharesOutstanding": "Shares outstanding",
+      "dividendsPaid": "Cash dividends",
+      "cash": "Cash",
+      "receivables": "Receivables",
+      "inventory": "Inventory",
+      "ppe": "PP&E",
+      "totalAssets": "Total assets",
+      "debt": "Debt",
+      "otherLiabilities": "Other liabilities",
+      "totalLiabilities": "Total liabilities",
+      "equity": "Shareholders' equity",
+      "operatingCashFlow": "Operating cash flow",
+      "capex": "Capital expenditure",
+      "investingCashFlow": "Investing cash flow",
+      "financingCashFlow": "Financing cash flow",
+      "debtIssuance": "Debt issuance",
+      "netChange": "Net cash change",
+      "freeCashFlow": "Free cash flow",
+      "grossMargin": "Gross margin",
+      "operatingMargin": "Operating margin",
+      "netMargin": "Net margin",
+      "roe": "Return on equity",
+      "debtToEquity": "Debt / equity",
+      "bookValuePerShare": "Book value/share",
+      "annualDividendPerShare": "Annual dividend/share",
+      "quarterlyDividendPerShare": "Quarterly dividend/share"
+    },
+    "splitAdjusted": "Split adjusted ×{factor}",
+    "noReport": "No report released yet",
+    "dividends": "Dividend ledger",
+    "dividendsTotal": "Dividends received {amount}",
+    "dividendPerShare": "Dividend/share",
+    "dividendAmount": "Amount",
+    "noDividends": "No dividends received yet",
+    "events": "Company events",
+    "eventsSubtitle": "Earnings, guidance, splits and dividends",
+    "macroTitle": "Macro economy",
+    "macroSubtitle": "Released every 21 trading days; indicators move slowly and affect valuations and sectors.",
+    "macroNextEvent": "Next release {date}",
+    "macroNoEvent": "No data released yet",
+    "macroActual": "Actual",
+    "macroForecast": "Forecast",
+    "macroSurprise": "Surprise",
+    "macroBubble": "{sector} valuations look stretched",
+    "macroPolicyRate": "Policy rate",
+    "macroInflation": "Inflation",
+    "macroUnemployment": "Unemployment",
+    "macroGdp": "GDP growth",
+    "macroCreditGrowth": "Credit growth",
+    "macroRiskAppetite": "Risk appetite",
+    "macroEnergyPrice": "Energy price",
+    "macroConfidence": "Consumer confidence",
+    "macro": {
+      "regime": {
+        "normal": "Normal",
+        "bull": "Bull market",
+        "bear": "Bear market",
+        "highVol": "High volatility",
+        "crisis": "Financial crisis",
+        "liquidity": "Liquidity squeeze",
+        "sectorBubble": "Sector bubble",
+        "recession": "Recession",
+        "recovery": "Recovery"
+      }
+    },
+    "macroEvent": {
+      "cpi": {
+        "label": "CPI inflation",
+        "summary": "CPI came in at {actual} versus {forecast} expected."
+      },
+      "payrolls": {
+        "label": "Non-farm payrolls",
+        "summary": "Payrolls printed {actual} versus {forecast} expected."
+      },
+      "centralBank": {
+        "label": "Central-bank decision",
+        "summary": "The policy rate is {actual} versus {forecast} expected."
+      },
+      "gdp": {
+        "label": "GDP growth",
+        "summary": "GDP came in at {actual} versus {forecast} expected."
+      },
+      "energy": {
+        "label": "Energy price shock",
+        "summary": "The energy price is {actual} versus {forecast} expected."
+      }
+    },
+    "newsTitle": "Market news",
+    "newsSubtitle": "Local simulated news, not real information",
+    "noNews": "No news yet",
+    "marketWide": "Market-wide",
+    "news": {
+      "productLaunch": {
+        "headline": "{name} launches a new product, demand outlook improves",
+        "summary": "{name} launched a new product and the market expects stronger demand over the next two quarters."
+      },
+      "analystUpgrade": {
+        "headline": "{ticker} receives an analyst upgrade",
+        "summary": "A research desk raised its rating and target for {name}, citing better earnings visibility."
+      },
+      "buyback": {
+        "headline": "{name} announces a share buyback",
+        "summary": "The company plans to repurchase shares, reducing the float and supporting EPS."
+      },
+      "contractWin": {
+        "headline": "{name} wins a long-term supply contract",
+        "summary": "The contract is expected to add recurring revenue and improve capacity utilisation."
+      },
+      "analystDowngrade": {
+        "headline": "{ticker} receives an analyst downgrade",
+        "summary": "A research desk cut its rating on {name}, citing valuation and slowing demand."
+      },
+      "lawsuit": {
+        "headline": "{name} faces a regulatory investigation",
+        "summary": "Regulators opened an investigation, raising potential fines and compliance costs."
+      },
+      "recall": {
+        "headline": "{name} announces a product recall",
+        "summary": "The recall creates direct costs and may affect the brand and near-term sales."
+      },
+      "ceoExit": {
+        "headline": "{name} CEO steps down",
+        "summary": "The management change increases execution uncertainty while the market watches the succession plan."
+      },
+      "sectorDemand": {
+        "headline": "{sector} demand beats expectations",
+        "summary": "Industry orders and shipments came in above expectations, improving the sector revenue outlook."
+      },
+      "sectorPolicy": {
+        "headline": "{sector} receives policy support",
+        "summary": "New subsidies or tax relief improve the sector's profitability outlook."
+      },
+      "sectorRegulation": {
+        "headline": "{sector} faces tighter regulation",
+        "summary": "Stricter rules may raise compliance costs and compress margins."
+      },
+      "sectorInputCost": {
+        "headline": "{sector} input costs rise",
+        "summary": "Higher input or labour costs put pressure on sector gross margins."
+      },
+      "rateCut": {
+        "headline": "Rate-cut expectations lift risk appetite",
+        "summary": "Lower rate expectations provide valuation support for risk assets."
+      },
+      "riskAppetite": {
+        "headline": "Capital flows into risk assets",
+        "summary": "Improving risk appetite brings flows into equities and other risk assets."
+      },
+      "rateHike": {
+        "headline": "Higher rates pressure valuations",
+        "summary": "Rising rates raise the discount rate, with growth stocks hit first."
+      },
+      "riskOff": {
+        "headline": "Risk-off sentiment builds",
+        "summary": "Uncertainty pushes capital into defensive assets and weighs on equities."
+      }
+    },
+    "noEvents": "No company events yet",
+    "eventEarnings": "Earnings",
+    "eventEps": "EPS {eps} · expected {expected} · surprise {surprise}",
+    "eventGuidance": "Guidance",
+    "eventGuidanceText": "{quarter} · guided EPS {eps} (baseline {baseline})",
+    "eventSplit": "Split",
+    "eventSplitText": "{ratio}:1 split; positions and prices adjusted",
+    "eventDividend": "Dividend",
+    "eventDividendText": "{qty} shares · {amount} received",
+    "stage": {
+      "mature": "Mature",
+      "growth": "Growth",
+      "highGrowth": "High growth",
+      "early": "Early",
+      "turnaround": "Turnaround"
+    },
+    "risk": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "veryHigh": "Very high"
     },
     "tf": {
       "1m": "1m",

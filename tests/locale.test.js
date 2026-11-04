@@ -22,6 +22,7 @@ import { BOND_DEFS } from '../js/assets/bonds.js';
 import { FX_PAIRS } from '../js/assets/fx.js';
 import { COMMODITY_DEFS } from '../js/assets/commodities.js';
 import { CRYPTO_DEFS } from '../js/assets/crypto.js';
+import { SIM_COMPANIES } from '../js/sim/companies50.js';
 
 const zhResponse = await fetch('../locales/zh-CN.json');
 const enResponse = await fetch('../locales/en.json');
@@ -1088,14 +1089,73 @@ test('exchange controls, statuses and errors are localised', () => {
   check('nav.exchange');
   [
     'eyebrow', 'title', 'subtitle', 'simBadge', 'clockTitle', 'clockSubtitle', 'session',
-    'play', 'pause', 'stepSecond', 'stepMinute', 'save', 'reset', 'saved', 'saveFailed',
+    'play', 'pause', 'stepSecond', 'stepMinute', 'stepDay', 'save', 'reset', 'saved', 'saveFailed',
     'resetConfirm', 'resetDone', 'ticker', 'side', 'buy', 'sell', 'qty', 'type', 'market',
     'limit', 'limitPrice', 'optional', 'submit', 'ticketNote', 'book', 'bookSubtitle',
     'ticket', 'ticketSubtitle', 'positions', 'orders', 'trades', 'empty', 'order', 'orderStatus',
     'filled', 'fee', 'fees', 'time', 'price', 'size', 'volume', 'bid', 'ask', 'fairValue',
     'equity', 'cash', 'realized', 'unrealized', 'marketValue', 'avgCost', 'last', 'cancel',
     'chartSubtitle', 'chartNote', 'phaseNote', 'pauseFirst', 'submitted', 'submittedPending',
+    'companyProfile', 'companyProfileSubtitle', 'sector', 'stageLabel', 'riskLabel',
+    'marketCap', 'pe', 'dividendYield', 'macroSensitivity',
+    'reportRevenue', 'reportNetIncome', 'reportEps',
+    'reportGrossMargin', 'reportOperatingMargin', 'reportNetMargin', 'reportOperatingCashFlow',
+    'reportAssets', 'reportLiabilities', 'reportEquity', 'reportCash',
+    'reportDividendPerShare', 'reportPeriod', 'reportedOn', 'splitAdjusted', 'noReport',
+    'dividends', 'dividendsTotal', 'dividendPerShare', 'dividendAmount', 'noDividends',
+    'events', 'eventsSubtitle', 'noEvents', 'eventEarnings', 'eventEps',
+    'eventGuidance', 'eventGuidanceText',
+    'eventSplit', 'eventSplitText', 'eventDividend', 'eventDividendText',
+    'macroTitle', 'macroSubtitle', 'macroNextEvent', 'macroNoEvent',
+    'macroActual', 'macroForecast', 'macroSurprise', 'macroBubble',
+    'macroPolicyRate', 'macroInflation', 'macroUnemployment', 'macroGdp',
+    'macroCreditGrowth', 'macroRiskAppetite', 'macroEnergyPrice', 'macroConfidence',
+    'newsTitle', 'newsSubtitle', 'noNews', 'marketWide',
+    'reportedOnLabel', 'statementSplitFactor', 'viewStatements', 'statementsEyebrow',
+    'statementsTitle', 'statementsSubtitle', 'statementsNoState', 'statementsSourceLabel',
+    'statementsNote', 'backToExchange', 'statementControls', 'incomeStatement',
+    'balanceSheet', 'cashFlowStatement', 'statementRatios', 'statementLine', 'statementValue',
   ].forEach((key) => check(`exchange.${key}`));
+  for (const line of [
+    'revenue', 'cogs', 'grossProfit', 'operatingExpenses', 'operatingIncome',
+    'interestExpense', 'pretaxIncome', 'taxExpense', 'netIncome', 'eps',
+    'sharesOutstanding', 'dividendsPaid', 'cash', 'receivables', 'inventory', 'ppe',
+    'totalAssets', 'debt', 'otherLiabilities', 'totalLiabilities', 'equity',
+    'operatingCashFlow', 'capex', 'investingCashFlow', 'financingCashFlow',
+    'debtIssuance', 'netChange', 'freeCashFlow', 'grossMargin', 'operatingMargin',
+    'netMargin', 'roe', 'debtToEquity', 'bookValuePerShare', 'annualDividendPerShare',
+    'quarterlyDividendPerShare',
+  ]) {
+    check(`exchange.statement.${line}`);
+  }
+  for (const newsTemplate of [
+    'productLaunch', 'analystUpgrade', 'buyback', 'contractWin',
+    'analystDowngrade', 'lawsuit', 'recall', 'ceoExit',
+    'sectorDemand', 'sectorPolicy', 'sectorRegulation', 'sectorInputCost',
+    'rateCut', 'riskAppetite', 'rateHike', 'riskOff',
+  ]) {
+    check(`exchange.news.${newsTemplate}.headline`);
+    check(`exchange.news.${newsTemplate}.summary`);
+  }
+  for (const regime of [
+    'normal', 'bull', 'bear', 'highVol', 'crisis', 'liquidity', 'sectorBubble',
+    'recession', 'recovery',
+  ]) {
+    check(`exchange.macro.regime.${regime}`);
+  }
+  for (const macroEvent of ['cpi', 'payrolls', 'centralBank', 'gdp', 'energy']) {
+    check(`exchange.macroEvent.${macroEvent}.label`);
+    check(`exchange.macroEvent.${macroEvent}.summary`);
+  }
+  for (const sector of [...new Set(SIM_COMPANIES.map((company) => company.sector))]) {
+    check(`sector.${sector}`);
+  }
+  for (const stage of ['mature', 'growth', 'highGrowth', 'early', 'turnaround']) {
+    check(`exchange.stage.${stage}`);
+  }
+  for (const risk of ['low', 'medium', 'high', 'veryHigh']) {
+    check(`exchange.risk.${risk}`);
+  }
   for (const status of ['pending', 'open', 'partiallyFilled', 'filled', 'cancelled', 'rejected']) {
     check(`exchange.status.${status}`);
   }

@@ -18,6 +18,10 @@ import { createMarketView } from '../js/ui/views/market.js';
 import { createSettingsView } from '../js/ui/views/settings.js';
 import { createTaxView } from '../js/ui/views/tax.js';
 import { createExchangeView } from '../js/ui/views/exchange.js';
+import { createExchangeStatementsView } from '../js/ui/views/exchangeStatements.js';
+import {
+  createExchangeEngine, serializeExchange, simDate, SIM_EXCHANGE_SAVE_KEY,
+} from '../js/sim/exchangeEngine.js';
 import { createHistoryListView } from '../js/ui/views/history.js';
 import { createMultiAssetView } from '../js/ui/views/multiasset.js';
 import { setupFund, fundBuy, FUND_AUM_OPTIONS } from '../js/fund/fundEngine.js';
@@ -335,6 +339,16 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assertEqual(root.querySelectorAll('[data-sim-ticker] option').length, 50, '50 companies');
   assert(root.querySelector('#sim-chart'), 'chart canvas');
   assert(root.querySelector('#sim-book'), 'order book');
+  assert(root.querySelector('#sim-company'), 'company profile card');
+  assert(root.textContent.includes('exchange.reportRevenue'), 'quarterly report metrics');
+  assert(root.querySelector('#sim-company table'), 'report history table');
+  assert(root.textContent.includes('exchange.macroSensitivity'), 'company macro sensitivity');
+  assert(root.querySelector('#sim-events'), 'company events card');
+  assert(root.querySelector('#sim-dividends'), 'dividend ledger card');
+  assert(root.querySelector('#sim-macro'), 'macro economy card');
+  assert(root.textContent.includes('exchange.macroPolicyRate'), 'macro indicators');
+  assert(root.querySelector('#sim-news'), 'market news card');
+  assert(root.querySelector('[data-sim-step-day]'), 'advance-day button');
   root.querySelector('[data-sim-step="1"]').click();
   assertEqual(root.querySelector('#sim-clock').textContent, '09:30:01', 'one second step');
   const form = root.querySelector('[data-sim-form]');
@@ -347,8 +361,34 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assert(root.querySelector('#sim-positions').textContent.includes('NCRT'), 'position row');
   assert(root.querySelector('#sim-trades').textContent.includes('buy'), 'trade ledger');
   assert(root.querySelector('#sim-summary').textContent.includes('exchange.equity'), 'equity summary');
+  root.querySelector('[data-sim-step-day]').click();
+  assertEqual(root.querySelector('#sim-clock').textContent, '09:30:00', 'next session opens at 09:30');
+  assertEqual(root.querySelector('#sim-date').textContent, simDate(1), 'date refreshed after advancing');
+  assert(root.querySelector('#sim-news').textContent.includes('exchange.news.'), 'next-day news headlines render');
   view.destroy();
   host.remove();
+});
+
+test('exchange statements page renders all three statements from a saved snapshot', () => {
+  const engine = createExchangeEngine({ seed: 'statements-ui' });
+  localStorage.setItem(SIM_EXCHANGE_SAVE_KEY, serializeExchange(engine));
+  const state = createGameState({ seed: 'ui-statements' });
+  const { ctx } = makeCtx(state);
+  ctx.router = { go: () => {}, current: '/exchange/statements/APLA' };
+  const view = createExchangeStatementsView(ctx, 'APLA');
+  const host = mountView(view);
+  assert(host.textContent.includes('exchange.incomeStatement'), 'income statement card');
+  assert(host.textContent.includes('exchange.balanceSheet'), 'balance sheet card');
+  assert(host.textContent.includes('exchange.cashFlowStatement'), 'cash-flow card');
+  assert(host.textContent.includes('exchange.statementRatios'), 'ratios card');
+  assertEqual(host.querySelectorAll('.exchange-statement-grid .card').length, 4, 'four statement cards');
+  assert(host.querySelector('[data-statement-ticker]'), 'ticker selector');
+  assert(host.querySelector('[data-statement-quarter]'), 'quarter selector');
+  assert(host.textContent.includes('exchange.statement.revenue'), 'income line items');
+  assert(host.textContent.includes('exchange.statement.totalAssets'), 'balance line items');
+  view.destroy();
+  host.remove();
+  localStorage.removeItem(SIM_EXCHANGE_SAVE_KEY);
 });
 
 test('history list exposes the curated 2022 scenario card', () => {
