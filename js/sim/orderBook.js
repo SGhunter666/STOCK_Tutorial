@@ -49,16 +49,16 @@ export class SimOrderBook {
 
   bestBid() {
     const prices = [
-      ...this.mmBids.map((level) => level.price),
-      ...this.resting.filter((order) => order.side === 'buy').map((order) => order.price),
+      ...this.mmBids.filter((level) => level.size > 0).map((level) => level.price),
+      ...this.resting.filter((order) => order.side === 'buy' && order.remaining > 0).map((order) => order.price),
     ];
     return prices.length ? Math.max(...prices) : null;
   }
 
   bestAsk() {
     const prices = [
-      ...this.mmAsks.map((level) => level.price),
-      ...this.resting.filter((order) => order.side === 'sell').map((order) => order.price),
+      ...this.mmAsks.filter((level) => level.size > 0).map((level) => level.price),
+      ...this.resting.filter((order) => order.side === 'sell' && order.remaining > 0).map((order) => order.price),
     ];
     return prices.length ? Math.min(...prices) : null;
   }
@@ -95,7 +95,10 @@ export class SimOrderBook {
     const limit = order.type === 'market'
       ? (buys ? Infinity : -Infinity)
       : Number(order.limitPrice);
-    let remaining = Math.max(0, Math.floor(Number(order.qty) || 0));
+    const available = Number.isFinite(Number(order.remaining))
+      ? Number(order.remaining)
+      : Number(order.qty) || 0;
+    let remaining = Math.max(0, Math.floor(available));
     const fills = [];
     for (const level of liquidity) {
       if (remaining <= 0) break;

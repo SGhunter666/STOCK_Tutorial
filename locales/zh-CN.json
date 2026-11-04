@@ -6009,6 +6009,7 @@
     "trades": "成交账本",
     "empty": "暂无记录。",
     "order": "订单",
+    "orderStatus": "状态",
     "filled": "已成交",
     "fee": "费用",
     "fees": "累计费用",
@@ -6032,7 +6033,9 @@
     "phaseNote": "这是 Phase 2–3 市场引擎；财报、新闻和宏观事件尚未接入。",
     "pauseFirst": "提交玩家订单前请先暂停时钟。",
     "submitted": "订单{status}：成交 {filled}/{qty}。",
+    "submittedPending": "{qty} 股订单已提交，将在下一个模拟秒激活。",
     "status": {
+      "pending": "待激活",
       "open": "挂单中",
       "partiallyFilled": "部分成交",
       "filled": "已成交",

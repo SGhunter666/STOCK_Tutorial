@@ -328,6 +328,8 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   document.body.appendChild(host);
   const view = createExchangeView({ i18n: fakeI18n, toast: () => {} });
   view.mount(host);
+  assert(typeof view.render === 'function', 'exchange exposes a render hook');
+  view.render();
   const root = host;
   assert(root.textContent.includes('exchange.title'), 'page title');
   assertEqual(root.querySelectorAll('[data-sim-ticker] option').length, 50, '50 companies');
@@ -338,6 +340,10 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   const form = root.querySelector('[data-sim-form]');
   form.querySelector('[data-sim-qty]').value = '100';
   form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  assert(root.querySelector('#sim-orders').textContent.includes('exchange.status.pending'), 'pending order shown');
+  assert(!root.querySelector('#sim-positions').textContent.includes('NCRT'), 'no position before activation');
+  root.querySelector('[data-sim-step="1"]').click();
+  assertEqual(root.querySelector('#sim-clock').textContent, '09:30:02', 'activation step');
   assert(root.querySelector('#sim-positions').textContent.includes('NCRT'), 'position row');
   assert(root.querySelector('#sim-trades').textContent.includes('buy'), 'trade ledger');
   assert(root.querySelector('#sim-summary').textContent.includes('exchange.equity'), 'equity summary');

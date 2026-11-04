@@ -8,7 +8,7 @@ import { money, num, pct } from '../../core/format.js';
 import { toast } from '../components.js';
 import { SIM_COMPANIES } from '../../sim/companies50.js';
 import {
-  createExchangeEngine, advanceSecond, advanceMinute, getCandles, getBook,
+  createExchangeEngine, advanceSecond, getCandles, getBook,
   submitOrder, cancelOrder, equity, positionRows, openOrderRows,
   serializeExchange, deserializeExchange, simClock, simDate,
 } from '../../sim/exchangeEngine.js';
@@ -70,6 +70,8 @@ export function createExchangeView(ctx) {
   function quoteHtml() {
     const q = quote();
     if (!q) return '';
+    const bid = q.bid === null ? '—' : moneyFmt(q.bid);
+    const ask = q.ask === null ? '—' : moneyFmt(q.ask);
     return `
       <div class="exchange-quote">
         <div class="exchange-quote__main">
@@ -80,8 +82,8 @@ export function createExchangeView(ctx) {
         <div class="exchange-quote__price">${moneyFmt(q.last)}</div>
         <div class="delta ${q.changePct > 0 ? 'up' : q.changePct < 0 ? 'down' : 'flat'}">${pctFmt(q.changePct)}</div>
         <div class="exchange-quote__grid">
-          <span>${t('exchange.bid')} <strong>${moneyFmt(q.bid)}</strong></span>
-          <span>${t('exchange.ask')} <strong>${moneyFmt(q.ask)}</strong></span>
+          <span>${t('exchange.bid')} <strong>${bid}</strong></span>
+          <span>${t('exchange.ask')} <strong>${ask}</strong></span>
           <span>${t('exchange.volume')} <strong>${numFmt(q.volume)}</strong></span>
           <span>${t('exchange.fairValue')} <strong>${moneyFmt(q.fairValue)}</strong></span>
         </div>
@@ -173,12 +175,13 @@ export function createExchangeView(ctx) {
   function ordersHtml() {
     const rows = openOrderRows(state);
     return table({
-      head: [t('exchange.order'), t('exchange.ticker'), t('exchange.side'), t('exchange.type'), t('exchange.qty'), t('exchange.filled'), t('exchange.limitPrice'), ''],
+      head: [t('exchange.order'), t('exchange.ticker'), t('exchange.side'), t('exchange.type'), t('exchange.orderStatus'), t('exchange.qty'), t('exchange.filled'), t('exchange.limitPrice'), ''],
       rows: rows.map((order) => [
         order.id,
         order.ticker,
-        order.side,
-        order.type,
+        t(`exchange.${order.side}`),
+        t(`exchange.${order.type}`),
+        t(`exchange.status.${order.status}`),
         numFmt(order.qty),
         numFmt(order.filledQty),
         order.limitPrice === null ? '—' : moneyFmt(order.limitPrice),
@@ -191,11 +194,12 @@ export function createExchangeView(ctx) {
   function tradesHtml() {
     const trades = state.account.trades.slice(-10).reverse();
     return table({
-      head: [t('exchange.time'), t('exchange.ticker'), t('exchange.side'), t('exchange.qty'), t('exchange.price'), t('exchange.fee')],
+      head: [t('exchange.time'), t('exchange.order'), t('exchange.ticker'), t('exchange.side'), t('exchange.qty'), t('exchange.price'), t('exchange.fee')],
       rows: trades.map((trade) => [
         `${trade.date} ${trade.time}`,
+        trade.orderId,
         trade.ticker,
-        trade.side,
+        t(`exchange.${trade.side}`),
         numFmt(trade.qty),
         moneyFmt(trade.price),
         moneyFmt(trade.fee),
@@ -315,9 +319,15 @@ export function createExchangeView(ctx) {
       type,
       qty,
       limitPrice: type === 'limit' ? Number(limitValue) : null,
+      pending: true,
     });
     if (!result.ok) {
       toastFn(t(`exchange.error.${result.error}`), 'error');
+      return;
+    }
+    if (result.order.status === 'pending') {
+      toastFn(t('exchange.submittedPending', { qty: result.order.qty }), 'info');
+      paint(true);
       return;
     }
     toastFn(t('exchange.submitted', {
@@ -342,8 +352,15 @@ export function createExchangeView(ctx) {
       state = createExchangeEngine({ seed: 'sim-exchange-v1' });
       selected = 'NCRT';
       timeframe = '5m';
-      localStorage.removeItem(SAVE_KEY);
-      if (clock) clock.pause();
+      try {
+        localStorage.removeItem(SAVE_KEY);
+      } catch (error) {
+        console.warn('[exchange] reset save failed', error);
+      }
+      if (clock) {
+        clock.pause();
+        clock.secondCounter = 0;
+      }
       mountPage();
       toastFn(t('exchange.resetDone'), 'success');
     }
@@ -370,8 +387,8 @@ export function createExchangeView(ctx) {
       if (target.matches('[data-sim-step]')) {
         if (clock.running) clock.pause();
         const count = Number(target.dataset.simStep);
-        if (count >= 60) advanceMinute(state);
-        else advanceSecond(state);
+        if (count >= 60) clock.stepMinute();
+        else clock.step();
         paint(true);
         return;
       }
@@ -422,17 +439,25 @@ export function createExchangeView(ctx) {
   }
 
   function mount(root) {
+    if (clock) clock.destroy();
+    if (chart) chart.destroy();
     container = root;
+    destroyed = false;
     clock = new SimulationClock({
       onSecond,
       onMinute,
       speed: 5,
     });
     clock.pause();
+    clock.secondCounter = state.second;
     mountPage();
     bind();
     const play = container.querySelector('[data-sim-play]');
     if (play) play.textContent = t('exchange.play');
+  }
+
+  function render() {
+    if (container && !destroyed) paint(true);
   }
 
   function destroy() {
@@ -443,5 +468,5 @@ export function createExchangeView(ctx) {
     chart = null;
   }
 
-  return { mount, destroy };
+  return { mount, render, destroy };
 }

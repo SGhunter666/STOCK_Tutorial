@@ -163,7 +163,7 @@ function aggregateDaily(daily, keyOf) {
     if (!group) {
       groups.set(key, {
         d: bar.d, end: bar.d, o: bar.o, h: bar.h, l: bar.l, c: bar.c, v: bar.v,
-        trades: bar.trades, partial: false,
+        trades: bar.trades, partial: Boolean(bar.partial),
       });
     } else {
       group.end = bar.d;
@@ -172,6 +172,7 @@ function aggregateDaily(daily, keyOf) {
       group.c = bar.c;
       group.v += bar.v;
       group.trades = (group.trades || 0) + (bar.trades || 0);
+      group.partial = group.partial || Boolean(bar.partial);
     }
   }
   return [...groups.values()];

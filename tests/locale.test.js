@@ -1080,3 +1080,33 @@ test('error and toast messages are localised', () => {
   ].forEach((key) => check(key));
   assertEqual(missing.length, 0, missing.join('\n'));
 });
+
+suite('Simulated exchange copy');
+
+test('exchange controls, statuses and errors are localised', () => {
+  const { check, missing } = required();
+  check('nav.exchange');
+  [
+    'eyebrow', 'title', 'subtitle', 'simBadge', 'clockTitle', 'clockSubtitle', 'session',
+    'play', 'pause', 'stepSecond', 'stepMinute', 'save', 'reset', 'saved', 'saveFailed',
+    'resetConfirm', 'resetDone', 'ticker', 'side', 'buy', 'sell', 'qty', 'type', 'market',
+    'limit', 'limitPrice', 'optional', 'submit', 'ticketNote', 'book', 'bookSubtitle',
+    'ticket', 'ticketSubtitle', 'positions', 'orders', 'trades', 'empty', 'order', 'orderStatus',
+    'filled', 'fee', 'fees', 'time', 'price', 'size', 'volume', 'bid', 'ask', 'fairValue',
+    'equity', 'cash', 'realized', 'unrealized', 'marketValue', 'avgCost', 'last', 'cancel',
+    'chartSubtitle', 'chartNote', 'phaseNote', 'pauseFirst', 'submitted', 'submittedPending',
+  ].forEach((key) => check(`exchange.${key}`));
+  for (const status of ['pending', 'open', 'partiallyFilled', 'filled', 'cancelled', 'rejected']) {
+    check(`exchange.status.${status}`);
+  }
+  for (const key of [
+    'order.invalid', 'order.limit', 'order.noLiquidity', 'order.insufficientCash',
+    'order.insufficientShares', 'order.notFound', 'order.notOpen',
+  ]) {
+    check(`exchange.error.${key}`);
+  }
+  for (const tf of ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W', '1M']) {
+    check(`exchange.tf.${tf}`);
+  }
+  assertEqual(missing.length, 0, missing.join('\n'));
+});

@@ -6009,6 +6009,7 @@
     "trades": "Trade ledger",
     "empty": "No entries yet.",
     "order": "Order",
+    "orderStatus": "Status",
     "filled": "Filled",
     "fee": "Fee",
     "fees": "Fees paid",
@@ -6032,7 +6033,9 @@
     "phaseNote": "This is a Phase 2–3 market engine. Financial statements, news and macro events are not connected yet.",
     "pauseFirst": "Pause the clock before submitting a player order.",
     "submitted": "Order {status}: {filled}/{qty} filled.",
+    "submittedPending": "{qty} shares submitted; the order activates on the next simulated second.",
     "status": {
+      "pending": "pending activation",
       "open": "resting",
       "partiallyFilled": "partially filled",
       "filled": "filled",

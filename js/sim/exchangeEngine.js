@@ -90,8 +90,10 @@ function updateQuote(state, ticker) {
 function refreshLiquidity(state, ticker) {
   const cs = state.companies[ticker];
   const company = cs.company;
-  const inventoryPenalty = cs.inventory / Math.max(1, company.avgVolume * 0.6);
-  const mid = cs.fairValue * (1 - inventoryPenalty * 0.01);
+  if (!company) return;
+  const inventoryRatio = cs.inventory / Math.max(1, company.avgVolume);
+  const inventoryShift = Math.max(-0.2, Math.min(0.2, inventoryRatio * company.impact * 0.5));
+  const mid = cs.fairValue * (1 - inventoryShift);
   const half = Math.max(0.01, mid * company.spread / 20_000);
   cs.book.setMarketMaker({
     bid: Math.max(0.01, mid - half),
@@ -195,8 +197,26 @@ function findOrder(state, id) {
   return state.orders.find((order) => order.id === id);
 }
 
-function applyFills(state, order, fills, { rest = false } = {}) {
+function applyFills(state, order, fills, { rest = false, keepResting = false } = {}) {
   for (const fill of fills) {
+    if (order.owner === 'player' && order.side === 'buy') {
+      const fee = round(fill.qty * fill.price * SIM_FEE_BPS / 10_000, 2);
+      if (fill.qty * fill.price + fee > state.account.cash + 1e-9) {
+        order.reason = 'insufficientCash';
+        break;
+      }
+    }
+    if (order.owner === 'player' && order.side === 'sell') {
+      const held = state.account.positions[order.ticker]?.qty || 0;
+      if (fill.qty > held) {
+        order.reason = 'insufficientShares';
+        break;
+      }
+    }
+    const cs = state.companies[order.ticker];
+    if (fill.counterparty === 'mm' && cs) {
+      cs.inventory += order.side === 'buy' ? -fill.qty : fill.qty;
+    }
     recordTrade(state, order.ticker, fill.price, fill.qty, {
       orderId: order.id, owner: order.owner,
     });
@@ -207,47 +227,63 @@ function applyFills(state, order, fills, { rest = false } = {}) {
     }
   }
   const remaining = order.qty - (order.filledQty || 0);
-  if (remaining > 0 && rest && order.type === 'limit') {
+  const canRest = (rest || keepResting) && order.type === 'limit'
+    && !['insufficientCash', 'insufficientShares'].includes(order.reason);
+  if (remaining > 0 && canRest) {
     order.status = order.filledQty ? 'partiallyFilled' : 'open';
     order.remaining = remaining;
-    state.companies[order.ticker].book.addResting({
-      id: order.id,
-      side: order.side,
-      price: order.limitPrice,
-      remaining,
-      owner: order.owner,
-    });
+    order.active = true;
+    if (rest) {
+      state.companies[order.ticker].book.addResting({
+        id: order.id,
+        side: order.side,
+        price: order.limitPrice,
+        remaining,
+        owner: order.owner,
+      });
+    }
   } else if (remaining > 0) {
     order.status = order.filledQty ? 'partiallyFilled' : 'cancelled';
-    order.reason = 'insufficientLiquidity';
+    if (!order.reason) order.reason = 'insufficientLiquidity';
     order.remaining = remaining;
+    order.active = false;
+    if (keepResting) state.companies[order.ticker].book.removeOrder(order.id);
+  } else {
+    order.active = false;
   }
   return order;
+}
+
+function isLiveOrder(order) {
+  if (order.active === false) return false;
+  if (order.status === 'pending') return true;
+  return order.type === 'limit' && ['open', 'partiallyFilled'].includes(order.status);
 }
 
 function availableShares(state, ticker) {
   const held = state.account.positions[ticker]?.qty || 0;
   const reserved = state.orders
     .filter((order) => order.owner === 'player' && order.ticker === ticker
-      && order.side === 'sell' && ['open', 'partiallyFilled'].includes(order.status))
+      && order.side === 'sell' && isLiveOrder(order))
     .reduce((sum, order) => sum + (order.qty - (order.filledQty || 0)), 0);
   return Math.max(0, held - reserved);
 }
 
 function availableCash(state) {
   const reserved = state.orders
-    .filter((order) => order.owner === 'player' && order.side === 'buy'
-      && order.type === 'limit' && ['open', 'partiallyFilled'].includes(order.status))
+    .filter((order) => order.owner === 'player' && order.side === 'buy' && isLiveOrder(order))
     .reduce((sum, order) => {
-      const price = order.limitPrice || state.quotes[order.ticker]?.ask || 0;
-      return sum + (order.qty - (order.filledQty || 0)) * price
+      const price = order.type === 'limit'
+        ? order.limitPrice
+        : (state.quotes[order.ticker]?.ask || 0);
+      return sum + (order.qty - (order.filledQty || 0)) * (price || 0)
         * (1 + SIM_FEE_BPS / 10_000);
     }, 0);
   return state.account.cash - reserved;
 }
 
 export function submitOrder(state, {
-  ticker, side, type = 'market', qty, limitPrice = null, owner = 'player',
+  ticker, side, type = 'market', qty, limitPrice = null, owner = 'player', pending = false,
 }) {
   const symbol = String(ticker || '').toUpperCase();
   const cs = state.companies[symbol];
@@ -285,6 +321,7 @@ export function submitOrder(state, {
     avgPrice: 0,
     remaining: quantity,
     status: 'open',
+    active: true,
     owner,
     createdAt: { day: state.dayIndex, second: state.second },
     expiresAt: owner === 'player' ? null : state.second + 300,
@@ -293,6 +330,11 @@ export function submitOrder(state, {
   };
   state.nextOrderId += 1;
   state.orders.push(order);
+
+  if (pending) {
+    order.status = 'pending';
+    return { ok: true, order };
+  }
 
   const result = cs.book.match(order);
   applyFills(state, order, result.fills, { rest: true });
@@ -306,15 +348,39 @@ export function submitOrder(state, {
   return { ok: true, order };
 }
 
+function activatePending(state) {
+  for (const order of state.orders) {
+    if (order.owner !== 'player' || order.status !== 'pending') continue;
+    const cs = state.companies[order.ticker];
+    if (!cs) {
+      order.status = 'rejected';
+      order.reason = 'order.invalid';
+      order.active = false;
+      continue;
+    }
+    order.status = 'open';
+    const result = cs.book.match(order);
+    applyFills(state, order, result.fills, { rest: true });
+    if (order.status === 'open' || order.status === 'partiallyFilled') {
+      if (order.type === 'market' && order.remaining > 0 && !order.reason) {
+        order.reason = 'insufficientLiquidity';
+        order.status = order.filledQty ? 'partiallyFilled' : 'cancelled';
+      }
+    }
+    updateQuote(state, order.ticker);
+  }
+}
+
 export function cancelOrder(state, orderId, owner = 'player') {
   const order = state.orders.find((item) => item.id === orderId && item.owner === owner);
   if (!order) return { ok: false, error: 'order.notFound' };
-  if (!['open', 'partiallyFilled'].includes(order.status)) {
+  if (!['pending', 'open', 'partiallyFilled'].includes(order.status)) {
     return { ok: false, error: 'order.notOpen' };
   }
   state.companies[order.ticker].book.removeOrder(order.id);
   order.status = 'cancelled';
   order.reason = 'order.cancelled';
+  order.active = false;
   return { ok: true, order };
 }
 
@@ -324,7 +390,7 @@ function executeResting(state) {
     for (const result of results) {
       const order = findOrder(state, result.order.id);
       if (!order) continue;
-      applyFills(state, order, result.fills);
+      applyFills(state, order, result.fills, { keepResting: true });
     }
   }
   for (const order of state.orders) {
@@ -333,15 +399,24 @@ function executeResting(state) {
       state.companies[order.ticker].book.removeOrder(order.id);
       order.status = 'cancelled';
       order.reason = 'order.expired';
+      order.active = false;
     }
   }
 }
 
 function pruneOrders(state) {
   if (state.orders.length <= 500) return;
-  const active = state.orders.filter((order) => ['open', 'partiallyFilled'].includes(order.status));
-  const recent = state.orders.filter((order) => !['open', 'partiallyFilled'].includes(order.status)).slice(-120);
-  state.orders = [...active, ...recent];
+  const active = state.orders.filter(isLiveOrder);
+  const tradeOrderIds = new Set(state.account.trades.map((trade) => trade.orderId));
+  const referenced = state.orders.filter((order) => tradeOrderIds.has(order.id));
+  const playerDone = state.orders
+    .filter((order) => order.owner === 'player' && !isLiveOrder(order))
+    .slice(-500);
+  const simDone = state.orders
+    .filter((order) => order.owner !== 'player' && !isLiveOrder(order))
+    .slice(-120);
+  const keep = new Set([...active, ...referenced, ...playerDone, ...simDone]);
+  state.orders = state.orders.filter((order) => keep.has(order));
 }
 
 function updateFactors(state, rng) {
@@ -447,6 +522,15 @@ export function advanceSecond(state) {
   state.stats.seconds += 1;
   if (state.second >= SIM_SESSION_SECONDS) {
     const date = simDate(state.dayIndex);
+    for (const order of state.orders) {
+      if (order.owner !== 'player' && ['open', 'partiallyFilled'].includes(order.status)) {
+        const cs = state.companies[order.ticker];
+        if (cs) cs.book.removeOrder(order.id);
+        order.status = 'cancelled';
+        order.reason = 'sessionEnd';
+        order.active = false;
+      }
+    }
     for (const ticker of Object.keys(state.companies)) {
       const cs = state.companies[ticker];
       finalizeDay(cs.series, date);
@@ -470,6 +554,7 @@ export function advanceSecond(state) {
     refreshLiquidity(state, ticker);
     updateQuote(state, ticker);
   }
+  activatePending(state);
   executeResting(state);
   runSimulatedTraders(state, rng);
   pruneOrders(state);
@@ -525,8 +610,7 @@ export function positionRows(state) {
 }
 
 export function openOrderRows(state, owner = 'player') {
-  return state.orders.filter((order) => order.owner === owner
-    && ['open', 'partiallyFilled'].includes(order.status));
+  return state.orders.filter((order) => order.owner === owner && isLiveOrder(order));
 }
 
 export function serializeExchange(state) {
@@ -544,6 +628,10 @@ export function serializeExchange(state) {
       inventory: cs.inventory,
       ema: cs.ema,
       series: cs.series,
+      book: {
+        mmBids: cs.book.mmBids.map((level) => ({ ...level })),
+        mmAsks: cs.book.mmAsks.map((level) => ({ ...level })),
+      },
     };
   }
   return JSON.stringify({
@@ -582,13 +670,17 @@ export function deserializeExchange(snapshot) {
     if (!cs) continue;
     Object.assign(cs, saved);
     cs.book = new SimOrderBook(ticker);
-    const half = Math.max(0.01, cs.last * cs.company.spread / 20_000);
-    cs.book.setMarketMaker({ bid: cs.last - half, ask: cs.last + half, size: cs.mmSize });
     cs.series = saved.series || createMinuteSeries();
+    if (saved.book && saved.book.mmBids && saved.book.mmAsks) {
+      cs.book.mmBids = saved.book.mmBids.map((level) => ({ ...level }));
+      cs.book.mmAsks = saved.book.mmAsks.map((level) => ({ ...level }));
+    } else {
+      refreshLiquidity(state, ticker);
+    }
     updateQuote(state, ticker);
   }
   for (const order of state.orders) {
-    if (order.owner === 'player' && ['open', 'partiallyFilled'].includes(order.status)) {
+    if (order.active !== false && ['open', 'partiallyFilled'].includes(order.status) && order.type === 'limit') {
       const cs = state.companies[order.ticker];
       if (cs) cs.book.addResting({
         id: order.id,
