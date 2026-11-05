@@ -14,6 +14,8 @@ import './simFundamentals.test.js';
 import './simNews.test.js';
 import './simMacro.test.js';
 import './simExchange.test.js';
+import './simMargin.test.js';
+import './simPhase5Assets.test.js';
 import './assets.test.js';
 import './ui.test.js';
 

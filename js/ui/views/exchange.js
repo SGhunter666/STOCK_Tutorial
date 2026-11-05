@@ -1,5 +1,5 @@
 /**
- * Phase 2-4 isolated "Simulated Exchange" view. It runs its own one-second
+ * Phase 2-5 isolated "Simulated Exchange" view. It runs its own one-second
  * clock and order book and never touches the legacy 8-tick market or real data.
  */
 import { pageHead, card, statCard, segmented, table } from '../kit.js';
@@ -14,7 +14,14 @@ import {
   openRightsOfferings, subscribeRights, declineRights, availableCash,
   serializeExchange, deserializeExchange, simClock, simDate,
   latestReport, reportHistory, dividendPerShare, SIM_EXCHANGE_SAVE_KEY,
+  submitOptionOrder, closeOptionPosition, submitBondOrder,
 } from '../../sim/exchangeEngine.js';
+import { SIM_MARGIN_CONFIG, marginSnapshot, shortRows } from '../../sim/margin.js';
+import { SIM_ETFS, etfNav, etfHoldingsRows } from '../../sim/etfs.js';
+import {
+  SIM_OPTION_TENORS, buildOptionChain, optionRows, optionStrikeGrid,
+} from '../../sim/options.js';
+import { SIM_BONDS, bondQuotes, bondRows } from '../../sim/bonds.js';
 import { SimulationClock, SIM_SPEEDS } from '../../sim/simulationClock.js';
 import { nextMacroEventDay } from '../../sim/macroEconomy.js';
 import { sectorSensitivity } from '../../sim/industryModel.js';
@@ -22,6 +29,10 @@ import { quarterLabel } from '../../sim/fundamentals.js';
 
 const SAVE_KEY = SIM_EXCHANGE_SAVE_KEY;
 const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W', '1M'];
+const INSTRUMENTS = [
+  ...SIM_COMPANIES.map((company) => ({ ticker: company.ticker, name: company.name, isEtf: false })),
+  ...SIM_ETFS.map((etf) => ({ ticker: etf.ticker, name: etf.name, isEtf: true })),
+];
 
 function loadState() {
   try {
@@ -54,6 +65,8 @@ export function createExchangeView(ctx) {
   let state = loadState();
   let selected = 'NCRT';
   let timeframe = '5m';
+  let optionExpiryDays = 30;
+  let optionFormKey = '';
   let chart = null;
   let clock = null;
   let lastPaint = 0;
@@ -157,11 +170,13 @@ export function createExchangeView(ctx) {
     return `<form class="exchange-ticket" data-sim-form>
       <div class="exchange-ticket__row">
         <label>${t('exchange.ticker')}<select class="input input--select" data-sim-ticker>
-          ${SIM_COMPANIES.map((company) => `<option value="${company.ticker}" ${company.ticker === selected ? 'selected' : ''}>${company.ticker} · ${company.name}</option>`).join('')}
+          ${INSTRUMENTS.map((instrument) => `<option value="${instrument.ticker}" ${instrument.ticker === selected ? 'selected' : ''}>${instrument.ticker} · ${instrument.name}${instrument.isEtf ? ` · ${t('exchange.etf')}` : ''}</option>`).join('')}
         </select></label>
         <label>${t('exchange.side')}<select class="input input--select" data-sim-side>
           <option value="buy">${t('exchange.buy')}</option>
           <option value="sell">${t('exchange.sell')}</option>
+          <option value="short">${t('exchange.short')}</option>
+          <option value="cover">${t('exchange.cover')}</option>
         </select></label>
       </div>
       <div class="exchange-ticket__row">
@@ -176,6 +191,7 @@ export function createExchangeView(ctx) {
         <button class="btn btn--primary" type="submit">${t('exchange.submit')}</button>
       </div>
       <p class="muted">${t('exchange.ticketNote')}</p>
+      <p class="muted">${t('exchange.marginTicketNote')}</p>
     </form>`;
   }
 
@@ -193,6 +209,273 @@ export function createExchangeView(ctx) {
       ]),
       empty: t('exchange.empty'),
     });
+  }
+
+  function shortsHtml() {
+    const rows = shortRows(state);
+    return table({
+      head: [t('exchange.ticker'), t('exchange.qty'), t('exchange.shortAvgPrice'), t('exchange.last'), t('exchange.marketValue'), t('exchange.unrealized')],
+      rows: rows.map((row) => [
+        row.ticker,
+        numFmt(row.qty),
+        moneyFmt(row.avgPrice),
+        moneyFmt(row.last),
+        moneyFmt(row.marketValue),
+        moneyFmt(row.unrealized),
+      ]),
+      empty: t('exchange.noShorts'),
+    });
+  }
+
+  function marginHtml() {
+    const snapshot = marginSnapshot(state);
+    const margin = state.account.margin || {};
+    const call = snapshot.call;
+    const statusTone = snapshot.status === 'ok' ? 'pill--ok' : 'pill--warn';
+    const charges = (margin.charges || []).slice(-5).reverse();
+    const forced = (margin.forcedLiquidations || []).slice(-4).reverse();
+    const metrics = [
+      [t('exchange.longValue'), moneyFmt(snapshot.longMarketValue)],
+      [t('exchange.shortValue'), moneyFmt(snapshot.shortMarketValue)],
+      [t('exchange.initialMargin'), moneyFmt(snapshot.initialRequirement)],
+      [t('exchange.maintenanceMargin'), moneyFmt(snapshot.maintenanceRequirement)],
+      [t('exchange.marginExcess'), moneyFmt(snapshot.maintenanceExcess)],
+      [t('exchange.buyingPower'), moneyFmt(snapshot.buyingPower)],
+      [t('exchange.optionValue'), moneyFmt(snapshot.optionMarketValue)],
+      [t('exchange.bondValue'), moneyFmt(snapshot.bondMarketValue)],
+      [t('exchange.borrowedCash'), moneyFmt(snapshot.borrowedCash)],
+      [t('exchange.accruedCharges'), moneyFmt(snapshot.accruedInterest + snapshot.accruedBorrowFees)],
+    ];
+    return `<div class="exchange-margin">
+      <div class="exchange-margin__head">
+        <span class="pill ${statusTone}">${t(`exchange.marginStatus.${snapshot.status}`)}</span>
+        <span class="muted">${t('exchange.marginRates', {
+          interest: pct(SIM_MARGIN_CONFIG.marginInterestRate * 100, i18n.locale, 2, false),
+          borrow: pct(SIM_MARGIN_CONFIG.borrowFeeRate * 100, i18n.locale, 2, false),
+        })}</span>
+      </div>
+      <div class="exchange-macro__grid">
+        ${metrics.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join('')}
+      </div>
+      ${call ? `<p class="exchange-margin__call">${t('exchange.marginCallText', {
+        deficit: moneyFmt(call.deficit),
+        due: simDate(call.dueDay),
+      })}</p>` : `<p class="muted">${t('exchange.marginNoCall')}</p>`}
+      ${charges.length ? table({
+        head: [t('exchange.time'), t('exchange.chargeType'), t('exchange.chargeAmount')],
+        rows: charges.map((charge) => [
+          simDate(charge.day),
+          t(`exchange.charge.${charge.type}`),
+          moneyFmt(charge.amount),
+        ]),
+      }) : ''}
+      ${forced.length ? `<div class="exchange-margin__forced">
+        <p class="muted">${t('exchange.forcedLiquidation')}</p>
+        <ul class="aside-list exchange-events">${forced.map((item) => `<li>
+          <strong>${item.ticker} · ${t(item.action === 'closeLong' ? 'exchange.sell' : 'exchange.cover')}</strong>
+          <span>${t('exchange.forcedLiquidationText', {
+            qty: numFmt(item.qty),
+            price: moneyFmt(item.price),
+          })}</span>
+          <span class="muted">${simDate(item.day)} ${simClock(item.second)}</span>
+        </li>`).join('')}</ul>
+      </div>` : ''}
+    </div>`;
+  }
+
+  function optionChainHtml() {
+    const chain = buildOptionChain(state, selected, optionExpiryDays, 2);
+    const rows = chain.strikes.map((strike) => {
+      const call = chain.contracts.find((contract) => contract.type === 'call'
+        && Math.abs(contract.strike - strike) < 1e-9);
+      const put = chain.contracts.find((contract) => contract.type === 'put'
+        && Math.abs(contract.strike - strike) < 1e-9);
+      return [
+        moneyFmt(strike),
+        call ? `${moneyFmt(call.bid)} / ${moneyFmt(call.ask)}` : '—',
+        put ? `${moneyFmt(put.bid)} / ${moneyFmt(put.ask)}` : '—',
+      ];
+    });
+    const active = chain.expiries.find((expiry) => expiry.days === optionExpiryDays)
+      || chain.expiries[1];
+    return `${table({
+      head: [t('exchange.optionStrike'), t('exchange.callBidAsk'), t('exchange.putBidAsk')],
+      rows,
+      empty: t('exchange.optionEmpty'),
+    })}
+    <p class="muted">${t('exchange.optionChainNote', {
+      spot: moneyFmt(chain.spot),
+      vol: pct(chain.vol * 100, i18n.locale, 1, false),
+      expiry: active ? active.label : '—',
+    })}</p>`;
+  }
+
+  function optionFormHtml() {
+    const strikes = optionStrikeGrid(state.quotes[selected].last, 2);
+    return `<form class="exchange-ticket exchange-option-form" data-option-form>
+      <div class="exchange-ticket__row">
+        <label>${t('exchange.optionType')}<select class="input input--select" data-option-type>
+          <option value="call">${t('exchange.call')}</option>
+          <option value="put">${t('exchange.put')}</option>
+        </select></label>
+        <label>${t('exchange.optionExpiry')}<select class="input input--select" data-option-expiry>
+          ${SIM_OPTION_TENORS.map((days) => `<option value="${days}" ${days === optionExpiryDays ? 'selected' : ''}>${t('exchange.optionDays', { days })}</option>`).join('')}
+        </select></label>
+      </div>
+      <div class="exchange-ticket__row">
+        <label>${t('exchange.optionStrike')}<select class="input input--select" data-option-strike>
+          ${strikes.map((strike) => `<option value="${strike}">${moneyFmt(strike)}</option>`).join('')}
+        </select></label>
+        <label>${t('exchange.side')}<select class="input input--select" data-option-side>
+          <option value="buy">${t('exchange.buy')}</option>
+          <option value="sell">${t('exchange.sell')}</option>
+        </select></label>
+      </div>
+      <div class="exchange-ticket__row">
+        <label>${t('exchange.optionQty')}<input class="input" type="number" min="1" step="1" value="1" data-option-qty></label>
+        <button class="btn btn--primary" type="submit">${t('exchange.submit')}</button>
+      </div>
+      <p class="muted">${t('exchange.optionFormNote')}</p>
+    </form>`;
+  }
+
+  function optionPositionsHtml() {
+    const rows = optionRows(state);
+    return table({
+      head: [t('exchange.optionType'), t('exchange.optionStrike'), t('exchange.optionExpiry'),
+        t('exchange.qty'), t('exchange.optionMark'), t('exchange.marketValue'),
+        t('exchange.unrealized'), t('exchange.optionDaysLeft'), ''],
+      rows: rows.map((position) => [
+        `${t(`exchange.${position.type}`)} · ${position.side === 'long' ? t('exchange.optionLong') : t('exchange.optionShort')}`,
+        moneyFmt(position.strike),
+        position.expiryLabel,
+        `${position.qty > 0 ? '+' : ''}${numFmt(position.qty)}`,
+        moneyFmt(position.mark),
+        moneyFmt(position.marketValue),
+        moneyFmt(position.pnl),
+        numFmt(position.daysLeft),
+        `<button class="link-btn" type="button" data-option-close="${position.key}" data-option-close-qty="${position.absQty}">${t('exchange.optionClose')}</button>`,
+      ]),
+      empty: t('exchange.optionNoPositions'),
+    });
+  }
+
+  function optionSettlementsHtml() {
+    const settlements = (state.account.optionSettlements || [])
+      .filter((item) => item.ticker === selected);
+    if (!settlements.length) return `<p class="muted">${t('exchange.optionNoSettlements')}</p>`;
+    return table({
+      head: [t('exchange.time'), t('exchange.ticker'), t('exchange.optionType'),
+        t('exchange.optionStrike'), t('exchange.optionIntrinsic'), t('exchange.optionCash'), t('exchange.unrealized')],
+      rows: settlements.slice(0, 5).map((item) => [
+        simDate(item.day),
+        item.ticker,
+        t(`exchange.${item.type}`),
+        moneyFmt(item.strike),
+        moneyFmt(item.intrinsic),
+        moneyFmt(item.cashDelta),
+        moneyFmt(item.realized),
+      ]),
+    });
+  }
+
+  function optionsHtml() {
+    return `<div class="exchange-options">
+      <div class="exchange-options__head">
+        <strong>${t('exchange.optionDealer')}</strong>
+        <span class="muted">${t('exchange.optionContractSize')}</span>
+      </div>
+      <div id="sim-option-chain">${optionChainHtml()}</div>
+      <div id="sim-option-form">${optionFormHtml()}</div>
+      <div id="sim-option-positions">${optionPositionsHtml()}</div>
+      <div id="sim-option-settlements">${optionSettlementsHtml()}</div>
+    </div>`;
+  }
+
+  function bondQuotesHtml() {
+    return table({
+      head: [t('exchange.bond'), t('exchange.bondIssuer'), t('exchange.bondYears'),
+        t('exchange.bondCoupon'), t('exchange.bondRating'), t('exchange.bondYield'),
+        t('exchange.bid'), t('exchange.ask')],
+      rows: bondQuotes(state).map((bond) => [
+        bond.id,
+        bond.issuer,
+        numFmt(bond.years),
+        pct(bond.coupon, i18n.locale, 2, false),
+        bond.rating,
+        pct(bond.yieldPct, i18n.locale, 2, false),
+        moneyFmt(bond.bid),
+        moneyFmt(bond.ask),
+      ]),
+      empty: t('exchange.bondEmpty'),
+    });
+  }
+
+  function bondFormHtml() {
+    return `<form class="exchange-ticket" data-bond-form>
+      <div class="exchange-ticket__row">
+        <label>${t('exchange.bond')}<select class="input input--select" data-bond-id>
+          ${SIM_BONDS.map((bond) => `<option value="${bond.id}">${bond.id} · ${bond.issuer} ${bond.years}Y</option>`).join('')}
+        </select></label>
+        <label>${t('exchange.side')}<select class="input input--select" data-bond-side>
+          <option value="buy">${t('exchange.buy')}</option>
+          <option value="sell">${t('exchange.sell')}</option>
+        </select></label>
+      </div>
+      <div class="exchange-ticket__row">
+        <label>${t('exchange.qty')}<input class="input" type="number" min="1" step="1" value="10" data-bond-qty></label>
+        <button class="btn btn--primary" type="submit">${t('exchange.submit')}</button>
+      </div>
+      <p class="muted">${t('exchange.bondFormNote')}</p>
+    </form>`;
+  }
+
+  function bondPositionsHtml() {
+    const rows = bondRows(state);
+    return table({
+      head: [t('exchange.bond'), t('exchange.qty'), t('exchange.bondAvgPrice'),
+        t('exchange.bid'), t('exchange.ask'), t('exchange.marketValue'), t('exchange.unrealized')],
+      rows: rows.map((position) => [
+        position.id,
+        numFmt(position.qty),
+        moneyFmt(position.avgPrice),
+        moneyFmt(position.bid),
+        moneyFmt(position.ask),
+        moneyFmt(position.marketValue),
+        moneyFmt(position.unrealized),
+      ]),
+      empty: t('exchange.bondNoPositions'),
+    });
+  }
+
+  function bondCouponsHtml() {
+    const coupons = state.account.coupons || [];
+    if (!coupons.length) return `<p class="muted">${t('exchange.bondNoCoupons')}</p>`;
+    return table({
+      head: [t('exchange.time'), t('exchange.bond'), t('exchange.qty'), t('exchange.bondCouponAmount')],
+      rows: coupons.slice(0, 5).map((item) => [
+        simDate(item.day),
+        item.id,
+        numFmt(item.qty),
+        moneyFmt(item.amount),
+      ]),
+    });
+  }
+
+  function bondsHtml() {
+    return `<div class="exchange-bonds">
+      <div id="sim-bond-quotes">${bondQuotesHtml()}</div>
+      ${bondFormHtml()}
+      <div class="exchange-bonds__head">
+        <strong>${t('exchange.bondPositions')}</strong>
+        <span class="muted">${t('exchange.bondCouponNote')}</span>
+      </div>
+      <div id="sim-bond-positions">${bondPositionsHtml()}</div>
+      <div class="exchange-bonds__head">
+        <strong>${t('exchange.bondCoupons')}</strong>
+      </div>
+      <div id="sim-bond-coupons">${bondCouponsHtml()}</div>
+    </div>`;
   }
 
   function ordersHtml() {
@@ -215,7 +498,9 @@ export function createExchangeView(ctx) {
   }
 
   function tradesHtml() {
-    const trades = state.account.trades.slice(-10).reverse();
+    const trades = state.account.trades
+      .filter((trade) => !trade.asset || trade.asset === 'stock')
+      .slice(-10).reverse();
     return table({
       head: [t('exchange.time'), t('exchange.order'), t('exchange.ticker'), t('exchange.side'), t('exchange.qty'), t('exchange.price'), t('exchange.fee')],
       rows: trades.map((trade) => [
@@ -314,8 +599,54 @@ export function createExchangeView(ctx) {
     </div>`;
   }
 
+  function etfProfileHtml(cs) {
+    const etf = cs.company;
+    const quote = state.quotes[selected];
+    const nav = etfNav(state, etf);
+    const premium = nav ? (quote.last / nav - 1) * 100 : 0;
+    const shares = etf.sharesOutstanding || 0;
+    const holdings = etfHoldingsRows(state, etf);
+    const metrics = [
+      [t('exchange.etfNav'), moneyFmt(nav)],
+      [t('exchange.etfPremium'), pct(premium, i18n.locale, 2)],
+      [t('exchange.etfExpenseRatio'), pct(etf.expenseRatio, i18n.locale, 2, false)],
+      [t('exchange.last'), moneyFmt(quote.last)],
+      [t('exchange.marketCap'), moneyCompact(quote.last * shares, i18n.locale)],
+      [t('exchange.sharesOutstanding'), compactNumber(shares, i18n.locale)],
+      [t('exchange.etfHoldings'), numFmt(holdings.length)],
+      [t('exchange.sector'), t('exchange.etfSector')],
+    ];
+    return ` <div class="exchange-company">
+      <div class="exchange-company__head">
+        <div><strong>${etf.name}</strong><span class="muted">${selected} · ${t('exchange.etf')}</span></div>
+        <span class="pill pill--ok">${t('exchange.etf')}</span>
+      </div>
+      <p class="muted exchange-company__desc">${etf.description}</p>
+      <div class="exchange-company__meta">
+        ${metrics.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join('')}
+      </div>
+      ${table({
+        head: [t('exchange.etfHolding'), t('exchange.etfHoldingWeight'), t('exchange.last'), t('exchange.change'), t('exchange.etfContribution')],
+        rows: holdings.map((holding) => [
+          `${holding.ticker} · ${holding.name}`,
+          pct(holding.weight * 100, i18n.locale, 2, false),
+          moneyFmt(holding.last),
+          pctFmt(holding.changePct),
+          `${holding.contribution > 0 ? '+' : ''}${pct(holding.contribution, i18n.locale, 2, false)}`,
+        ]),
+        empty: t('exchange.noEtfHoldings'),
+      })}
+    </div>`;
+  }
+
+  function companyActionsHtml() {
+    if (state.companies[selected]?.isEtf) return '';
+    return `<button class="btn btn--ghost btn--sm" type="button" data-statement-link>${t('exchange.viewStatements')}</button>`;
+  }
+
   function companyProfileHtml() {
     const cs = state.companies[selected];
+    if (cs.isEtf) return etfProfileHtml(cs);
     const company = cs.company;
     const quote = state.quotes[selected];
     const report = latestReport(state, selected);
@@ -563,10 +894,25 @@ export function createExchangeView(ctx) {
               id: 'sim-company-card',
               title: t('exchange.companyProfile'),
               subtitle: t('exchange.companyProfileSubtitle'),
-              actions: `<button class="btn btn--ghost btn--sm" type="button" data-statement-link>${t('exchange.viewStatements')}</button>`,
+              actions: `<span id="sim-company-actions">${companyActionsHtml()}</span>`,
               body: `<div id="sim-company">${companyProfileHtml()}</div>`,
             })}
             ${card({ title: t('exchange.positions'), body: `<div id="sim-positions">${positionsHtml()}</div>` })}
+            ${card({
+              title: t('exchange.marginTitle'),
+              subtitle: t('exchange.marginSubtitle'),
+              body: `<div id="sim-shorts">${shortsHtml()}</div><div id="sim-margin">${marginHtml()}</div>`,
+            })}
+            ${card({
+              title: t('exchange.optionTitle'),
+              subtitle: t('exchange.optionSubtitle'),
+              body: `<div id="sim-options">${optionsHtml()}</div>`,
+            })}
+            ${card({
+              title: t('exchange.bondTitle'),
+              subtitle: t('exchange.bondSubtitle'),
+              body: `<div id="sim-bonds">${bondsHtml()}</div>`,
+            })}
             ${card({ title: t('exchange.orders'), body: `<div id="sim-orders">${ordersHtml()}</div>` })}
             ${card({ title: t('exchange.trades'), body: `<div id="sim-trades">${tradesHtml()}</div>` })}
             ${card({ title: t('exchange.dividends'), body: `<div id="sim-dividends">${dividendsHtml()}</div>` })}
@@ -585,6 +931,14 @@ export function createExchangeView(ctx) {
       </div>`;
   }
 
+  function ensureOptionForm() {
+    const key = `${selected}:${state.dayIndex}`;
+    if (key === optionFormKey) return;
+    optionFormKey = key;
+    const node = container.querySelector('#sim-option-form');
+    if (node) node.innerHTML = optionFormHtml();
+  }
+
   function refreshDynamic() {
     if (destroyed) return;
     const set = (selector, html) => {
@@ -595,9 +949,19 @@ export function createExchangeView(ctx) {
     set('#sim-date', simDate(state.dayIndex));
     set('#sim-book', bookHtml());
     set('#sim-positions', positionsHtml());
+    set('#sim-shorts', shortsHtml());
+    set('#sim-margin', marginHtml());
     set('#sim-orders', ordersHtml());
     set('#sim-trades', tradesHtml());
     set('#sim-company', companyProfileHtml());
+    set('#sim-company-actions', companyActionsHtml());
+    set('#sim-option-chain', optionChainHtml());
+    set('#sim-option-positions', optionPositionsHtml());
+    set('#sim-option-settlements', optionSettlementsHtml());
+    set('#sim-bond-quotes', bondQuotesHtml());
+    set('#sim-bond-positions', bondPositionsHtml());
+    set('#sim-bond-coupons', bondCouponsHtml());
+    ensureOptionForm();
     set('#sim-dividends', dividendsHtml());
     set('#sim-macro', macroHtml());
     set('#sim-news', newsHtml());
@@ -671,6 +1035,61 @@ export function createExchangeView(ctx) {
     paint(true);
   }
 
+  function submitOption(event) {
+    event.preventDefault();
+    if (clock && clock.running) {
+      toastFn(t('exchange.pauseFirst'), 'warn');
+      return;
+    }
+    const form = event.target;
+    const type = form.querySelector('[data-option-type]').value;
+    const expiryDays = Number(form.querySelector('[data-option-expiry]').value);
+    const strike = Number(form.querySelector('[data-option-strike]').value);
+    const side = form.querySelector('[data-option-side]').value;
+    const qty = Number(form.querySelector('[data-option-qty]').value);
+    optionExpiryDays = expiryDays;
+    const result = submitOptionOrder(state, {
+      ticker: selected,
+      type,
+      strike,
+      expiryDay: state.dayIndex + expiryDays,
+      qty,
+      side,
+    });
+    if (!result.ok) {
+      toastFn(t(`exchange.error.${result.error}`), 'error');
+      return;
+    }
+    toastFn(t(side === 'buy' ? 'exchange.optionOpened' : 'exchange.optionSold', {
+      qty: numFmt(result.qty),
+      strike: moneyFmt(result.contract.strike),
+      type: t(`exchange.${type}`),
+    }), 'success');
+    paint(true);
+  }
+
+  function submitBond(event) {
+    event.preventDefault();
+    if (clock && clock.running) {
+      toastFn(t('exchange.pauseFirst'), 'warn');
+      return;
+    }
+    const form = event.target;
+    const id = form.querySelector('[data-bond-id]').value;
+    const side = form.querySelector('[data-bond-side]').value;
+    const qty = Number(form.querySelector('[data-bond-qty]').value);
+    const result = submitBondOrder(state, { id, side, qty });
+    if (!result.ok) {
+      toastFn(t(`exchange.error.${result.error}`), 'error');
+      return;
+    }
+    toastFn(t(side === 'buy' ? 'exchange.bondBought' : 'exchange.bondSold', {
+      qty: numFmt(result.qty),
+      id,
+    }), 'success');
+    paint(true);
+  }
+
   function persist() {
     try {
       localStorage.setItem(SAVE_KEY, serializeExchange(state));
@@ -691,6 +1110,8 @@ export function createExchangeView(ctx) {
       state = createExchangeEngine({ seed: 'sim-exchange-v1' });
       selected = 'NCRT';
       timeframe = '5m';
+      optionExpiryDays = 30;
+      optionFormKey = '';
       try {
         localStorage.removeItem(SAVE_KEY);
       } catch (error) {
@@ -707,8 +1128,20 @@ export function createExchangeView(ctx) {
 
   function bind() {
     container.addEventListener('click', (event) => {
-      const target = event.target.closest('[data-sim-play],[data-sim-speed],[data-sim-step],[data-sim-step-day],[data-sim-save],[data-sim-reset],[data-sim-tf],[data-sim-cancel],[data-statement-link],[data-rights-subscribe],[data-rights-decline]');
+      const target = event.target.closest('[data-sim-play],[data-sim-speed],[data-sim-step],[data-sim-step-day],[data-sim-save],[data-sim-reset],[data-sim-tf],[data-sim-cancel],[data-statement-link],[data-rights-subscribe],[data-rights-decline],[data-option-close]');
       if (!target) return;
+      if (target.matches('[data-option-close]')) {
+        const result = closeOptionPosition(
+          state, target.dataset.optionClose, Number(target.dataset.optionCloseQty),
+        );
+        if (!result.ok) {
+          toastFn(t(`exchange.error.${result.error}`), 'error');
+          return;
+        }
+        toastFn(t('exchange.optionClosed', { qty: numFmt(result.qty) }), 'success');
+        paint(true);
+        return;
+      }
       if (target.matches('[data-rights-subscribe]')) {
         const offer = openRightsOfferings(state).find((item) => item.ticker === selected);
         if (!offer) return;
@@ -791,15 +1224,22 @@ export function createExchangeView(ctx) {
         const limit = container.querySelector('[data-sim-limit]');
         if (limit) limit.disabled = event.target.value !== 'limit';
       }
+      if (event.target.matches('[data-option-expiry]')) {
+        optionExpiryDays = Number(event.target.value);
+        paint(true);
+      }
     });
     container.addEventListener('submit', (event) => {
       if (event.target.matches('[data-sim-form]')) submit(event);
+      if (event.target.matches('[data-option-form]')) submitOption(event);
+      if (event.target.matches('[data-bond-form]')) submitBond(event);
     });
   }
 
   function mountPage() {
     if (chart) chart.destroy();
     chart = null;
+    optionFormKey = '';
     container.innerHTML = pageHtml();
     const canvas = container.querySelector('#sim-chart');
     if (canvas) {

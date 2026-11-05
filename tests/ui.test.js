@@ -336,7 +336,7 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   view.render();
   const root = host;
   assert(root.textContent.includes('exchange.title'), 'page title');
-  assertEqual(root.querySelectorAll('[data-sim-ticker] option').length, 50, '50 companies');
+  assertEqual(root.querySelectorAll('[data-sim-ticker] option').length, 54, '50 companies plus 4 ETFs');
   assert(root.querySelector('#sim-chart'), 'chart canvas');
   assert(root.querySelector('#sim-book'), 'order book');
   assert(root.querySelector('#sim-company'), 'company profile card');
@@ -349,6 +349,12 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assert(root.querySelector('#sim-macro'), 'macro economy card');
   assert(root.textContent.includes('exchange.macroPolicyRate'), 'macro indicators');
   assert(root.querySelector('#sim-news'), 'market news card');
+  assert(root.querySelector('#sim-option-chain table'), 'option chain');
+  assert(root.querySelector('[data-option-form]'), 'option ticket');
+  assert(root.querySelector('#sim-option-positions'), 'option positions');
+  assert(root.querySelector('#sim-bond-quotes table'), 'bond quotes');
+  assert(root.querySelector('[data-bond-form]'), 'bond ticket');
+  assert(root.querySelector('#sim-bond-positions'), 'bond positions');
   assert(root.querySelector('[data-sim-step-day]'), 'advance-day button');
   root.querySelector('[data-sim-step="1"]').click();
   assertEqual(root.querySelector('#sim-clock').textContent, '09:30:01', 'one second step');
@@ -366,6 +372,12 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assertEqual(root.querySelector('#sim-clock').textContent, '09:30:00', 'next session opens at 09:30');
   assertEqual(root.querySelector('#sim-date').textContent, simDate(1), 'date refreshed after advancing');
   assert(root.querySelector('#sim-news').textContent.includes('exchange.news.'), 'next-day news headlines render');
+  const tickerSelect = root.querySelector('[data-sim-ticker]');
+  tickerSelect.value = 'MKT';
+  tickerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  assert(root.textContent.includes('exchange.etfNav'), 'ETF profile renders');
+  assert(root.querySelector('#sim-company table'), 'ETF holdings table');
+  assert(!root.querySelector('[data-statement-link]'), 'ETF hides the statement link');
   view.destroy();
   host.remove();
 });

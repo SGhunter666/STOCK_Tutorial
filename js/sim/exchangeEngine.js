@@ -29,6 +29,19 @@ import {
 import {
   macroImpactForCompany, macroDriftForCompany, sectorSpillovers,
 } from './industryModel.js';
+import {
+  createMarginState, normalizeAccount, canOpenPosition,
+  marginSnapshot, evaluateMarginCall, accrueMarginCharges, nextLiquidationTarget,
+  recordForcedLiquidation, closeMarginCall,
+} from './margin.js';
+import { SIM_ETF_INSTRUMENTS, SIM_ETF_TICKERS, etfNav } from './etfs.js';
+import {
+  SIM_OPTION_FEE_BPS, optionContract, buyOption, sellOption, closeOption,
+  settleExpiredOptions, optionCollateral, optionMarketValue,
+} from './options.js';
+import {
+  accrueBondCoupons, bondMarketValue, buyBond, sellBond,
+} from './bonds.js';
 
 export const SIM_START_CASH = 100_000;
 export const SIM_EXCHANGE_SAVE_KEY = 'sma.sim-exchange-v1';
@@ -51,6 +64,27 @@ export function simClock(second) {
   const mm = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
   const ss = String(total % 60).padStart(2, '0');
   return `${hh}:${mm}:${ss}`;
+}
+
+export function resolveOrderAction(side, action) {
+  if (['openLong', 'closeLong', 'openShort', 'closeShort'].includes(action)) return action;
+  if (side === 'short') return 'openShort';
+  if (side === 'cover') return 'closeShort';
+  if (side === 'sell') return 'closeLong';
+  if (side === 'buy') return 'openLong';
+  return '';
+}
+
+export function bookSideForAction(action) {
+  return action === 'openLong' || action === 'closeShort' ? 'buy' : 'sell';
+}
+
+export function actionForOrder(order) {
+  return resolveOrderAction(order.side, order.action);
+}
+
+export function bookSideForOrder(order) {
+  return order.bookSide || bookSideForAction(actionForOrder(order));
 }
 
 function mmSizeFor(company) {
@@ -85,6 +119,7 @@ function createCompanyState(company) {
     capitalFactor: 1,
     haltedUntilDay: null,
     delisted: false,
+    isEtf: Boolean(company.isEtf),
     lastReportQuarter: reportQuarterForDay(0),
   };
 }
@@ -175,18 +210,39 @@ function recordTrade(state, ticker, price, qty, meta) {
 }
 
 function applyAccountFill(state, order, qty, price, fee) {
-  const account = state.account;
+  const account = normalizeAccount(state.account);
   const ticker = order.ticker;
-  const position = account.positions[ticker] || { qty: 0, avgCost: 0 };
+  const action = actionForOrder(order);
   const gross = qty * price;
-  if (order.side === 'buy') {
+  if (action === 'openLong') {
+    const position = account.positions[ticker] || { qty: 0, avgCost: 0 };
     account.cash -= gross + fee;
     const nextQty = position.qty + qty;
     position.avgCost = nextQty ? (position.avgCost * position.qty + gross) / nextQty : 0;
     position.qty = nextQty;
     account.positions[ticker] = position;
+  } else if (action === 'openShort') {
+    const short = account.shorts[ticker] || { qty: 0, avgPrice: 0, openedDay: state.dayIndex };
+    account.cash += gross - fee;
+    const nextQty = short.qty + qty;
+    short.avgPrice = nextQty ? (short.avgPrice * short.qty + gross) / nextQty : 0;
+    short.qty = nextQty;
+    short.openedDay = short.openedDay ?? state.dayIndex;
+    account.shorts[ticker] = short;
+  } else if (action === 'closeShort') {
+    const short = account.shorts[ticker];
+    if (!short || short.qty < qty) {
+      order.status = 'rejected';
+      order.reason = 'insufficientShortShares';
+      return false;
+    }
+    account.cash -= gross + fee;
+    account.realizedPnl += (short.avgPrice - price) * qty;
+    short.qty -= qty;
+    if (short.qty <= 0) delete account.shorts[ticker];
   } else {
-    if (position.qty < qty) {
+    const position = account.positions[ticker];
+    if (!position || position.qty < qty) {
       order.status = 'rejected';
       order.reason = 'insufficientShares';
       return false;
@@ -200,6 +256,7 @@ function applyAccountFill(state, order, qty, price, fee) {
   account.trades.push({
     ticker,
     side: order.side,
+    action,
     qty,
     price: round(price, 4),
     fee,
@@ -240,24 +297,37 @@ function findOrder(state, id) {
 }
 
 function applyFills(state, order, fills, { rest = false, keepResting = false } = {}) {
+  const action = actionForOrder(order);
   for (const fill of fills) {
-    if (order.owner === 'player' && order.side === 'buy') {
+    if (order.owner === 'player') {
       const fee = round(fill.qty * fill.price * SIM_FEE_BPS / 10_000, 2);
-      if (fill.qty * fill.price + fee > state.account.cash + 1e-9) {
-        order.reason = 'insufficientCash';
-        break;
-      }
-    }
-    if (order.owner === 'player' && order.side === 'sell') {
-      const held = state.account.positions[order.ticker]?.qty || 0;
-      if (fill.qty > held) {
-        order.reason = 'insufficientShares';
-        break;
+      if (action === 'openLong' || action === 'openShort') {
+        if (!canOpenPosition(state, {
+          action,
+          gross: fill.qty * fill.price,
+          fee,
+          excludeOrderId: order.id,
+        })) {
+          order.reason = 'insufficientMargin';
+          break;
+        }
+      } else if (action === 'closeLong') {
+        const held = state.account.positions[order.ticker]?.qty || 0;
+        if (fill.qty > held) {
+          order.reason = 'insufficientShares';
+          break;
+        }
+      } else if (action === 'closeShort') {
+        const held = state.account.shorts?.[order.ticker]?.qty || 0;
+        if (fill.qty > held) {
+          order.reason = 'insufficientShortShares';
+          break;
+        }
       }
     }
     const cs = state.companies[order.ticker];
     if (fill.counterparty === 'mm' && cs) {
-      cs.inventory += order.side === 'buy' ? -fill.qty : fill.qty;
+      cs.inventory += bookSideForOrder(order) === 'buy' ? -fill.qty : fill.qty;
     }
     recordTrade(state, order.ticker, fill.price, fill.qty, {
       orderId: order.id, owner: order.owner,
@@ -270,7 +340,8 @@ function applyFills(state, order, fills, { rest = false, keepResting = false } =
   }
   const remaining = order.qty - (order.filledQty || 0);
   const canRest = (rest || keepResting) && order.type === 'limit'
-    && !['insufficientCash', 'insufficientShares'].includes(order.reason);
+    && !['insufficientCash', 'insufficientShares', 'insufficientMargin',
+      'insufficientShortShares', 'noShortPosition'].includes(order.reason);
   if (remaining > 0 && canRest) {
     order.status = order.filledQty ? 'partiallyFilled' : 'open';
     order.remaining = remaining;
@@ -278,10 +349,11 @@ function applyFills(state, order, fills, { rest = false, keepResting = false } =
     if (rest) {
       state.companies[order.ticker].book.addResting({
         id: order.id,
-        side: order.side,
+        side: bookSideForOrder(order),
         price: order.limitPrice,
         remaining,
         owner: order.owner,
+        action: order.action,
       });
     }
   } else if (remaining > 0) {
@@ -306,14 +378,25 @@ function availableShares(state, ticker) {
   const held = state.account.positions[ticker]?.qty || 0;
   const reserved = state.orders
     .filter((order) => order.owner === 'player' && order.ticker === ticker
-      && order.side === 'sell' && isLiveOrder(order))
+      && actionForOrder(order) === 'closeLong' && isLiveOrder(order))
+    .reduce((sum, order) => sum + (order.qty - (order.filledQty || 0)), 0);
+  return Math.max(0, held - reserved);
+}
+
+export function availableShortShares(state, ticker) {
+  const symbol = String(ticker || '').toUpperCase();
+  const held = state.account.shorts?.[symbol]?.qty || 0;
+  const reserved = state.orders
+    .filter((order) => order.owner === 'player' && order.ticker === symbol
+      && actionForOrder(order) === 'closeShort' && isLiveOrder(order))
     .reduce((sum, order) => sum + (order.qty - (order.filledQty || 0)), 0);
   return Math.max(0, held - reserved);
 }
 
 export function availableCash(state) {
   const reserved = state.orders
-    .filter((order) => order.owner === 'player' && order.side === 'buy' && isLiveOrder(order))
+    .filter((order) => order.owner === 'player'
+      && actionForOrder(order) === 'openLong' && isLiveOrder(order))
     .reduce((sum, order) => {
       const price = order.type === 'limit'
         ? order.limitPrice
@@ -331,13 +414,15 @@ export function isTradingHalted(state, ticker) {
 }
 
 export function submitOrder(state, {
-  ticker, side, type = 'market', qty, limitPrice = null, owner = 'player', pending = false,
+  ticker, side, action = '', type = 'market', qty, limitPrice = null,
+  owner = 'player', pending = false,
 }) {
   const symbol = String(ticker || '').toUpperCase();
   const cs = state.companies[symbol];
   const quantity = Math.floor(Number(qty) || 0);
-  const orderSide = side === 'sell' ? 'sell' : side === 'buy' ? 'buy' : '';
-  if (!cs || !orderSide || quantity <= 0) {
+  const orderAction = resolveOrderAction(side, action);
+  const orderSide = side === 'short' || side === 'cover' ? side : side === 'sell' ? 'sell' : side === 'buy' ? 'buy' : '';
+  if (!cs || !orderAction || !orderSide || quantity <= 0) {
     return { ok: false, error: 'order.invalid' };
   }
   if (cs.delisted) {
@@ -349,18 +434,40 @@ export function submitOrder(state, {
   if (type === 'limit' && !Number.isFinite(Number(limitPrice))) {
     return { ok: false, error: 'order.limit' };
   }
+  const bookSide = bookSideForAction(orderAction);
   const price = type === 'limit'
     ? round(Number(limitPrice), 2)
-    : orderSide === 'buy' ? state.quotes[symbol]?.ask : state.quotes[symbol]?.bid;
+    : bookSide === 'buy' ? state.quotes[symbol]?.ask : state.quotes[symbol]?.bid;
   if (!Number.isFinite(price) || price <= 0) {
     return { ok: false, error: 'order.noLiquidity' };
   }
   if (owner === 'player') {
-    if (orderSide === 'buy') {
-      const cost = quantity * price * (1 + SIM_FEE_BPS / 10_000);
-      if (cost > availableCash(state)) return { ok: false, error: 'order.insufficientCash' };
-    } else if (quantity > availableShares(state, symbol)) {
-      return { ok: false, error: 'order.insufficientShares' };
+    const fee = round(quantity * price * SIM_FEE_BPS / 10_000, 2);
+    if (orderAction === 'openLong') {
+      if ((state.account.shorts?.[symbol]?.qty || 0) > 0) {
+        return { ok: false, error: 'order.shortPosition' };
+      }
+      if (!canOpenPosition(state, {
+        action: orderAction, gross: quantity * price, fee,
+      })) return { ok: false, error: 'order.insufficientMargin' };
+    } else if (orderAction === 'openShort') {
+      if ((state.account.positions[symbol]?.qty || 0) > 0) {
+        return { ok: false, error: 'order.longPosition' };
+      }
+      if (!canOpenPosition(state, {
+        action: orderAction, gross: quantity * price, fee,
+      })) return { ok: false, error: 'order.insufficientMargin' };
+    } else if (orderAction === 'closeLong') {
+      if (quantity > availableShares(state, symbol)) {
+        return { ok: false, error: 'order.insufficientShares' };
+      }
+    } else if (orderAction === 'closeShort') {
+      if (!(state.account.shorts?.[symbol]?.qty > 0)) {
+        return { ok: false, error: 'order.noShortPosition' };
+      }
+      if (quantity > availableShortShares(state, symbol)) {
+        return { ok: false, error: 'order.insufficientShortShares' };
+      }
     }
   }
 
@@ -368,6 +475,8 @@ export function submitOrder(state, {
     id: `O${state.nextOrderId}`,
     ticker: symbol,
     side: orderSide,
+    action: orderAction,
+    bookSide,
     type: type === 'limit' ? 'limit' : 'market',
     qty: quantity,
     limitPrice: type === 'limit' ? price : null,
@@ -390,7 +499,7 @@ export function submitOrder(state, {
     return { ok: true, order };
   }
 
-  const result = cs.book.match(order);
+  const result = cs.book.match({ ...order, side: bookSide, remaining: quantity });
   applyFills(state, order, result.fills, { rest: true });
   if (order.status === 'open' || order.status === 'partiallyFilled') {
     // applyFills already rested limit remainders; market remainders are cancelled.
@@ -414,7 +523,11 @@ function activatePending(state) {
     }
     if (isTradingHalted(state, order.ticker)) continue;
     order.status = 'open';
-    const result = cs.book.match(order);
+    const result = cs.book.match({
+      ...order,
+      side: bookSideForOrder(order),
+      remaining: order.qty - (order.filledQty || 0),
+    });
     applyFills(state, order, result.fills, { rest: true });
     if (order.status === 'open' || order.status === 'partiallyFilled') {
       if (order.type === 'market' && order.remaining > 0 && !order.reason) {
@@ -437,6 +550,71 @@ export function cancelOrder(state, orderId, owner = 'player') {
   order.reason = 'order.cancelled';
   order.active = false;
   return { ok: true, order };
+}
+
+/** Immediate dealer fill for a European option, still on the unified ledger. */
+export function submitOptionOrder(state, {
+  ticker, type, strike, expiryDay, qty, side,
+}) {
+  const symbol = String(ticker || '').toUpperCase();
+  const cs = state.companies[symbol];
+  const quantity = Math.floor(Number(qty) || 0);
+  if (!cs || !['call', 'put'].includes(type) || quantity <= 0) {
+    return { ok: false, error: 'option.invalid' };
+  }
+  if (cs.delisted) return { ok: false, error: 'order.delisted' };
+  if (isTradingHalted(state, symbol)) return { ok: false, error: 'order.halted' };
+  if (Number(expiryDay) <= state.dayIndex) return { ok: false, error: 'option.expired' };
+  const contract = optionContract(state, { ticker: symbol, type, strike, expiryDay });
+  if (!contract) return { ok: false, error: 'option.invalid' };
+  const quote = side === 'sell' ? contract.bid : contract.ask;
+  const gross = round(quote * contract.contractSize * quantity, 2);
+  const fee = round(gross * SIM_OPTION_FEE_BPS / 10_000, 2);
+  if (side === 'buy') {
+    if (gross + fee > availableCash(state) + 1e-9) {
+      return { ok: false, error: 'option.insufficientCash' };
+    }
+    const result = buyOption(state, { contract, qty: quantity, fee });
+    if (!result.ok) return result;
+    checkMargin(state);
+    return { ...result, side, fee };
+  }
+  if (side === 'sell') {
+    const snapshot = marginSnapshot(state);
+    const extra = {
+      ticker: symbol,
+      type,
+      strike: contract.strike,
+      expiryDay: contract.expiryDay,
+      qty: -quantity,
+    };
+    const extraCollateral = round(
+      optionCollateral(state, [extra]) - optionCollateral(state), 2,
+    );
+    if (snapshot.equity - fee < snapshot.initialRequirement + extraCollateral) {
+      return { ok: false, error: 'option.insufficientMargin' };
+    }
+    const result = sellOption(state, { contract, qty: quantity, fee });
+    if (!result.ok) return result;
+    checkMargin(state);
+    return { ...result, side, fee };
+  }
+  return { ok: false, error: 'option.invalid' };
+}
+
+export function closeOptionPosition(state, key, qty) {
+  const result = closeOption(state, key, qty);
+  if (result.ok) checkMargin(state);
+  return result;
+}
+
+/** Dealer-quoted corporate bond trade on the same cash account and ledger. */
+export function submitBondOrder(state, { id, side, qty }) {
+  if (side === 'buy') {
+    return buyBond(state, id, qty, { availableCash: availableCash(state) });
+  }
+  if (side === 'sell') return sellBond(state, id, qty);
+  return { ok: false, error: 'bond.invalid' };
 }
 
 function executeResting(state) {
@@ -481,6 +659,7 @@ function updateFactors(state, rng) {
   }
   for (const ticker of Object.keys(state.companies)) {
     const cs = state.companies[ticker];
+    if (cs.isEtf) continue;
     if (isTradingHalted(state, ticker)) continue;
     const company = cs.company;
     const sector = state.sectorFactors[company.sector] || 0;
@@ -525,6 +704,21 @@ function applySplit(state, ticker, ratio, quarter) {
     position.avgCost = wholeQty ? position.avgCost / ratio : 0;
     if (wholeQty <= 0) delete state.account.positions[ticker];
   }
+  const short = state.account.shorts?.[ticker];
+  let shortCashInLieu = 0;
+  if (short && short.qty > 0) {
+    const rawQty = short.qty * ratio;
+    const wholeQty = Math.floor(rawQty + 1e-9);
+    const fractional = rawQty - wholeQty;
+    if (fractional > 1e-9) {
+      shortCashInLieu = round(fractional * postPrice, 2);
+      state.account.cash -= shortCashInLieu;
+      state.account.realizedPnl += (short.avgPrice / ratio - postPrice) * fractional;
+    }
+    short.qty = wholeQty;
+    short.avgPrice = wholeQty ? short.avgPrice / ratio : 0;
+    if (wholeQty <= 0) delete state.account.shorts[ticker];
+  }
   cs.splitFactor *= ratio;
   cs.last /= ratio;
   cs.fairValue /= ratio;
@@ -548,6 +742,7 @@ function applySplit(state, ticker, ratio, quarter) {
     reverse: ratio < 1,
     fractionalShares: round(fractionalShares, 4),
     cashInLieu,
+    shortCashInLieu,
   });
   if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
 }
@@ -778,6 +973,22 @@ function applyStructuralAction(state, action) {
       });
       if (state.account.dividends.length > 300) state.account.dividends.splice(0, 100);
     }
+    const shortQty = state.account.shorts?.[action.ticker]?.qty || 0;
+    const shortAmount = round(shortQty * dps, 2);
+    if (shortAmount > 0) {
+      state.account.cash -= shortAmount;
+      state.account.dividends.push({
+        ticker: action.ticker,
+        qty: shortQty,
+        dps: round(dps, 4),
+        amount: -shortAmount,
+        type: 'special',
+        side: 'short',
+        quarter: action.quarter,
+        day: state.dayIndex,
+      });
+      if (state.account.dividends.length > 300) state.account.dividends.splice(0, 100);
+    }
     event = {
       type: 'spinoff',
       ticker: action.ticker,
@@ -807,7 +1018,7 @@ function applyStructuralAction(state, action) {
 function applyDividends(state, quarter) {
   for (const ticker of Object.keys(state.companies)) {
     const cs = state.companies[ticker];
-    if (cs.delisted) continue;
+    if (cs.delisted || cs.isEtf) continue;
     const company = cs.company;
     const annual = Math.max(0, company.financials.dividendPerShare);
     const dps = annual / 4 / cs.splitFactor;
@@ -819,6 +1030,22 @@ function applyDividends(state, quarter) {
       state.account.cash += amount;
       state.account.dividends.push({
         ticker, qty, dps: round(dps, 4), amount, quarter, day: state.dayIndex,
+      });
+      if (state.account.dividends.length > 300) state.account.dividends.splice(0, 100);
+    }
+    const shortQty = state.account.shorts?.[ticker]?.qty || 0;
+    const shortAmount = round(shortQty * dps, 2);
+    if (shortAmount > 0) {
+      state.account.cash -= shortAmount;
+      state.account.dividends.push({
+        ticker,
+        qty: shortQty,
+        dps: round(dps, 4),
+        amount: -shortAmount,
+        type: 'short',
+        side: 'short',
+        quarter,
+        day: state.dayIndex,
       });
       if (state.account.dividends.length > 300) state.account.dividends.splice(0, 100);
     }
@@ -839,7 +1066,7 @@ function releaseReports(state) {
   const latest = reportQuarterForDay(state.dayIndex);
   for (const ticker of Object.keys(state.companies)) {
     const cs = state.companies[ticker];
-    if (cs.delisted) continue;
+    if (cs.delisted || cs.isEtf) continue;
     while (cs.lastReportQuarter < latest) {
       const quarter = cs.lastReportQuarter + 1;
       cs.lastReportQuarter = quarter;
@@ -875,7 +1102,9 @@ function releaseReports(state) {
 
 function releaseNews(state) {
   if (state.dayIndex <= state.lastNewsDay) return;
-  const companies = Object.values(state.companies).map((cs) => cs.company);
+  const companies = Object.values(state.companies)
+    .filter((cs) => !cs.isEtf)
+    .map((cs) => cs.company);
   const events = newsForDay({ seed: state.seed, dayIndex: state.dayIndex, companies });
   for (const event of events) {
     const impacts = new Map();
@@ -883,6 +1112,7 @@ function releaseNews(state) {
       if (state.companies[event.ticker]) impacts.set(event.ticker, event.impact);
     } else if (event.scope === 'sector') {
       for (const cs of Object.values(state.companies)) {
+        if (cs.isEtf) continue;
         if (cs.company.sector === event.sector) {
           impacts.set(cs.company.ticker, event.impact * 0.85);
         }
@@ -891,6 +1121,7 @@ function releaseNews(state) {
         const spill = event.impact * link.weight * 0.55;
         if (!Number.isFinite(spill) || Math.abs(spill) < 1e-6) continue;
         for (const cs of Object.values(state.companies)) {
+          if (cs.isEtf) continue;
           if (cs.company.sector === link.sector) {
             impacts.set(cs.company.ticker, (impacts.get(cs.company.ticker) || 0) + spill);
           }
@@ -898,6 +1129,7 @@ function releaseNews(state) {
       }
     } else {
       for (const cs of Object.values(state.companies)) {
+        if (cs.isEtf) continue;
         impacts.set(cs.company.ticker, event.impact * cs.company.beta);
       }
     }
@@ -921,7 +1153,7 @@ function applyMacro(state) {
   if (state.dayIndex <= state.lastMacroDay) return;
   const sectorTotals = {};
   for (const cs of Object.values(state.companies)) {
-    if (cs.delisted) continue;
+    if (cs.delisted || cs.isEtf) continue;
     const sector = cs.company.sector;
     sectorTotals[sector] = sectorTotals[sector] || { sum: 0, count: 0 };
     sectorTotals[sector].sum += cs.fairValue
@@ -941,6 +1173,7 @@ function applyMacro(state) {
   state.macro = result.macro;
   state.lastMacroDay = state.dayIndex;
   for (const cs of Object.values(state.companies)) {
+    if (cs.isEtf) continue;
     const drift = macroDriftForCompany({ macro: state.macro, company: cs.company });
     const eventImpact = result.event
       ? macroImpactForCompany({ event: result.event, company: cs.company })
@@ -959,7 +1192,7 @@ function releaseGuidance(state) {
   const chosen = rng.shuffle(tickers).slice(0, count);
   for (const ticker of chosen) {
     const cs = state.companies[ticker];
-    if (!cs || cs.delisted) continue;
+    if (!cs || cs.delisted || cs.isEtf) continue;
     if ((state.guidance || []).some(
       (item) => item.ticker === ticker && item.quarter === quarter,
     )) continue;
@@ -1068,6 +1301,31 @@ function releaseBankruptcies(state) {
     const loss = round(qty * (position?.avgCost || 0), 2);
     if (position) delete state.account.positions[plan.ticker];
     if (loss > 0) state.account.realizedPnl -= loss;
+    const short = state.account.shorts?.[plan.ticker];
+    const shortQty = short?.qty || 0;
+    const shortPnl = shortQty ? round((short.avgPrice - 0.01) * shortQty, 2) : 0;
+    if (short) {
+      state.account.cash = round(state.account.cash - shortQty * 0.01, 2);
+      state.account.realizedPnl += shortPnl;
+      delete state.account.shorts[plan.ticker];
+      state.account.trades.push({
+        ticker: plan.ticker,
+        side: 'cover',
+        action: 'closeShort',
+        qty: shortQty,
+        price: 0.01,
+        fee: 0,
+        orderId: `BANKRUPTCY-${plan.ticker}-${state.dayIndex}`,
+        day: state.dayIndex,
+        second: state.second,
+        date: simDate(state.dayIndex),
+        time: simClock(state.second),
+        source: 'bankruptcy',
+      });
+      if (state.account.trades.length > 500) {
+        state.account.trades.splice(0, state.account.trades.length - 500);
+      }
+    }
     cs.delisted = true;
     cs.haltedUntilDay = null;
     cs.last = 0.01;
@@ -1089,6 +1347,8 @@ function releaseBankruptcies(state) {
       day: state.dayIndex,
       qty,
       loss,
+      shortQty,
+      shortPnl,
     });
   }
   if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
@@ -1161,9 +1421,87 @@ function runSimulatedTraders(state, rng) {
   }
 }
 
+/**
+ * Evaluates margin, cancels working orders and liquidates the largest positions
+ * until maintenance margin is restored. Closing trades are always allowed.
+ */
+export function checkMargin(state) {
+  const result = evaluateMarginCall(state);
+  if (!result.liquidate) return result;
+  const account = normalizeAccount(state.account);
+  for (const order of state.orders) {
+    if (order.owner !== 'player' || !isLiveOrder(order)) continue;
+    const cs = state.companies[order.ticker];
+    if (cs) cs.book.removeOrder(order.id);
+    order.status = 'cancelled';
+    order.reason = 'marginCall';
+    order.active = false;
+  }
+  for (let step = 0; step < 12; step += 1) {
+    const snapshot = marginSnapshot(state);
+    if (snapshot.maintenanceExcess >= 0 && snapshot.equity > 0) break;
+    const target = nextLiquidationTarget(state);
+    if (!target) break;
+    if (target.action === 'closeShortOption') {
+      const closed = closeOption(state, target.key, target.qty);
+      if (!closed.ok) break;
+      recordForcedLiquidation(state, {
+        ticker: target.ticker,
+        action: target.action,
+        qty: closed.qty,
+        price: closed.price,
+        orderId: target.key,
+      });
+      continue;
+    }
+    const side = target.action === 'closeLong' ? 'sell' : 'cover';
+    const submitted = submitOrder(state, {
+      ticker: target.ticker,
+      side,
+      action: target.action,
+      type: 'market',
+      qty: target.qty,
+      owner: 'player',
+    });
+    if (!submitted.ok || !submitted.order.filledQty) break;
+    recordForcedLiquidation(state, {
+      ticker: target.ticker,
+      action: target.action,
+      qty: submitted.order.filledQty,
+      price: submitted.order.avgPrice,
+      orderId: submitted.order.id,
+    });
+  }
+  const after = marginSnapshot(state);
+  if (after.equity >= after.maintenanceRequirement) {
+    closeMarginCall(state, 'liquidated');
+  } else if (account.margin.call) {
+    account.margin.call.dueDay = state.dayIndex;
+  }
+  return { ...result, snapshot: after, liquidated: true };
+}
+
+/** Marks every ETF to its weighted basket NAV and reprices its market-maker ladder. */
+function updateEtfValuation(state) {
+  for (const ticker of state.etfTickers || SIM_ETF_TICKERS) {
+    const cs = state.companies[ticker];
+    if (!cs || cs.delisted) continue;
+    const nav = etfNav(state, ticker);
+    if (!Number.isFinite(nav) || nav <= 0) continue;
+    cs.fairValue = nav;
+    cs.last = nav;
+    cs.high = Math.max(cs.high, cs.last);
+    cs.low = Math.min(cs.low, cs.last);
+    refreshLiquidity(state, ticker);
+    updateQuote(state, ticker);
+  }
+}
+
 export function createExchangeEngine({ seed = 'sim-exchange-v1', cash = SIM_START_CASH } = {}) {
   const companies = {};
-  for (const company of SIM_COMPANIES) companies[company.ticker] = createCompanyState(company);
+  for (const company of [...SIM_COMPANIES, ...SIM_ETF_INSTRUMENTS]) {
+    companies[company.ticker] = createCompanyState(company);
+  }
   const sectors = [...new Set(SIM_COMPANIES.map((company) => company.sector))];
   const state = {
     seed,
@@ -1174,6 +1512,7 @@ export function createExchangeEngine({ seed = 'sim-exchange-v1', cash = SIM_STAR
     marketFactor: 0,
     sectorFactors: Object.fromEntries(sectors.map((sector) => [sector, 0])),
     companies,
+    etfTickers: [...SIM_ETF_TICKERS],
     quotes: {},
     orders: [],
     trades: [],
@@ -1191,6 +1530,12 @@ export function createExchangeEngine({ seed = 'sim-exchange-v1', cash = SIM_STAR
       cash,
       initialCash: cash,
       positions: {},
+      shorts: {},
+      options: [],
+      optionSettlements: [],
+      bonds: {},
+      coupons: [],
+      margin: createMarginState(),
       realizedPnl: 0,
       fees: 0,
       trades: [],
@@ -1199,6 +1544,7 @@ export function createExchangeEngine({ seed = 'sim-exchange-v1', cash = SIM_STAR
     stats: { tradeCount: 0, volume: 0, seconds: 0 },
   };
   for (const ticker of Object.keys(companies)) updateQuote(state, ticker);
+  updateEtfValuation(state);
   return state;
 }
 
@@ -1232,11 +1578,17 @@ export function advanceSecond(state) {
     state.dayIndex += 1;
     state.second = 0;
     expireRights(state);
+    settleExpiredOptions(state);
+    accrueBondCoupons(state);
     releaseBankruptcies(state);
     releaseHalts(state);
     applyMacro(state);
     applyCorporateActions(state);
     for (const ticker of Object.keys(state.companies)) updateQuote(state, ticker);
+    updateEtfValuation(state);
+    const account = normalizeAccount(state.account);
+    accrueMarginCharges(state, state.dayIndex - account.margin.lastAccrualDay);
+    checkMargin(state);
     state.rngState = rng.getState();
     return state;
   }
@@ -1246,9 +1598,11 @@ export function advanceSecond(state) {
     refreshLiquidity(state, ticker);
     updateQuote(state, ticker);
   }
+  updateEtfValuation(state);
   activatePending(state);
   executeResting(state);
   runSimulatedTraders(state, rng);
+  if (state.second % 10 === 0) checkMargin(state);
   pruneOrders(state);
   state.rngState = rng.getState();
   return state;
@@ -1285,20 +1639,21 @@ export function getBook(state, ticker, levels = 6) {
 export function latestReport(state, ticker) {
   const symbol = String(ticker || '').toUpperCase();
   const cs = state.companies[symbol];
-  return cs ? adjustedReport(state, symbol, latestReportForDay(cs.company, state.dayIndex)) : null;
+  if (!cs || cs.isEtf) return null;
+  return adjustedReport(state, symbol, latestReportForDay(cs.company, state.dayIndex));
 }
 
 export function reportHistory(state, ticker, count = 4) {
   const symbol = String(ticker || '').toUpperCase();
   const cs = state.companies[symbol];
-  if (!cs) return [];
+  if (!cs || cs.isEtf) return [];
   return reportHistoryForDay(cs.company, state.dayIndex, count)
     .map((report) => adjustedReport(state, symbol, report));
 }
 
 export function dividendPerShare(state, ticker) {
   const cs = state.companies[String(ticker || '').toUpperCase()];
-  if (!cs) return 0;
+  if (!cs || cs.isEtf) return 0;
   return round(Math.max(0, cs.company.financials.dividendPerShare) / cs.splitFactor, 4);
 }
 
@@ -1307,6 +1662,11 @@ export function equity(state) {
   for (const [ticker, position] of Object.entries(state.account.positions)) {
     value += position.qty * (state.quotes[ticker]?.last || 0);
   }
+  for (const [ticker, short] of Object.entries(state.account.shorts || {})) {
+    value -= short.qty * (state.quotes[ticker]?.last || 0);
+  }
+  value += optionMarketValue(state);
+  value += bondMarketValue(state);
   return round(value, 2);
 }
 
@@ -1408,9 +1768,13 @@ export function deserializeExchange(snapshot) {
   state.macro.events = Array.isArray(state.macro.events) ? state.macro.events : [];
   state.lastMacroDay = Number.isFinite(data.lastMacroDay) ? data.lastMacroDay : state.dayIndex;
   state.guidance = data.guidance || [];
-  state.account = data.account || state.account;
+  state.account = normalizeAccount(data.account || state.account);
   state.account.dividends = state.account.dividends || [];
   state.stats = data.stats || state.stats;
+  for (const order of state.orders) {
+    order.action = actionForOrder(order);
+    order.bookSide = bookSideForOrder(order);
+  }
   const baselineReportQuarter = reportQuarterForDay(state.dayIndex);
   for (const [ticker, saved] of Object.entries(data.companies)) {
     const cs = state.companies[ticker];
@@ -1439,12 +1803,14 @@ export function deserializeExchange(snapshot) {
       const cs = state.companies[order.ticker];
       if (cs) cs.book.addResting({
         id: order.id,
-        side: order.side,
+        side: bookSideForOrder(order),
         price: order.limitPrice,
         remaining: order.qty - (order.filledQty || 0),
         owner: order.owner,
+        action: order.action,
       });
     }
   }
+  updateEtfValuation(state);
   return state;
 }

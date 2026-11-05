@@ -1090,7 +1090,7 @@ test('exchange controls, statuses and errors are localised', () => {
   [
     'eyebrow', 'title', 'subtitle', 'simBadge', 'clockTitle', 'clockSubtitle', 'session',
     'play', 'pause', 'stepSecond', 'stepMinute', 'stepDay', 'save', 'reset', 'saved', 'saveFailed',
-    'resetConfirm', 'resetDone', 'ticker', 'side', 'buy', 'sell', 'qty', 'type', 'market',
+    'resetConfirm', 'resetDone', 'ticker', 'side', 'buy', 'sell', 'short', 'cover', 'qty', 'type', 'market',
     'limit', 'limitPrice', 'optional', 'submit', 'ticketNote', 'book', 'bookSubtitle',
     'ticket', 'ticketSubtitle', 'positions', 'orders', 'trades', 'empty', 'order', 'orderStatus',
     'filled', 'fee', 'fees', 'time', 'price', 'size', 'volume', 'bid', 'ask', 'fairValue',
@@ -1102,6 +1102,24 @@ test('exchange controls, statuses and errors are localised', () => {
     'rightsTitle', 'rightsSubtitle', 'noRights', 'rightsTerms', 'rightsEntitled',
     'rightsCost', 'rightsNone', 'rightsInsufficientCash', 'rightsSubscribe',
     'rightsDecline', 'rightsSubscribed', 'rightsDeclined',
+    'marginTitle', 'marginSubtitle', 'shortAvgPrice', 'noShorts', 'longValue',
+    'shortValue', 'initialMargin', 'maintenanceMargin', 'marginExcess',
+    'buyingPower', 'borrowedCash', 'accruedCharges', 'marginRates',
+    'marginCallText', 'marginNoCall', 'chargeType', 'chargeAmount',
+    'forcedLiquidation', 'forcedLiquidationText', 'marginTicketNote',
+    'etf', 'etfNav', 'etfPremium', 'etfExpenseRatio', 'etfSector', 'etfHoldings',
+    'etfHolding', 'etfHoldingWeight', 'etfContribution', 'noEtfHoldings', 'change',
+    'optionTitle', 'optionSubtitle', 'optionDealer', 'optionContractSize',
+    'optionStrike', 'optionType', 'optionExpiry', 'optionDays', 'optionQty',
+    'optionMark', 'optionDaysLeft', 'optionLong', 'optionShort', 'optionClose',
+    'optionClosed', 'optionNoPositions', 'optionNoSettlements', 'optionIntrinsic',
+    'optionCash', 'optionEmpty', 'optionChainNote', 'optionFormNote',
+    'callBidAsk', 'putBidAsk', 'call', 'put', 'optionOpened', 'optionSold',
+    'optionValue', 'bondValue',
+    'bondTitle', 'bondSubtitle', 'bond', 'bondIssuer', 'bondYears', 'bondCoupon',
+    'bondRating', 'bondYield', 'bondAvgPrice', 'bondPositions', 'bondNoPositions',
+    'bondCoupons', 'bondNoCoupons', 'bondCouponAmount', 'bondCouponNote',
+    'bondFormNote', 'bondBought', 'bondSold', 'bondEmpty',
     'reportRevenue', 'reportNetIncome', 'reportEps',
     'reportGrossMargin', 'reportOperatingMargin', 'reportNetMargin', 'reportOperatingCashFlow',
     'reportAssets', 'reportLiabilities', 'reportEquity', 'reportCash',
@@ -1168,9 +1186,22 @@ test('exchange controls, statuses and errors are localised', () => {
   for (const status of ['pending', 'open', 'partiallyFilled', 'filled', 'cancelled', 'rejected']) {
     check(`exchange.status.${status}`);
   }
+  for (const status of ['ok', 'call', 'liquidation']) {
+    check(`exchange.marginStatus.${status}`);
+  }
+  for (const charge of ['interest', 'borrowFee']) {
+    check(`exchange.charge.${charge}`);
+  }
   for (const key of [
     'order.invalid', 'order.limit', 'order.noLiquidity', 'order.insufficientCash',
     'order.insufficientShares', 'order.halted', 'order.delisted',
+    'order.insufficientMargin', 'order.noShortPosition', 'order.insufficientShortShares',
+    'order.shortPosition', 'order.longPosition',
+    'option.invalid', 'option.expired', 'option.insufficientCash',
+    'option.insufficientMargin', 'option.positionConflict', 'option.noPosition',
+    'option.insufficientContracts',
+    'bond.invalid', 'bond.noPosition', 'bond.insufficient', 'bond.insufficientCash',
+    'bond.delisted',
     'rights.closed', 'rights.none', 'rights.insufficientCash',
     'order.notFound', 'order.notOpen',
   ]) {

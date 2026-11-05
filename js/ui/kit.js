@@ -76,7 +76,7 @@ export function table({ head, rows, className = '', empty = '' }) {
     <div class="table-wrap ${className}">
       <table class="table">
         <thead><tr>${head.map((cell) => `<th>${cell}</th>`).join('')}</tr></thead>
-        <tbody>${rows.map((row) => `<tr>${row}</tr>`).join('')}</tbody>
+        <tbody>${rows.map((row) => `<tr>${Array.isArray(row) ? row.map((cell) => `<td>${cell}</td>`).join('') : row}</tr>`).join('')}</tbody>
       </table>
     </div>`;
 }
