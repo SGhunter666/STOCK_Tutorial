@@ -12,9 +12,15 @@ import {
   createMinuteSeries, applyTradeToSeries, finalizeDay, getSeriesCandles,
 } from './minuteSeries.js';
 import {
-  reportQuarterForDay, getQuarterReport, expectedEps, latestReportForDay,
+  reportQuarterForDay, getQuarterReport, latestReportForDay,
   reportHistoryForDay, plannedSplitsForQuarter, isDividendDay, dividendQuarterForDay,
-  isGuidanceDay, guidanceQuarterForDay, SIM_QUARTER_DAYS,
+  isGuidanceDay, guidanceQuarterForDay, isCapitalActionDay, capitalQuarterForDay,
+  plannedCapitalActionsForQuarter, adjustReportForCapitalActions,
+  isStructuralActionDay, structuralQuarterForDay, plannedStructuralActionsForQuarter,
+  adjustReportForStructuralActions, isHaltDay, haltQuarterForDay, plannedHaltsForQuarter,
+  isRightsDay, rightsQuarterForDay, plannedRightsForQuarter,
+  isBankruptcyDay, bankruptcyQuarterForDay, plannedBankruptciesForQuarter,
+  reportDayForQuarter, splitFactorThrough, SIM_QUARTER_DAYS,
 } from './fundamentals.js';
 import { newsForDay } from './news.js';
 import {
@@ -76,6 +82,9 @@ function createCompanyState(company) {
     book,
     series: createMinuteSeries(),
     splitFactor: 1,
+    capitalFactor: 1,
+    haltedUntilDay: null,
+    delisted: false,
     lastReportQuarter: reportQuarterForDay(0),
   };
 }
@@ -122,6 +131,7 @@ function shockQuote(state, ticker, impact) {
   if (!Number.isFinite(impact) || impact === 0) return false;
   const cs = state.companies[ticker];
   if (!cs) return false;
+  if (isTradingHalted(state, ticker)) return false;
   const factor = 1 + impact;
   cs.last = Math.max(0.01, cs.last * factor);
   cs.fairValue = Math.max(0.01, cs.fairValue * factor);
@@ -301,7 +311,7 @@ function availableShares(state, ticker) {
   return Math.max(0, held - reserved);
 }
 
-function availableCash(state) {
+export function availableCash(state) {
   const reserved = state.orders
     .filter((order) => order.owner === 'player' && order.side === 'buy' && isLiveOrder(order))
     .reduce((sum, order) => {
@@ -314,6 +324,12 @@ function availableCash(state) {
   return state.account.cash - reserved;
 }
 
+export function isTradingHalted(state, ticker) {
+  const cs = state.companies[String(ticker || '').toUpperCase()];
+  return Boolean(cs && (cs.delisted
+    || (Number.isFinite(cs.haltedUntilDay) && state.dayIndex <= cs.haltedUntilDay)));
+}
+
 export function submitOrder(state, {
   ticker, side, type = 'market', qty, limitPrice = null, owner = 'player', pending = false,
 }) {
@@ -323,6 +339,12 @@ export function submitOrder(state, {
   const orderSide = side === 'sell' ? 'sell' : side === 'buy' ? 'buy' : '';
   if (!cs || !orderSide || quantity <= 0) {
     return { ok: false, error: 'order.invalid' };
+  }
+  if (cs.delisted) {
+    return { ok: false, error: 'order.delisted' };
+  }
+  if (isTradingHalted(state, symbol)) {
+    return { ok: false, error: 'order.halted' };
   }
   if (type === 'limit' && !Number.isFinite(Number(limitPrice))) {
     return { ok: false, error: 'order.limit' };
@@ -390,6 +412,7 @@ function activatePending(state) {
       order.active = false;
       continue;
     }
+    if (isTradingHalted(state, order.ticker)) continue;
     order.status = 'open';
     const result = cs.book.match(order);
     applyFills(state, order, result.fills, { rest: true });
@@ -458,6 +481,7 @@ function updateFactors(state, rng) {
   }
   for (const ticker of Object.keys(state.companies)) {
     const cs = state.companies[ticker];
+    if (isTradingHalted(state, ticker)) continue;
     const company = cs.company;
     const sector = state.sectorFactors[company.sector] || 0;
     const idio = rng.normal() * company.vol * 0.012;
@@ -482,12 +506,24 @@ function cancelCorporateOrders(state, ticker, reason) {
 
 function applySplit(state, ticker, ratio, quarter) {
   const cs = state.companies[ticker];
-  if (!cs || ratio <= 0) return;
+  if (!cs || ratio <= 0 || cs.delisted) return;
   cancelCorporateOrders(state, ticker, 'corporateAction');
+  const postPrice = cs.last / ratio;
+  let fractionalShares = 0;
+  let cashInLieu = 0;
   const position = state.account.positions[ticker];
   if (position) {
-    position.qty *= ratio;
-    position.avgCost /= ratio;
+    const rawQty = position.qty * ratio;
+    const wholeQty = Math.floor(rawQty + 1e-9);
+    fractionalShares = rawQty - wholeQty;
+    if (fractionalShares > 1e-9) {
+      cashInLieu = round(fractionalShares * postPrice, 2);
+      state.account.cash += cashInLieu;
+      state.account.realizedPnl += cashInLieu - position.avgCost * fractionalShares;
+    }
+    position.qty = wholeQty;
+    position.avgCost = wholeQty ? position.avgCost / ratio : 0;
+    if (wholeQty <= 0) delete state.account.positions[ticker];
   }
   cs.splitFactor *= ratio;
   cs.last /= ratio;
@@ -499,19 +535,279 @@ function applySplit(state, ticker, ratio, quarter) {
   cs.ema /= ratio;
   cs.volume *= ratio;
   cs.inventory *= ratio;
-  cs.mmSize *= ratio;
+  cs.mmSize = Math.max(1, Math.round(cs.mmSize * ratio));
   cs.book = new SimOrderBook(ticker);
   refreshLiquidity(state, ticker);
   updateQuote(state, ticker);
   state.corporateActions.push({
-    type: 'split', ticker, ratio, quarter, day: state.dayIndex,
+    type: 'split',
+    ticker,
+    ratio,
+    quarter,
+    day: state.dayIndex,
+    reverse: ratio < 1,
+    fractionalShares: round(fractionalShares, 4),
+    cashInLieu,
   });
+  if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
+}
+
+function capitalShares(cs) {
+  return cs.company.sharesOutstanding * cs.splitFactor * cs.capitalFactor;
+}
+
+function applyCapitalAction(state, action) {
+  const cs = state.companies[action.ticker];
+  if (!cs || !['buyback', 'offering'].includes(action.type) || cs.delisted) return;
+  const shares = capitalShares(cs);
+  const ratio = Math.max(0, Math.min(0.25, action.ratio));
+  const price = Math.max(0.01, cs.last);
+  const shareFactor = action.type === 'buyback' ? 1 - ratio : 1 + ratio;
+  const sharesDelta = shares * (shareFactor - 1);
+  const cashDelta = action.type === 'buyback'
+    ? -round(Math.abs(sharesDelta) * price, 2)
+    : round(sharesDelta * price * 0.97, 2);
+  const impact = action.type === 'buyback'
+    ? Math.min(0.03, ratio * 0.75)
+    : -Math.min(0.04, ratio * 0.35);
+  cs.capitalFactor *= shareFactor;
+  shockQuote(state, action.ticker, impact);
+  const event = {
+    type: action.type,
+    ticker: action.ticker,
+    quarter: action.quarter,
+    ratio,
+    day: state.dayIndex,
+    shareFactor: round(shareFactor, 6),
+    sharesDelta: round(sharesDelta, 2),
+    cashDelta,
+    impact: round(impact, 4),
+  };
+  state.capitalActions.push(event);
+  state.corporateActions.push(event);
+  if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
+}
+
+function releaseRights(state) {
+  if (!isRightsDay(state.dayIndex)) return;
+  const quarter = rightsQuarterForDay(state.dayIndex);
+  for (const terms of plannedRightsForQuarter(quarter)) {
+    const cs = state.companies[terms.ticker];
+    if (!cs || cs.delisted) continue;
+    const shares = capitalShares(cs);
+    const newShares = shares * terms.ratio;
+    const price = round(Math.max(0.01, cs.last * terms.discount), 2);
+    const proceeds = round(newShares * price, 2);
+    const shareFactor = 1 + terms.ratio;
+    const impact = -Math.min(0.02, terms.ratio * 0.08);
+    cs.capitalFactor *= shareFactor;
+    state.capitalActions.push({
+      type: 'rights',
+      ticker: terms.ticker,
+      quarter,
+      day: state.dayIndex,
+      ratio: terms.ratio,
+      shareFactor,
+      cashDelta: proceeds,
+      impact: round(impact, 4),
+    });
+    shockQuote(state, terms.ticker, impact);
+    const entitled = Math.floor((state.account.positions[terms.ticker]?.qty || 0) * terms.ratio);
+    const offering = {
+      id: `R${state.dayIndex}-${terms.ticker}`,
+      ticker: terms.ticker,
+      quarter,
+      day: state.dayIndex,
+      deadline: state.dayIndex + Math.max(1, terms.duration),
+      ratio: terms.ratio,
+      price,
+      totalShares: round(newShares, 2),
+      proceeds,
+      entitled,
+      status: 'open',
+    };
+    state.rightsOfferings.push(offering);
+    state.corporateActions.push({
+      type: 'rights',
+      ticker: terms.ticker,
+      quarter,
+      day: state.dayIndex,
+      ratio: terms.ratio,
+      price,
+      deadline: offering.deadline,
+      entitled,
+    });
+  }
+  if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
+}
+
+export function openRightsOfferings(state) {
+  return (state.rightsOfferings || []).filter(
+    (offer) => offer.status === 'open' && state.dayIndex < offer.deadline,
+  );
+}
+
+export function subscribeRights(state, offeringId) {
+  const offer = (state.rightsOfferings || []).find((item) => item.id === offeringId);
+  if (!offer || offer.status !== 'open' || state.dayIndex >= offer.deadline) {
+    return { ok: false, error: 'rights.closed' };
+  }
+  if (offer.entitled <= 0) return { ok: false, error: 'rights.none' };
+  const qty = offer.entitled;
+  const cost = round(qty * offer.price, 2);
+  if (cost > availableCash(state)) return { ok: false, error: 'rights.insufficientCash' };
+  state.account.cash -= cost;
+  const position = state.account.positions[offer.ticker] || { qty: 0, avgCost: 0 };
+  const nextQty = position.qty + qty;
+  position.avgCost = nextQty ? (position.avgCost * position.qty + cost) / nextQty : 0;
+  position.qty = nextQty;
+  state.account.positions[offer.ticker] = position;
+  state.account.trades.push({
+    ticker: offer.ticker,
+    side: 'buy',
+    qty,
+    price: offer.price,
+    fee: 0,
+    orderId: `RIGHTS-${offer.id}`,
+    day: state.dayIndex,
+    second: state.second,
+    date: simDate(state.dayIndex),
+    time: simClock(state.second),
+    source: 'rights',
+  });
+  if (state.account.trades.length > 500) state.account.trades.splice(0, state.account.trades.length - 500);
+  offer.status = 'subscribed';
+  offer.subscribedQty = qty;
+  offer.subscribedCost = cost;
+  state.corporateActions.push({
+    type: 'rightsSubscribed',
+    ticker: offer.ticker,
+    quarter: offer.quarter,
+    day: state.dayIndex,
+    qty,
+    price: offer.price,
+    cost,
+  });
+  return { ok: true, offering: offer, qty, cost };
+}
+
+export function declineRights(state, offeringId) {
+  const offer = (state.rightsOfferings || []).find((item) => item.id === offeringId);
+  if (!offer || offer.status !== 'open' || state.dayIndex >= offer.deadline) {
+    return { ok: false, error: 'rights.closed' };
+  }
+  offer.status = 'declined';
+  state.corporateActions.push({
+    type: 'rightsDeclined',
+    ticker: offer.ticker,
+    quarter: offer.quarter,
+    day: state.dayIndex,
+    entitled: offer.entitled,
+  });
+  return { ok: true, offering: offer };
+}
+
+function expireRights(state) {
+  for (const offer of state.rightsOfferings || []) {
+    if (offer.status === 'open' && state.dayIndex >= offer.deadline) {
+      offer.status = 'lapsed';
+      state.corporateActions.push({
+        type: 'rightsLapsed',
+        ticker: offer.ticker,
+        quarter: offer.quarter,
+        day: state.dayIndex,
+        deadline: offer.deadline,
+      });
+    }
+  }
+}
+
+function applyStructuralAction(state, action) {
+  const cs = state.companies[action.ticker];
+  if (!cs || !['merger', 'spinoff'].includes(action.type) || cs.delisted) return;
+  const company = cs.company;
+  const annualRevenue = company.financials.revenue;
+  const grossMargin = company.financials.grossProfit / Math.max(1, annualRevenue);
+  let event;
+  if (action.type === 'merger') {
+    const targetRevenue = annualRevenue * action.revenueShare;
+    const price = targetRevenue * action.purchaseMultiple;
+    const cashPaid = price * 0.4;
+    const debtIssued = price - cashPaid;
+    const revenueDelta = targetRevenue / 4;
+    const cogsDelta = revenueDelta * (1 - grossMargin);
+    const interestDelta = debtIssued * 0.04 / 4;
+    event = {
+      type: 'merger',
+      ticker: action.ticker,
+      quarter: action.quarter,
+      day: state.dayIndex,
+      revenueShare: action.revenueShare,
+      purchasePrice: round(price, 2),
+      ppeDelta: round(price, 2),
+      cashDelta: -round(cashPaid, 2),
+      debtDelta: round(debtIssued, 2),
+      revenueDelta: round(revenueDelta, 2),
+      cogsDelta: round(cogsDelta, 2),
+      operatingExpensesDelta: 0,
+      interestDelta: round(interestDelta, 2),
+      investingDelta: -round(price, 2),
+      financingDelta: round(debtIssued, 2),
+      impact: round(Math.min(0.03, action.revenueShare * 1.0), 4),
+    };
+  } else {
+    const assetShare = Math.min(0.25, action.assetShare);
+    const removedAssets = company.financials.totalAssets * assetShare;
+    const revenueDelta = -annualRevenue * assetShare / 4;
+    const cogsDelta = revenueDelta * (1 - grossMargin);
+    const proceeds = removedAssets * 0.9;
+    const shares = capitalShares(cs);
+    const dps = proceeds / Math.max(1, shares);
+    const qty = state.account.positions[action.ticker]?.qty || 0;
+    const amount = round(qty * dps, 2);
+    if (amount > 0) {
+      state.account.cash += amount;
+      state.account.dividends.push({
+        ticker: action.ticker,
+        qty,
+        dps: round(dps, 4),
+        amount,
+        type: 'special',
+        quarter: action.quarter,
+        day: state.dayIndex,
+      });
+      if (state.account.dividends.length > 300) state.account.dividends.splice(0, 100);
+    }
+    event = {
+      type: 'spinoff',
+      ticker: action.ticker,
+      quarter: action.quarter,
+      day: state.dayIndex,
+      assetShare,
+      ppeDelta: -round(removedAssets, 2),
+      cashDelta: 0,
+      debtDelta: 0,
+      revenueDelta: round(revenueDelta, 2),
+      cogsDelta: round(cogsDelta, 2),
+      operatingExpensesDelta: 0,
+      interestDelta: 0,
+      investingDelta: round(proceeds, 2),
+      financingDelta: -round(proceeds, 2),
+      distributionPerShare: round(dps, 4),
+      distributionAmount: amount,
+      impact: round(Math.min(0.035, assetShare * 0.3), 4),
+    };
+  }
+  shockQuote(state, action.ticker, event.impact);
+  state.structuralActions.push(event);
+  state.corporateActions.push(event);
   if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
 }
 
 function applyDividends(state, quarter) {
   for (const ticker of Object.keys(state.companies)) {
     const cs = state.companies[ticker];
+    if (cs.delisted) continue;
     const company = cs.company;
     const annual = Math.max(0, company.financials.dividendPerShare);
     const dps = annual / 4 / cs.splitFactor;
@@ -543,6 +839,7 @@ function releaseReports(state) {
   const latest = reportQuarterForDay(state.dayIndex);
   for (const ticker of Object.keys(state.companies)) {
     const cs = state.companies[ticker];
+    if (cs.delisted) continue;
     while (cs.lastReportQuarter < latest) {
       const quarter = cs.lastReportQuarter + 1;
       cs.lastReportQuarter = quarter;
@@ -551,7 +848,7 @@ function releaseReports(state) {
       const guidance = (state.guidance || []).find(
         (item) => item.ticker === ticker && item.quarter === quarter,
       );
-      const expected = guidance ? guidance.eps : expectedEps(cs.company, quarter);
+      const expected = guidance ? guidance.eps : expectedEpsForState(state, ticker, quarter);
       const surprise = Math.abs(expected) > 1e-9
         ? (report.income.eps - expected) / Math.abs(expected)
         : 0;
@@ -624,6 +921,7 @@ function applyMacro(state) {
   if (state.dayIndex <= state.lastMacroDay) return;
   const sectorTotals = {};
   for (const cs of Object.values(state.companies)) {
+    if (cs.delisted) continue;
     const sector = cs.company.sector;
     sectorTotals[sector] = sectorTotals[sector] || { sum: 0, count: 0 };
     sectorTotals[sector].sum += cs.fairValue
@@ -661,11 +959,11 @@ function releaseGuidance(state) {
   const chosen = rng.shuffle(tickers).slice(0, count);
   for (const ticker of chosen) {
     const cs = state.companies[ticker];
-    if (!cs) continue;
+    if (!cs || cs.delisted) continue;
     if ((state.guidance || []).some(
       (item) => item.ticker === ticker && item.quarter === quarter,
     )) continue;
-    const baseline = expectedEps(cs.company, quarter);
+    const baseline = expectedEpsForState(state, ticker, quarter);
     if (!Number.isFinite(baseline) || baseline <= 0) continue;
     const delta = Math.max(-0.15, Math.min(0.15, rng.normal() * 0.08));
     const eps = round(baseline * (1 + delta), 4);
@@ -688,6 +986,114 @@ function releaseGuidance(state) {
   if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
 }
 
+function capitalActionsThrough(state, ticker, reportDay) {
+  return (state.capitalActions || []).filter(
+    (action) => action.ticker === ticker && action.day <= reportDay,
+  );
+}
+
+function adjustedReport(state, ticker, report) {
+  if (!report) return report;
+  let result = adjustReportForCapitalActions(
+    report,
+    capitalActionsThrough(state, ticker, report.reportDay),
+  );
+  const structural = (state.structuralActions || []).filter(
+    (action) => action.ticker === ticker && action.day <= report.reportDay,
+  );
+  if (structural.length) {
+    result = adjustReportForStructuralActions(result, structural);
+  }
+  return result;
+}
+
+/** Consensus EPS adjusted for splits and share-count changes since the prior report. */
+function expectedEpsForState(state, ticker, quarter) {
+  const cs = state.companies[ticker];
+  if (!cs) return 0;
+  const base = getQuarterReport(cs.company, quarter - 1);
+  if (!base) return 0;
+  const prior = adjustedReport(state, ticker, base);
+  const currentFactor = splitFactorThrough(ticker, reportDayForQuarter(quarter));
+  const sincePrior = capitalActionsThrough(state, ticker, reportDayForQuarter(quarter))
+    .filter((action) => action.day > base.reportDay)
+    .reduce((factor, action) => factor * (action.shareFactor || 1), 1);
+  return prior.income.eps * (prior.splitFactor / currentFactor) / sincePrior;
+}
+
+function releaseCapitalActions(state) {
+  if (!isCapitalActionDay(state.dayIndex)) return;
+  const quarter = capitalQuarterForDay(state.dayIndex);
+  for (const action of plannedCapitalActionsForQuarter(quarter)) {
+    applyCapitalAction(state, action);
+  }
+}
+
+function releaseStructuralActions(state) {
+  if (!isStructuralActionDay(state.dayIndex)) return;
+  const quarter = structuralQuarterForDay(state.dayIndex);
+  for (const action of plannedStructuralActionsForQuarter(quarter)) {
+    applyStructuralAction(state, action);
+  }
+}
+
+function releaseHalts(state) {
+  if (!isHaltDay(state.dayIndex)) return;
+  const quarter = haltQuarterForDay(state.dayIndex);
+  for (const halt of plannedHaltsForQuarter(quarter)) {
+    const cs = state.companies[halt.ticker];
+    if (!cs || cs.delisted) continue;
+    cancelCorporateOrders(state, halt.ticker, 'halt');
+    cs.haltedUntilDay = state.dayIndex + Math.max(1, halt.duration) - 1;
+    state.corporateActions.push({
+      type: 'halt',
+      ticker: halt.ticker,
+      quarter,
+      day: state.dayIndex,
+      until: cs.haltedUntilDay,
+    });
+  }
+  if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
+}
+
+function releaseBankruptcies(state) {
+  if (!isBankruptcyDay(state.dayIndex)) return;
+  const quarter = bankruptcyQuarterForDay(state.dayIndex);
+  for (const plan of plannedBankruptciesForQuarter(quarter)) {
+    const cs = state.companies[plan.ticker];
+    if (!cs || cs.delisted) continue;
+    cancelCorporateOrders(state, plan.ticker, 'bankruptcy');
+    const position = state.account.positions[plan.ticker];
+    const qty = position?.qty || 0;
+    const loss = round(qty * (position?.avgCost || 0), 2);
+    if (position) delete state.account.positions[plan.ticker];
+    if (loss > 0) state.account.realizedPnl -= loss;
+    cs.delisted = true;
+    cs.haltedUntilDay = null;
+    cs.last = 0.01;
+    cs.fairValue = 0.01;
+    cs.prevClose = 0.01;
+    cs.open = 0.01;
+    cs.high = 0.01;
+    cs.low = 0.01;
+    cs.ema = 0.01;
+    cs.volume = 0;
+    cs.trades = 0;
+    cs.inventory = 0;
+    refreshLiquidity(state, plan.ticker);
+    updateQuote(state, plan.ticker);
+    state.corporateActions.push({
+      type: 'bankruptcy',
+      ticker: plan.ticker,
+      quarter,
+      day: state.dayIndex,
+      qty,
+      loss,
+    });
+  }
+  if (state.corporateActions.length > 300) state.corporateActions.splice(0, 100);
+}
+
 function applyCorporateActions(state) {
   if (state.dayIndex > 0 && state.dayIndex % SIM_QUARTER_DAYS === 0) {
     const quarter = state.dayIndex / SIM_QUARTER_DAYS;
@@ -698,6 +1104,9 @@ function applyCorporateActions(state) {
       applyDividends(state, dividendQuarterForDay(state.dayIndex));
     }
   }
+  releaseCapitalActions(state);
+  releaseRights(state);
+  releaseStructuralActions(state);
   releaseGuidance(state);
   releaseReports(state);
   releaseNews(state);
@@ -738,6 +1147,7 @@ function runSimulatedTraders(state, rng) {
   const count = 2 + rng.int(0, 3);
   for (let index = 0; index < count; index += 1) {
     const ticker = tickers[rng.int(0, tickers.length - 1)];
+    if (isTradingHalted(state, ticker)) continue;
     const intent = chooseSimulatedOrder(state, ticker, rng);
     if (!intent) continue;
     submitOrder(state, {
@@ -769,6 +1179,9 @@ export function createExchangeEngine({ seed = 'sim-exchange-v1', cash = SIM_STAR
     trades: [],
     reports: [],
     corporateActions: [],
+    capitalActions: [],
+    structuralActions: [],
+    rightsOfferings: [],
     news: [],
     lastNewsDay: 0,
     macro: createMacroState(),
@@ -818,6 +1231,9 @@ export function advanceSecond(state) {
     }
     state.dayIndex += 1;
     state.second = 0;
+    expireRights(state);
+    releaseBankruptcies(state);
+    releaseHalts(state);
     applyMacro(state);
     applyCorporateActions(state);
     for (const ticker of Object.keys(state.companies)) updateQuote(state, ticker);
@@ -867,13 +1283,17 @@ export function getBook(state, ticker, levels = 6) {
 }
 
 export function latestReport(state, ticker) {
-  const cs = state.companies[String(ticker || '').toUpperCase()];
-  return cs ? latestReportForDay(cs.company, state.dayIndex) : null;
+  const symbol = String(ticker || '').toUpperCase();
+  const cs = state.companies[symbol];
+  return cs ? adjustedReport(state, symbol, latestReportForDay(cs.company, state.dayIndex)) : null;
 }
 
 export function reportHistory(state, ticker, count = 4) {
-  const cs = state.companies[String(ticker || '').toUpperCase()];
-  return cs ? reportHistoryForDay(cs.company, state.dayIndex, count) : [];
+  const symbol = String(ticker || '').toUpperCase();
+  const cs = state.companies[symbol];
+  if (!cs) return [];
+  return reportHistoryForDay(cs.company, state.dayIndex, count)
+    .map((report) => adjustedReport(state, symbol, report));
 }
 
 export function dividendPerShare(state, ticker) {
@@ -928,6 +1348,9 @@ export function serializeExchange(state) {
       ema: cs.ema,
       series: cs.series,
       splitFactor: cs.splitFactor,
+      capitalFactor: cs.capitalFactor,
+      haltedUntilDay: cs.haltedUntilDay,
+      delisted: cs.delisted,
       lastReportQuarter: cs.lastReportQuarter,
       book: {
         mmBids: cs.book.mmBids.map((level) => ({ ...level })),
@@ -949,6 +1372,9 @@ export function serializeExchange(state) {
     trades: state.trades,
     reports: state.reports,
     corporateActions: state.corporateActions,
+    capitalActions: state.capitalActions,
+    structuralActions: state.structuralActions,
+    rightsOfferings: state.rightsOfferings,
     news: state.news,
     lastNewsDay: state.lastNewsDay,
     macro: state.macro,
@@ -973,6 +1399,9 @@ export function deserializeExchange(snapshot) {
   state.trades = data.trades || [];
   state.reports = data.reports || [];
   state.corporateActions = data.corporateActions || [];
+  state.capitalActions = data.capitalActions || [];
+  state.structuralActions = data.structuralActions || [];
+  state.rightsOfferings = data.rightsOfferings || [];
   state.news = data.news || [];
   state.lastNewsDay = Number.isFinite(data.lastNewsDay) ? data.lastNewsDay : state.dayIndex;
   state.macro = { ...createMacroState(), ...(data.macro || {}) };
@@ -988,6 +1417,9 @@ export function deserializeExchange(snapshot) {
     if (!cs) continue;
     Object.assign(cs, saved);
     cs.splitFactor = Number.isFinite(saved.splitFactor) ? saved.splitFactor : 1;
+    cs.capitalFactor = Number.isFinite(saved.capitalFactor) ? saved.capitalFactor : 1;
+    cs.haltedUntilDay = Number.isFinite(saved.haltedUntilDay) ? saved.haltedUntilDay : null;
+    cs.delisted = Boolean(saved.delisted);
     cs.lastReportQuarter = Number.isFinite(saved.lastReportQuarter)
       ? saved.lastReportQuarter
       : baselineReportQuarter;

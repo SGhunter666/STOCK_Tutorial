@@ -343,6 +343,7 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assert(root.textContent.includes('exchange.reportRevenue'), 'quarterly report metrics');
   assert(root.querySelector('#sim-company table'), 'report history table');
   assert(root.textContent.includes('exchange.macroSensitivity'), 'company macro sensitivity');
+  assert(root.textContent.includes('exchange.sharesOutstanding'), 'company share count');
   assert(root.querySelector('#sim-events'), 'company events card');
   assert(root.querySelector('#sim-dividends'), 'dividend ledger card');
   assert(root.querySelector('#sim-macro'), 'macro economy card');
@@ -367,6 +368,68 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assert(root.querySelector('#sim-news').textContent.includes('exchange.news.'), 'next-day news headlines render');
   view.destroy();
   host.remove();
+});
+
+test('exchange company events render buybacks and offerings', () => {
+  const engine = createExchangeEngine({ seed: 'capital-ui' });
+  engine.dayIndex = 151;
+  const buyback = {
+    type: 'buyback', ticker: 'NCRT', quarter: 1, ratio: 0.02, day: 83,
+    shareFactor: 0.98, sharesDelta: -6_400_000, cashDelta: -563_200, impact: 0.015,
+  };
+  const offering = {
+    type: 'offering', ticker: 'NCRT', quarter: 1, ratio: 0.08, day: 83,
+    shareFactor: 1.08, sharesDelta: 25_600_000, cashDelta: 2_083_840, impact: -0.028,
+  };
+  engine.capitalActions.push(buyback, offering);
+  engine.corporateActions.push(buyback, offering);
+  engine.corporateActions.push({
+    type: 'merger', ticker: 'NCRT', quarter: 2, day: 171,
+    purchasePrice: 1_000_000_000, revenueShare: 0.02, impact: 0.02,
+  });
+  engine.corporateActions.push({
+    type: 'spinoff', ticker: 'NCRT', quarter: 3, day: 234,
+    assetShare: 0.12, distributionPerShare: 1.25, impact: 0.03,
+  });
+  engine.corporateActions.push({
+    type: 'split', ticker: 'NCRT', quarter: 5, day: 315,
+    ratio: 0.5, reverse: true, cashInLieu: 1.25,
+  });
+  engine.corporateActions.push({
+    type: 'bankruptcy', ticker: 'NCRT', quarter: 4, day: 307,
+    qty: 100, loss: 5_000,
+  });
+  engine.rightsOfferings.push({
+    id: 'R151-NCRT', ticker: 'NCRT', quarter: 2, day: 151, deadline: 156,
+    ratio: 0.2, price: 50, entitled: 20, status: 'open',
+  });
+  engine.companies.NCRT.capitalFactor = 0.98;
+  localStorage.setItem(SIM_EXCHANGE_SAVE_KEY, serializeExchange(engine));
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const view = createExchangeView({ i18n: fakeI18n, toast: () => {} });
+  view.mount(host);
+  view.render();
+  assert(host.textContent.includes('exchange.eventBuyback'), 'buyback event title');
+  assert(host.textContent.includes('exchange.eventBuybackText'), 'buyback event copy');
+  assert(host.textContent.includes('exchange.eventOffering'), 'offering event title');
+  assert(host.textContent.includes('exchange.eventOfferingText'), 'offering event copy');
+  assert(host.textContent.includes('exchange.eventMerger'), 'merger event title');
+  assert(host.textContent.includes('exchange.eventMergerText'), 'merger event copy');
+  assert(host.textContent.includes('exchange.eventSpinoff'), 'spin-off event title');
+  assert(host.textContent.includes('exchange.eventSpinoffText'), 'spin-off event copy');
+  assert(host.textContent.includes('exchange.eventReverseSplit'), 'reverse split event title');
+  assert(host.textContent.includes('exchange.eventReverseSplitText'), 'reverse split event copy');
+  assert(host.textContent.includes('exchange.eventBankruptcy'), 'bankruptcy event title');
+  assert(host.textContent.includes('exchange.eventBankruptcyText'), 'bankruptcy event copy');
+  assert(host.textContent.includes('exchange.rightsTerms'), 'rights terms render');
+  assert(host.querySelector('[data-rights-subscribe]'), 'rights subscribe action');
+  assert(host.querySelector('[data-rights-decline]'), 'rights decline action');
+  host.querySelector('[data-rights-subscribe]').click();
+  assert(host.textContent.includes('exchange.noRights'), 'rights card clears after subscription');
+  view.destroy();
+  host.remove();
+  localStorage.removeItem(SIM_EXCHANGE_SAVE_KEY);
 });
 
 test('exchange statements page renders all three statements from a saved snapshot', () => {

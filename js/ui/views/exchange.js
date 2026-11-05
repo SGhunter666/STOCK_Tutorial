@@ -4,13 +4,14 @@
  */
 import { pageHead, card, statCard, segmented, table } from '../kit.js';
 import { CandlestickChart } from '../chart.js';
-import { money, moneyCompact, num, pct } from '../../core/format.js';
+import { money, moneyCompact, compactNumber, num, pct } from '../../core/format.js';
 import { toast } from '../components.js';
 import { sectorLabel } from '../labels.js';
 import { SIM_COMPANIES } from '../../sim/companies50.js';
 import {
   createExchangeEngine, advanceSecond, advanceDay, getCandles, getBook,
-  submitOrder, cancelOrder, equity, positionRows, openOrderRows,
+  submitOrder, cancelOrder, equity, positionRows, openOrderRows, isTradingHalted,
+  openRightsOfferings, subscribeRights, declineRights, availableCash,
   serializeExchange, deserializeExchange, simClock, simDate,
   latestReport, reportHistory, dividendPerShare, SIM_EXCHANGE_SAVE_KEY,
 } from '../../sim/exchangeEngine.js';
@@ -87,12 +88,18 @@ export function createExchangeView(ctx) {
     if (!q) return '';
     const bid = q.bid === null ? '—' : moneyFmt(q.bid);
     const ask = q.ask === null ? '—' : moneyFmt(q.ask);
+    const halted = isTradingHalted(state, selected);
+    const delisted = Boolean(state.companies[selected]?.delisted);
+    const until = state.companies[selected]?.haltedUntilDay;
     return `
       <div class="exchange-quote">
         <div class="exchange-quote__main">
           <span class="pill pill--ok">${t('exchange.simBadge')}</span>
           <strong>${selected}</strong>
           <span class="muted">${state.companies[selected].company.name}</span>
+          ${delisted
+    ? `<span class="pill pill--warn">${t('exchange.delisted')}</span>`
+    : halted ? `<span class="pill pill--warn">${t('exchange.halted', { date: simDate(until) })}</span>` : ''}
         </div>
         <div class="exchange-quote__price">${moneyFmt(q.last)}</div>
         <div class="delta ${q.changePct > 0 ? 'up' : q.changePct < 0 ? 'down' : 'flat'}">${pctFmt(q.changePct)}</div>
@@ -282,6 +289,31 @@ export function createExchangeView(ctx) {
     </div>`;
   }
 
+  function rightsHtml() {
+    const offer = openRightsOfferings(state).find((item) => item.ticker === selected);
+    if (!offer) return `<p class="muted">${t('exchange.noRights')}</p>`;
+    const cost = offer.entitled * offer.price;
+    const affordable = cost <= availableCash(state);
+    const canSubscribe = offer.entitled > 0 && affordable;
+    return `<div class="exchange-rights">
+      <p class="muted">${t('exchange.rightsTerms', {
+        ratio: pct(offer.ratio * 100, i18n.locale, 1, false),
+        price: moneyFmt(offer.price),
+        deadline: simDate(offer.deadline),
+      })}</p>
+      <div class="exchange-macro__grid">
+        <div><span>${t('exchange.rightsEntitled')}</span><strong>${numFmt(offer.entitled)}</strong></div>
+        <div><span>${t('exchange.rightsCost')}</span><strong>${moneyFmt(cost)}</strong></div>
+      </div>
+      ${offer.entitled <= 0 ? `<p class="muted">${t('exchange.rightsNone')}</p>` : ''}
+      ${offer.entitled > 0 && !affordable ? `<p class="muted">${t('exchange.rightsInsufficientCash')}</p>` : ''}
+      <div class="exchange-rights__actions">
+        <button class="btn btn--primary" type="button" data-rights-subscribe ${canSubscribe ? '' : 'disabled'}>${t('exchange.rightsSubscribe')}</button>
+        <button class="btn" type="button" data-rights-decline>${t('exchange.rightsDecline')}</button>
+      </div>
+    </div>`;
+  }
+
   function companyProfileHtml() {
     const cs = state.companies[selected];
     const company = cs.company;
@@ -295,11 +327,14 @@ export function createExchangeView(ctx) {
       : null;
     const pe = reportEpsCurrent > 0 ? quote.last / (reportEpsCurrent * 4) : null;
     const sensitivity = sectorSensitivity(company.sector);
+    const sharesCurrent = company.sharesOutstanding * cs.splitFactor * cs.capitalFactor;
+    const marketCap = quote.last * sharesCurrent;
     const metrics = [
       [t('exchange.sector'), sectorLabel(ctx, company.sector)],
       [t('exchange.stageLabel'), t(`exchange.stage.${company.stage}`)],
       [t('exchange.riskLabel'), t(`exchange.risk.${company.risk}`)],
-      [t('exchange.marketCap'), moneyCompact(company.marketCap, i18n.locale)],
+      [t('exchange.marketCap'), moneyCompact(marketCap, i18n.locale)],
+      [t('exchange.sharesOutstanding'), compactNumber(sharesCurrent, i18n.locale)],
       [t('exchange.pe'), pe === null ? '—' : numFmt(pe, 1)],
       [t('exchange.dividendYield'), pct(yieldPct, i18n.locale, 2, false)],
       [t('exchange.macroSensitivity'),
@@ -384,10 +419,26 @@ export function createExchangeView(ctx) {
     const guidance = state.corporateActions
       .filter((item) => item.ticker === selected && item.type === 'guidance')
       .map((item) => ({ ...item, kind: 'guidance' }));
+    const capital = state.corporateActions
+      .filter((item) => item.ticker === selected && ['buyback', 'offering'].includes(item.type))
+      .map((item) => ({ ...item, kind: item.type }));
+    const structural = state.corporateActions
+      .filter((item) => item.ticker === selected && ['merger', 'spinoff'].includes(item.type))
+      .map((item) => ({ ...item, kind: item.type }));
+    const halts = state.corporateActions
+      .filter((item) => item.ticker === selected && item.type === 'halt')
+      .map((item) => ({ ...item, kind: 'halt' }));
+    const rights = state.corporateActions
+      .filter((item) => item.ticker === selected && item.type === 'rights')
+      .map((item) => ({ ...item, kind: 'rights' }));
+    const bankruptcies = state.corporateActions
+      .filter((item) => item.ticker === selected && item.type === 'bankruptcy')
+      .map((item) => ({ ...item, kind: 'bankruptcy' }));
     const dividends = state.account.dividends
       .filter((item) => item.ticker === selected)
       .map((item) => ({ ...item, kind: 'dividend' }));
-    const events = [...reports, ...splits, ...guidance, ...dividends]
+    const events = [...reports, ...splits, ...guidance, ...capital, ...structural,
+      ...halts, ...rights, ...bankruptcies, ...dividends]
       .sort((a, b) => b.day - a.day)
       .slice(0, 8);
     if (!events.length) return `<p class="muted">${t('exchange.noEvents')}</p>`;
@@ -406,7 +457,51 @@ export function createExchangeView(ctx) {
           baseline: moneyFmt(event.baseline),
         })}</span><span class="muted">${simDate(event.day)}</span></li>`;
       }
+      if (event.kind === 'buyback' || event.kind === 'offering') {
+        const buyback = event.kind === 'buyback';
+        return `<li><strong>${t(buyback ? 'exchange.eventBuyback' : 'exchange.eventOffering')}</strong><span>${t(buyback ? 'exchange.eventBuybackText' : 'exchange.eventOfferingText', {
+          ratio: pct(event.ratio * 100, i18n.locale, 1, false),
+          cash: moneyFmt(Math.abs(event.cashDelta)),
+          shares: compactNumber(Math.abs(event.sharesDelta), i18n.locale),
+        })}</span><span class="muted">${simDate(event.day)}</span></li>`;
+      }
+      if (event.kind === 'merger') {
+        return `<li><strong>${t('exchange.eventMerger')}</strong><span>${t('exchange.eventMergerText', {
+          price: moneyCompact(event.purchasePrice, i18n.locale),
+          share: pct(event.revenueShare * 100, i18n.locale, 1, false),
+        })}</span><span class="muted">${simDate(event.day)}</span></li>`;
+      }
+      if (event.kind === 'spinoff') {
+        return `<li><strong>${t('exchange.eventSpinoff')}</strong><span>${t('exchange.eventSpinoffText', {
+          share: pct(event.assetShare * 100, i18n.locale, 1, false),
+          dps: moneyFmt(event.distributionPerShare),
+        })}</span><span class="muted">${simDate(event.day)}</span></li>`;
+      }
+      if (event.kind === 'halt') {
+        return `<li><strong>${t('exchange.eventHalt')}</strong><span>${t('exchange.eventHaltText', {
+          date: simDate(event.until),
+        })}</span><span class="muted">${simDate(event.day)}</span></li>`;
+      }
+      if (event.kind === 'rights') {
+        return `<li><strong>${t('exchange.eventRights')}</strong><span>${t('exchange.eventRightsText', {
+          ratio: pct(event.ratio * 100, i18n.locale, 1, false),
+          price: moneyFmt(event.price),
+          deadline: simDate(event.deadline),
+        })}</span><span class="muted">${simDate(event.day)}</span></li>`;
+      }
+      if (event.kind === 'bankruptcy') {
+        return `<li><strong>${t('exchange.eventBankruptcy')}</strong><span>${t('exchange.eventBankruptcyText', {
+          qty: numFmt(event.qty),
+          loss: moneyFmt(event.loss),
+        })}</span><span class="muted">${simDate(event.day)}</span></li>`;
+      }
       if (event.kind === 'split') {
+        if (event.reverse) {
+          return `<li><strong>${t('exchange.eventReverseSplit')}</strong><span>${t('exchange.eventReverseSplitText', {
+            ratio: `1:${numFmt(1 / event.ratio)}`,
+            cash: moneyFmt(event.cashInLieu || 0),
+          })}</span><span class="muted">${simDate(event.day)}</span></li>`;
+        }
         return `<li><strong>${t('exchange.eventSplit')}</strong><span>${t('exchange.eventSplitText', {
           ratio: numFmt(event.ratio),
         })}</span><span class="muted">${simDate(event.day)}</span></li>`;
@@ -481,6 +576,7 @@ export function createExchangeView(ctx) {
             ${card({ title: t('exchange.macroTitle'), subtitle: t('exchange.macroSubtitle'), body: `<div id="sim-macro">${macroHtml()}</div>` })}
             ${card({ title: t('exchange.newsTitle'), subtitle: t('exchange.newsSubtitle'), body: `<div id="sim-news">${newsHtml()}</div>` })}
             ${card({ title: t('exchange.events'), subtitle: t('exchange.eventsSubtitle'), body: `<div id="sim-events">${eventsHtml()}</div>` })}
+            ${card({ title: t('exchange.rightsTitle'), subtitle: t('exchange.rightsSubtitle'), body: `<div id="sim-rights">${rightsHtml()}</div>` })}
             ${card({ title: t('exchange.ticket'), subtitle: t('exchange.ticketSubtitle'), body: ticketHtml() })}
             <div id="sim-summary">${summaryHtml()}</div>
             <p class="muted">${t('exchange.phaseNote')}</p>
@@ -506,6 +602,7 @@ export function createExchangeView(ctx) {
     set('#sim-macro', macroHtml());
     set('#sim-news', newsHtml());
     set('#sim-events', eventsHtml());
+    set('#sim-rights', rightsHtml());
     set('#sim-summary', summaryHtml());
     const note = container.querySelector('#sim-chart-note');
     if (note) note.textContent = chartNote();
@@ -610,8 +707,32 @@ export function createExchangeView(ctx) {
 
   function bind() {
     container.addEventListener('click', (event) => {
-      const target = event.target.closest('[data-sim-play],[data-sim-speed],[data-sim-step],[data-sim-step-day],[data-sim-save],[data-sim-reset],[data-sim-tf],[data-sim-cancel],[data-statement-link]');
+      const target = event.target.closest('[data-sim-play],[data-sim-speed],[data-sim-step],[data-sim-step-day],[data-sim-save],[data-sim-reset],[data-sim-tf],[data-sim-cancel],[data-statement-link],[data-rights-subscribe],[data-rights-decline]');
       if (!target) return;
+      if (target.matches('[data-rights-subscribe]')) {
+        const offer = openRightsOfferings(state).find((item) => item.ticker === selected);
+        if (!offer) return;
+        const result = subscribeRights(state, offer.id);
+        if (!result.ok) {
+          toastFn(t(`exchange.error.${result.error}`), 'error');
+          return;
+        }
+        toastFn(t('exchange.rightsSubscribed', { qty: numFmt(result.qty) }), 'success');
+        paint(true);
+        return;
+      }
+      if (target.matches('[data-rights-decline]')) {
+        const offer = openRightsOfferings(state).find((item) => item.ticker === selected);
+        if (!offer) return;
+        const result = declineRights(state, offer.id);
+        if (!result.ok) {
+          toastFn(t(`exchange.error.${result.error}`), 'error');
+          return;
+        }
+        toastFn(t('exchange.rightsDeclined'), 'info');
+        paint(true);
+        return;
+      }
       if (target.matches('[data-sim-step-day]')) {
         if (clock.running) clock.pause();
         advanceDay(state);

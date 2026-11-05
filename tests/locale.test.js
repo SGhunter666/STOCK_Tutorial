@@ -1097,7 +1097,11 @@ test('exchange controls, statuses and errors are localised', () => {
     'equity', 'cash', 'realized', 'unrealized', 'marketValue', 'avgCost', 'last', 'cancel',
     'chartSubtitle', 'chartNote', 'phaseNote', 'pauseFirst', 'submitted', 'submittedPending',
     'companyProfile', 'companyProfileSubtitle', 'sector', 'stageLabel', 'riskLabel',
-    'marketCap', 'pe', 'dividendYield', 'macroSensitivity',
+    'marketCap', 'sharesOutstanding', 'pe', 'dividendYield', 'macroSensitivity',
+    'halted', 'delisted',
+    'rightsTitle', 'rightsSubtitle', 'noRights', 'rightsTerms', 'rightsEntitled',
+    'rightsCost', 'rightsNone', 'rightsInsufficientCash', 'rightsSubscribe',
+    'rightsDecline', 'rightsSubscribed', 'rightsDeclined',
     'reportRevenue', 'reportNetIncome', 'reportEps',
     'reportGrossMargin', 'reportOperatingMargin', 'reportNetMargin', 'reportOperatingCashFlow',
     'reportAssets', 'reportLiabilities', 'reportEquity', 'reportCash',
@@ -1105,7 +1109,12 @@ test('exchange controls, statuses and errors are localised', () => {
     'dividends', 'dividendsTotal', 'dividendPerShare', 'dividendAmount', 'noDividends',
     'events', 'eventsSubtitle', 'noEvents', 'eventEarnings', 'eventEps',
     'eventGuidance', 'eventGuidanceText',
-    'eventSplit', 'eventSplitText', 'eventDividend', 'eventDividendText',
+    'eventBuyback', 'eventBuybackText', 'eventOffering', 'eventOfferingText',
+    'eventMerger', 'eventMergerText', 'eventSpinoff', 'eventSpinoffText',
+    'eventHalt', 'eventHaltText',
+    'eventRights', 'eventRightsText', 'eventBankruptcy', 'eventBankruptcyText',
+    'eventSplit', 'eventSplitText', 'eventReverseSplit', 'eventReverseSplitText',
+    'eventDividend', 'eventDividendText',
     'macroTitle', 'macroSubtitle', 'macroNextEvent', 'macroNoEvent',
     'macroActual', 'macroForecast', 'macroSurprise', 'macroBubble',
     'macroPolicyRate', 'macroInflation', 'macroUnemployment', 'macroGdp',
@@ -1161,7 +1170,9 @@ test('exchange controls, statuses and errors are localised', () => {
   }
   for (const key of [
     'order.invalid', 'order.limit', 'order.noLiquidity', 'order.insufficientCash',
-    'order.insufficientShares', 'order.notFound', 'order.notOpen',
+    'order.insufficientShares', 'order.halted', 'order.delisted',
+    'rights.closed', 'rights.none', 'rights.insufficientCash',
+    'order.notFound', 'order.notOpen',
   ]) {
     check(`exchange.error.${key}`);
   }
