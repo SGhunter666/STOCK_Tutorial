@@ -874,7 +874,7 @@ export function createFundView(ctx) {
         </table></div>
         <p class="fund-subtitle">${t('fund.attr.sectorTitle')}</p>
         <div class="table-wrap"><table class="table table--compact">
-          <thead><tr><th>${t('fund.attr.sector')}</th><th class="num">${t('fund.attr.portfolioWeight')}</th><th class="num">${t('fund.attr.benchmarkWeight')}</th><th class="num">${t('fund.attr.sectorReturn')}</th><th class="num">${t('fund.attr.contribution')}</th></tr></thead>
+          <thead><tr><th>${t('fund.attr.sectorHeader')}</th><th class="num">${t('fund.attr.portfolioWeight')}</th><th class="num">${t('fund.attr.benchmarkWeight')}</th><th class="num">${t('fund.attr.sectorReturn')}</th><th class="num">${t('fund.attr.contribution')}</th></tr></thead>
           <tbody>${attribution.sectorRows.map((row) => `
             <tr>
               <td>${sectorLabel(ctx, row.sector)}</td>

@@ -7569,7 +7569,7 @@
       "fees": "Fees",
       "selection": "Selection / residual",
       "sectorTitle": "Sector exposure",
-      "sector": "Sector",
+      "sectorHeader": "Sector",
       "portfolioWeight": "Portfolio weight",
       "benchmarkWeight": "Benchmark weight",
       "sectorReturn": "Sector return",

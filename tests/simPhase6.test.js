@@ -226,6 +226,31 @@ test('expiry-day option exercise delivers shares and is rejected earlier', () =>
   assertClose(state.account.cash, cashBefore - call.strike * 100, 0.02, 'strike paid');
 });
 
+test('a challenge settles automatically at its deadline', () => {
+  const state = createExchangeEngine({ seed: 'challenge-deadline', cash: 100_000 });
+  startExchangeChallenge(state, 'sprint');
+  const endDay = state.challenge.active.endDay;
+  state.lastNewsDay = endDay;
+  state.lastMacroDay = endDay;
+  state.dayIndex = endDay - 1;
+  state.second = 23_399;
+  advanceSecond(state);
+  assertEqual(state.dayIndex, endDay, 'deadline reached');
+  assertEqual(state.challenge.active, null, 'run closed automatically');
+  assertEqual(state.challenge.history[0].status, 'failed', 'flat run misses the target');
+  assertEqual(state.challenge.history[0].reason, 'targetMissed', 'target reason');
+});
+
+test('timeline snapshots keep the save file compact', () => {
+  const state = createExchangeEngine({ seed: 'timeline-size', cash: 100_000 });
+  for (let index = 0; index < 3; index += 1) {
+    advanceDay(state);
+  }
+  const raw = serializeExchange(state);
+  assert(raw.length < 4_000_000, `save size ${raw.length} bytes`);
+  assert(exchangeTimelineRows(state).length <= 20, 'snapshot cap');
+});
+
 test('save and restore keep challenge and timeline state', () => {
   const state = createExchangeEngine({ seed: 'phase6-save', cash: 100_000 });
   startExchangeChallenge(state, 'hedge');

@@ -7569,7 +7569,7 @@
       "fees": "费用",
       "selection": "选股 / 残差",
       "sectorTitle": "板块暴露",
-      "sector": "板块",
+      "sectorHeader": "板块",
       "portfolioWeight": "组合权重",
       "benchmarkWeight": "基准权重",
       "sectorReturn": "板块收益",

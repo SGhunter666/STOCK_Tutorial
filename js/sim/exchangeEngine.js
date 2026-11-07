@@ -815,6 +815,20 @@ export function closeOptionPosition(state, key, qty) {
 }
 
 export function exerciseOptionPosition(state, key, qty) {
+  const position = (state.account.options || []).find((item) => item.key === key);
+  if (position && position.type === 'call') {
+    const cs = state.companies[position.ticker];
+    const shares = Math.floor(Number(qty) || 0) * 100;
+    const existing = state.account.positions[position.ticker]?.qty || 0;
+    const guard = challengeGuard(state, {
+      asset: cs?.isEtf ? 'etf' : 'stock',
+      action: 'openLong',
+      gross: position.strike * shares,
+      positionValue: (existing + shares) * position.strike,
+      equityValue: equity(state),
+    });
+    if (!guard.ok) return guard;
+  }
   const result = exerciseOption(state, key, qty);
   if (result.ok) checkMargin(state);
   return result;
