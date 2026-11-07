@@ -138,21 +138,19 @@ function updateQuote(state, ticker) {
   const bid = cs.book.bestBid();
   const ask = cs.book.bestAsk();
   const changePct = cs.prevClose ? ((cs.last - cs.prevClose) / cs.prevClose) * 100 : 0;
-  state.quotes[ticker] = {
-    ticker,
-    last: round(cs.last, 2),
-    bid: bid === null ? null : round(bid, 2),
-    ask: ask === null ? null : round(ask, 2),
-    open: round(cs.open, 2),
-    high: round(cs.high, 2),
-    low: round(cs.low, 2),
-    volume: cs.volume,
-    trades: cs.trades,
-    changePct: round(changePct, 4),
-    fairValue: round(cs.fairValue, 2),
-    source: 'SIMULATED',
-  };
-  return state.quotes[ticker];
+  const quote = state.quotes[ticker] || (state.quotes[ticker] = { ticker });
+  quote.last = round(cs.last, 2);
+  quote.bid = bid === null ? null : round(bid, 2);
+  quote.ask = ask === null ? null : round(ask, 2);
+  quote.open = round(cs.open, 2);
+  quote.high = round(cs.high, 2);
+  quote.low = round(cs.low, 2);
+  quote.volume = cs.volume;
+  quote.trades = cs.trades;
+  quote.changePct = round(changePct, 4);
+  quote.fairValue = round(cs.fairValue, 2);
+  quote.source = 'SIMULATED';
+  return quote;
 }
 
 function refreshLiquidity(state, ticker) {

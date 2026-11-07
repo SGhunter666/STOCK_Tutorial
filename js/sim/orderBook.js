@@ -24,18 +24,25 @@ export class SimOrderBook {
 
   setMarketMaker({ bid, ask, size, levels = this.levels }) {
     const tick = tickFor(bid || ask || 1);
-    this.mmBids = [];
-    this.mmAsks = [];
     for (let level = 0; level < levels; level += 1) {
-      this.mmBids.push({
-        price: round(Math.max(tick, bid - level * tick), 2),
-        size: Math.max(1, Math.round(size * (1 + level * 0.35))),
-      });
-      this.mmAsks.push({
-        price: round(ask + level * tick, 2),
-        size: Math.max(1, Math.round(size * (1 + level * 0.35))),
-      });
+      const bidPrice = round(Math.max(tick, bid - level * tick), 2);
+      const askPrice = round(ask + level * tick, 2);
+      const levelSize = Math.max(1, Math.round(size * (1 + level * 0.35)));
+      if (this.mmBids[level]) {
+        this.mmBids[level].price = bidPrice;
+        this.mmBids[level].size = levelSize;
+      } else {
+        this.mmBids[level] = { price: bidPrice, size: levelSize };
+      }
+      if (this.mmAsks[level]) {
+        this.mmAsks[level].price = askPrice;
+        this.mmAsks[level].size = levelSize;
+      } else {
+        this.mmAsks[level] = { price: askPrice, size: levelSize };
+      }
     }
+    if (this.mmBids.length > levels) this.mmBids.length = levels;
+    if (this.mmAsks.length > levels) this.mmAsks.length = levels;
   }
 
   addResting(order) {
@@ -48,19 +55,29 @@ export class SimOrderBook {
   }
 
   bestBid() {
-    const prices = [
-      ...this.mmBids.filter((level) => level.size > 0).map((level) => level.price),
-      ...this.resting.filter((order) => order.side === 'buy' && order.remaining > 0).map((order) => order.price),
-    ];
-    return prices.length ? Math.max(...prices) : null;
+    let best = null;
+    for (const level of this.mmBids) {
+      if (level.size > 0 && (best === null || level.price > best)) best = level.price;
+    }
+    for (const order of this.resting) {
+      if (order.side === 'buy' && order.remaining > 0 && (best === null || order.price > best)) {
+        best = order.price;
+      }
+    }
+    return best;
   }
 
   bestAsk() {
-    const prices = [
-      ...this.mmAsks.filter((level) => level.size > 0).map((level) => level.price),
-      ...this.resting.filter((order) => order.side === 'sell' && order.remaining > 0).map((order) => order.price),
-    ];
-    return prices.length ? Math.min(...prices) : null;
+    let best = null;
+    for (const level of this.mmAsks) {
+      if (level.size > 0 && (best === null || level.price < best)) best = level.price;
+    }
+    for (const order of this.resting) {
+      if (order.side === 'sell' && order.remaining > 0 && (best === null || order.price < best)) {
+        best = order.price;
+      }
+    }
+    return best;
   }
 
   _askLiquidity(excludeId) {
@@ -126,6 +143,7 @@ export class SimOrderBook {
 
   /** Matches any resting orders that now cross the market-maker ladder. */
   matchResting() {
+    if (this.resting.length === 0) return [];
     const results = [];
     for (const order of [...this.resting]) {
       if (order.remaining <= 0) continue;

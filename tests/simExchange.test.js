@@ -216,6 +216,16 @@ test('a depleted book reports no best ask instead of a zero-size level', () => {
   assertEqual(book.bestAsk(), null, 'no remaining ask');
 });
 
+test('the market maker restores liquidity when the ladder is refreshed', () => {
+  const book = new SimOrderBook('TEST');
+  book.setMarketMaker({ bid: 99.95, ask: 100.05, size: 10, levels: 2 });
+  book.match({ id: 'M1', side: 'buy', type: 'market', qty: 25 });
+  book.setMarketMaker({ bid: 100.05, ask: 100.15, size: 10, levels: 2 });
+  assertEqual(book.bestBid(), 100.05, 'bid refreshed');
+  assertEqual(book.bestAsk(), 100.15, 'ask refreshed');
+  assertEqual(book.mmBids.length, 2, 'no stale levels');
+});
+
 test('simulated orders are cancelled at the session close', () => {
   const state = createExchangeEngine({ seed: 'rollover-test' });
   const ticker = 'APLA';
@@ -254,7 +264,7 @@ test('save and restore keep player and simulated resting orders', () => {
 test('market maker inventory grows after fills and skews the next quote', () => {
   const state = createExchangeEngine({ seed: 'inventory-test' });
   const ticker = 'QVAL';
-  const before = state.quotes[ticker];
+  const before = { ...state.quotes[ticker] };
   const result = submitOrder(state, { ticker, side: 'buy', type: 'market', qty: 2000 });
   assert(result.ok && result.order.filledQty > 0, 'player buy filled');
   assert(state.companies[ticker].inventory < 0, 'market maker sold inventory');
