@@ -89,6 +89,9 @@ export function createExchangeView(ctx) {
   let optionExpiryDays = 30;
   let optionFormKey = '';
   let timelineDay = null;
+  let lastCallId = null;
+  let lastForcedCount = 0;
+  let lastChallengeCount = 0;
   let chart = null;
   let clock = null;
   let lastPaint = 0;
@@ -1159,8 +1162,42 @@ export function createExchangeView(ctx) {
     refreshDynamic();
   }
 
+  function syncAlertState() {
+    lastCallId = state.account.margin?.call?.id || null;
+    lastForcedCount = (state.account.margin?.forcedLiquidations || []).length;
+    lastChallengeCount = (state.challenge?.history || []).length;
+  }
+
+  function checkAlerts() {
+    const call = state.account.margin?.call;
+    if (call && call.id !== lastCallId) {
+      toastFn(t('exchange.marginCallToast', {
+        deficit: moneyFmt(call.deficit),
+        due: simDate(call.dueDay),
+      }), 'warn');
+    }
+    lastCallId = call?.id || null;
+    const forced = (state.account.margin?.forcedLiquidations || []).length;
+    if (forced > lastForcedCount) {
+      toastFn(t('exchange.forcedLiquidationToast', { count: numFmt(forced - lastForcedCount) }),
+        'error');
+    }
+    lastForcedCount = forced;
+    const history = state.challenge?.history || [];
+    if (history.length > lastChallengeCount) {
+      const latest = history[0];
+      toastFn(t('exchange.challengeResultToast', {
+        name: t(`exchange.challenge.${latest.id}.name`),
+        status: t(`exchange.challengeResult.${latest.status}`),
+        score: numFmt(latest.score || 0),
+      }), latest.status === 'passed' ? 'success' : 'warn');
+    }
+    lastChallengeCount = history.length;
+  }
+
   function onSecond() {
     state = advanceSecond(state);
+    checkAlerts();
     paint();
   }
 
@@ -1341,6 +1378,7 @@ export function createExchangeView(ctx) {
       optionExpiryDays = 30;
       optionFormKey = '';
       timelineDay = null;
+      syncAlertState();
       try {
         localStorage.removeItem(SAVE_KEY);
       } catch (error) {
@@ -1399,6 +1437,7 @@ export function createExchangeView(ctx) {
           clock.secondCounter = state.second;
         }
         timelineDay = null;
+        syncAlertState();
         toastFn(t('exchange.timelineRewound', { date: simDate(day) }), 'success');
         paint(true);
         return;
@@ -1566,6 +1605,7 @@ export function createExchangeView(ctx) {
     });
     clock.pause();
     clock.secondCounter = state.second;
+    syncAlertState();
     mountPage();
     bind();
     const play = container.querySelector('[data-sim-play]');
