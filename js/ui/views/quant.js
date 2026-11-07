@@ -330,6 +330,11 @@ export function createQuantView(ctx) {
     const inMetrics = result.best.inSample;
     const outMetrics = result.outSample?.metrics;
     const baseline = result.baselineOut?.metrics;
+    const strategyDef = QUANT_STRATEGIES[result.strategy] || QUANT_STRATEGIES.smaCross;
+    const paramLabel = (key) => {
+      const definition = strategyDef.params.find((entry) => entry.id === key);
+      return definition ? t(definition.labelKey) : t(`quant.param.${key}`);
+    };
     return `
       <div class="quant-mode-result">
         <div class="stat-grid">
@@ -344,7 +349,7 @@ export function createQuantView(ctx) {
         ${card({
     title: t('quant.opt.bestTitle'),
     subtitle: t('quant.opt.bestSubtitle'),
-    body: `${keyValueList(Object.entries(result.best.params).map(([key, value]) => [t(`quant.param.${key}`), String(value)]))}
+    body: `${keyValueList(Object.entries(result.best.params).map(([key, value]) => [paramLabel(key), String(value)]))}
       <p class="chart-note muted">${t('quant.opt.bestNote')}</p>`,
   })}
         ${card({
