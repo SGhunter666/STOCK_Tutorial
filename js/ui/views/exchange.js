@@ -92,6 +92,7 @@ export function createExchangeView(ctx) {
   let lastCallId = null;
   let lastForcedCount = 0;
   let lastChallengeCount = 0;
+  let lastSlowKey = '';
   let chart = null;
   let clock = null;
   let lastPaint = 0;
@@ -1114,7 +1115,21 @@ export function createExchangeView(ctx) {
     if (node) node.innerHTML = optionFormHtml();
   }
 
-  function refreshDynamic() {
+  /** Day-level sections only change on a new session, selection or account event. */
+  function slowKey() {
+    return [
+      state.dayIndex,
+      selected,
+      state.optionStyle,
+      (state.challenge?.history || []).length,
+      state.challenge?.active?.id || '',
+      (state.account.optionSettlements || []).length,
+      (state.account.options || []).length,
+      Object.keys(state.account.bonds || {}).length,
+    ].join(':');
+  }
+
+  function refreshDynamic(forceSlow = false) {
     if (destroyed) return;
     const set = (selector, html) => {
       const node = container.querySelector(selector);
@@ -1126,26 +1141,12 @@ export function createExchangeView(ctx) {
     set('#sim-positions', positionsHtml());
     set('#sim-shorts', shortsHtml());
     set('#sim-margin', marginHtml());
-    set('#sim-challenge', challengeHtml());
-    set('#sim-timeline', timelineHtml());
     set('#sim-orders', ordersHtml());
     set('#sim-trades', tradesHtml());
-    set('#sim-company', companyProfileHtml());
-    set('#sim-company-actions', companyActionsHtml());
-    set('#sim-option-meta', optionMetaHtml());
     set('#sim-option-chain', optionChainHtml());
     set('#sim-option-positions', optionPositionsHtml());
-    set('#sim-option-settlements', optionSettlementsHtml());
-    set('#sim-bond-quotes', bondQuotesHtml());
-    set('#sim-bond-positions', bondPositionsHtml());
-    set('#sim-bond-coupons', bondCouponsHtml());
-    ensureOptionForm();
-    set('#sim-dividends', dividendsHtml());
-    set('#sim-macro', macroHtml());
-    set('#sim-news', newsHtml());
-    set('#sim-events', eventsHtml());
-    set('#sim-rights', rightsHtml());
     set('#sim-summary', summaryHtml());
+    ensureOptionForm();
     const note = container.querySelector('#sim-chart-note');
     if (note) note.textContent = chartNote();
     const quoteNode = container.querySelector('.exchange-quote');
@@ -1153,13 +1154,31 @@ export function createExchangeView(ctx) {
     const chartTitle = container.querySelector('#sim-chart-card .card__title');
     if (chartTitle) chartTitle.textContent = `${selected} · ${t(`exchange.tf.${timeframe}`)}`;
     if (chart) chart.setData(chartData());
+
+    const key = slowKey();
+    if (!forceSlow && key === lastSlowKey) return;
+    lastSlowKey = key;
+    set('#sim-challenge', challengeHtml());
+    set('#sim-timeline', timelineHtml());
+    set('#sim-company', companyProfileHtml());
+    set('#sim-company-actions', companyActionsHtml());
+    set('#sim-option-meta', optionMetaHtml());
+    set('#sim-option-settlements', optionSettlementsHtml());
+    set('#sim-bond-quotes', bondQuotesHtml());
+    set('#sim-bond-positions', bondPositionsHtml());
+    set('#sim-bond-coupons', bondCouponsHtml());
+    set('#sim-dividends', dividendsHtml());
+    set('#sim-macro', macroHtml());
+    set('#sim-news', newsHtml());
+    set('#sim-events', eventsHtml());
+    set('#sim-rights', rightsHtml());
   }
 
   function paint(force = false) {
     const now = Date.now();
     if (!force && now - lastPaint < 120) return;
     lastPaint = now;
-    refreshDynamic();
+    refreshDynamic(force);
   }
 
   function syncAlertState() {
