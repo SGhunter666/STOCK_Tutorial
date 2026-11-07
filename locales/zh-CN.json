@@ -6526,6 +6526,7 @@
     "ocoNote": "两条腿共享同一批持股或借券，任一成交或取消时另一条自动撤销。",
     "ocoSubmitted": "已提交 {qty} 股 OCO 离场单。",
     "optionExercise": "行权",
+    "optionEarly": "提前指派",
     "optionExercised": "已行权 {qty} 张，交割 {shares} 股。"
   },
   "history": {

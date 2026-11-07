@@ -6526,6 +6526,7 @@
     "ocoNote": "Both legs share the same shares or borrow; when one fills or is cancelled the other is cancelled automatically.",
     "ocoSubmitted": "OCO exit submitted for {qty} shares.",
     "optionExercise": "Exercise",
+    "optionEarly": "early assignment",
     "optionExercised": "Exercised {qty} contracts and delivered {shares} shares."
   },
   "history": {

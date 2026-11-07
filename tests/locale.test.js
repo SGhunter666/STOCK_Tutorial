@@ -1144,7 +1144,7 @@ test('exchange controls, statuses and errors are localised', () => {
     'timelineRewound',
     'stop', 'stopLimit', 'trailing', 'stopPrice', 'stopLimitPrice', 'trailPercent',
     'conditionalSubmitted', 'ocoTitle', 'ocoTakeProfit', 'ocoStop', 'ocoSubmit',
-    'ocoNote', 'ocoSubmitted', 'optionExercise', 'optionExercised',
+    'ocoNote', 'ocoSubmitted', 'optionExercise', 'optionExercised', 'optionEarly',
     'reportRevenue', 'reportNetIncome', 'reportEps',
     'reportGrossMargin', 'reportOperatingMargin', 'reportNetMargin', 'reportOperatingCashFlow',
     'reportAssets', 'reportLiabilities', 'reportEquity', 'reportCash',

@@ -410,7 +410,7 @@ export function createExchangeView(ctx) {
       rows: settlements.slice(0, 5).map((item) => [
         simDate(item.day),
         item.ticker,
-        t(`exchange.${item.type}`),
+        `${t(`exchange.${item.type}`)}${item.early ? ` · ${t('exchange.optionEarly')}` : ''}`,
         moneyFmt(item.strike),
         moneyFmt(item.intrinsic),
         moneyFmt(item.cashDelta),
