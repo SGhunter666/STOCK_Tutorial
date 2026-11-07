@@ -162,7 +162,7 @@ test('uncovered short puts post collateral while covered calls do not', () => {
     0.01, 'covered call needs no cash collateral');
 });
 
-test('an option expiry cash-settles intrinsic and records the settlement', () => {
+test('an in-the-money option expires into physical shares', () => {
   const state = createExchangeEngine({ seed: 'option-expiry', cash: 100_000 });
   const chain = buildOptionChain(state, 'APLA', 30, 2);
   const contract = chain.contracts.find((item) => item.type === 'call'
@@ -183,9 +183,15 @@ test('an option expiry cash-settles intrinsic and records the settlement', () =>
   advanceSecond(state);
   assertEqual(state.account.options.length, 0, 'expired contract removed');
   assertEqual(state.account.optionSettlements.length, 1, 'settlement recorded');
-  assertClose(state.account.cash, cashBefore + 10 * 100, 0.02, 'intrinsic credited');
-  assertClose(state.account.optionSettlements[0].realized, 10 * 100 - basis, 0.02,
-    'expiry PnL');
+  assertEqual(state.account.optionSettlements[0].delivery, 'shares', 'physical delivery');
+  assertEqual(state.account.optionSettlements[0].shares, 100, '100 shares delivered');
+  assertEqual(state.account.positions.APLA.qty, 100, 'shares in the account');
+  assertClose(state.account.cash, cashBefore - contract.strike * 100, 0.02,
+    'strike paid in cash');
+  assertClose(state.account.positions.APLA.avgCost,
+    (contract.strike * 100 + basis) / 100, 0.02, 'premium capitalised into basis');
+  assertClose(state.account.optionSettlements[0].realized, 0, 0.02,
+    'no separate realized PnL on exercise');
   assertEqual(state.account.trades[state.account.trades.length - 1].asset, 'option',
     'settlement ledger entry');
 

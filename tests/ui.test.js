@@ -355,6 +355,14 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assert(root.querySelector('#sim-bond-quotes table'), 'bond quotes');
   assert(root.querySelector('[data-bond-form]'), 'bond ticket');
   assert(root.querySelector('#sim-bond-positions'), 'bond positions');
+  assert(root.querySelector('#sim-challenge'), 'challenge card');
+  assert(root.querySelector('[data-challenge-start]'), 'challenge start button');
+  assert(root.querySelector('#sim-timeline'), 'timeline card');
+  assert(root.querySelector('[data-timeline-rewind]'), 'timeline rewind button');
+  assert(root.querySelector('[data-oco-form]'), 'OCO ticket');
+  const orderTypes = [...root.querySelectorAll('[data-sim-type] option')]
+    .map((option) => option.value);
+  assert(orderTypes.includes('stop') && orderTypes.includes('trailing'), 'advanced order types');
   assert(root.querySelector('[data-sim-step-day]'), 'advance-day button');
   root.querySelector('[data-sim-step="1"]').click();
   assertEqual(root.querySelector('#sim-clock').textContent, '09:30:01', 'one second step');

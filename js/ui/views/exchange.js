@@ -14,7 +14,9 @@ import {
   openRightsOfferings, subscribeRights, declineRights, availableCash,
   serializeExchange, deserializeExchange, simClock, simDate,
   latestReport, reportHistory, dividendPerShare, SIM_EXCHANGE_SAVE_KEY,
-  submitOptionOrder, closeOptionPosition, submitBondOrder,
+  submitOptionOrder, closeOptionPosition, submitBondOrder, submitOco,
+  exerciseOptionPosition, startExchangeChallenge, abandonExchangeChallenge,
+  exchangeChallengeSnapshot, exchangeTimelineRows, rewindToDay,
 } from '../../sim/exchangeEngine.js';
 import { SIM_MARGIN_CONFIG, marginSnapshot, shortRows } from '../../sim/margin.js';
 import { SIM_ETFS, etfNav, etfHoldingsRows } from '../../sim/etfs.js';
@@ -67,6 +69,7 @@ export function createExchangeView(ctx) {
   let timeframe = '5m';
   let optionExpiryDays = 30;
   let optionFormKey = '';
+  let timelineDay = null;
   let chart = null;
   let clock = null;
   let lastPaint = 0;
@@ -184,15 +187,47 @@ export function createExchangeView(ctx) {
         <label>${t('exchange.type')}<select class="input input--select" data-sim-type>
           <option value="market">${t('exchange.market')}</option>
           <option value="limit">${t('exchange.limit')}</option>
+          <option value="stop">${t('exchange.stop')}</option>
+          <option value="stopLimit">${t('exchange.stopLimit')}</option>
+          <option value="trailing">${t('exchange.trailing')}</option>
         </select></label>
       </div>
       <div class="exchange-ticket__row">
         <label>${t('exchange.limitPrice')}<input class="input" type="number" min="0.01" step="0.01" data-sim-limit placeholder="${t('exchange.optional')}"></label>
+        <label>${t('exchange.stopPrice')}<input class="input" type="number" min="0.01" step="0.01" data-sim-stop placeholder="${t('exchange.optional')}"></label>
+      </div>
+      <div class="exchange-ticket__row">
+        <label>${t('exchange.stopLimitPrice')}<input class="input" type="number" min="0.01" step="0.01" data-sim-stop-limit placeholder="${t('exchange.optional')}"></label>
+        <label>${t('exchange.trailPercent')}<input class="input" type="number" min="0.1" max="49" step="0.1" data-sim-trail placeholder="2"></label>
+      </div>
+      <div class="exchange-ticket__row">
+        <span></span>
         <button class="btn btn--primary" type="submit">${t('exchange.submit')}</button>
       </div>
       <p class="muted">${t('exchange.ticketNote')}</p>
       <p class="muted">${t('exchange.marginTicketNote')}</p>
-    </form>`;
+    </form>
+    <details class="exchange-oco">
+        <summary>${t('exchange.ocoTitle')}</summary>
+        <form data-oco-form>
+          <div class="exchange-ticket__row">
+            <label>${t('exchange.side')}<select class="input input--select" data-oco-action>
+              <option value="closeLong">${t('exchange.sell')}</option>
+              <option value="closeShort">${t('exchange.cover')}</option>
+            </select></label>
+            <label>${t('exchange.qty')}<input class="input" type="number" min="1" step="1" value="100" data-oco-qty></label>
+          </div>
+          <div class="exchange-ticket__row">
+            <label>${t('exchange.ocoTakeProfit')}<input class="input" type="number" min="0.01" step="0.01" data-oco-take></label>
+            <label>${t('exchange.ocoStop')}<input class="input" type="number" min="0.01" step="0.01" data-oco-stop></label>
+          </div>
+          <div class="exchange-ticket__row">
+            <span></span>
+            <button class="btn" type="submit">${t('exchange.ocoSubmit')}</button>
+          </div>
+        </form>
+      <p class="muted">${t('exchange.ocoNote')}</p>
+    </details>`;
   }
 
   function positionsHtml() {
@@ -354,7 +389,11 @@ export function createExchangeView(ctx) {
         moneyFmt(position.marketValue),
         moneyFmt(position.pnl),
         numFmt(position.daysLeft),
-        `<button class="link-btn" type="button" data-option-close="${position.key}" data-option-close-qty="${position.absQty}">${t('exchange.optionClose')}</button>`,
+        `<span class="exchange-option-actions">
+          <button class="link-btn" type="button" data-option-close="${position.key}" data-option-close-qty="${position.absQty}">${t('exchange.optionClose')}</button>
+          ${position.qty > 0 && position.expiryDay === state.dayIndex
+    ? `<button class="link-btn" type="button" data-option-exercise="${position.key}" data-option-exercise-qty="${position.absQty}">${t('exchange.optionExercise')}</button>` : ''}
+        </span>`,
       ]),
       empty: t('exchange.optionNoPositions'),
     });
@@ -475,6 +514,89 @@ export function createExchangeView(ctx) {
         <strong>${t('exchange.bondCoupons')}</strong>
       </div>
       <div id="sim-bond-coupons">${bondCouponsHtml()}</div>
+    </div>`;
+  }
+
+  function challengeHtml() {
+    const summary = exchangeChallengeSnapshot(state);
+    if (!summary.active) {
+      const history = summary.history.slice(0, 3);
+      return `<div class="exchange-challenge">
+        <p class="muted">${t('exchange.challengeIntro')}</p>
+        <div class="exchange-challenge__list">
+          ${summary.challenges.map((def) => `
+            <div class="exchange-challenge__item">
+              <div>
+                <strong>${t(`exchange.challenge.${def.id}.name`)}</strong>
+                <span class="muted">${t(`exchange.challenge.${def.id}.desc`)}</span>
+              </div>
+              <div class="exchange-challenge__meta">
+                <span>${t('exchange.challengeDays', { days: def.days })}</span>
+                <span>${t('exchange.challengeTarget', { value: pct(def.targetReturn * 100, i18n.locale, 0, false) })}</span>
+                <span>${t('exchange.challengeDrawdown', { value: pct(def.maxDrawdown * 100, i18n.locale, 0, false) })}</span>
+              </div>
+              <button class="btn btn--primary btn--sm" type="button" data-challenge-start="${def.id}">${t('exchange.challengeStart')}</button>
+            </div>`).join('')}
+        </div>
+        ${history.length ? table({
+    head: [t('exchange.challengeName'), t('exchange.challengeStatus'), t('exchange.challengeReturn'), t('exchange.challengeScore'), t('exchange.challengeGrade')],
+    rows: history.map((item) => [
+      t(`exchange.challenge.${item.id}.name`),
+      t(`exchange.challengeResult.${item.status}`),
+      pctFmt(item.returnPct * 100),
+      numFmt(item.score, 0),
+      item.grade || '—',
+    ]),
+  }) : ''}
+      </div>`;
+    }
+    const def = summary.definition;
+    return `<div class="exchange-challenge">
+      <div class="exchange-challenge__head">
+        <div>
+          <strong>${t(`exchange.challenge.${summary.id}.name`)}</strong>
+          <span class="muted">${t('exchange.challengeDaysLeft', { days: summary.daysLeft })}</span>
+        </div>
+        <span class="pill pill--ok">${t('exchange.challengeActive')}</span>
+      </div>
+      <div class="exchange-macro__grid">
+        <div><span>${t('exchange.equity')}</span><strong>${moneyFmt(summary.equity)}</strong></div>
+        <div><span>${t('exchange.challengeReturn')}</span><strong>${pctFmt(summary.returnPct * 100)}</strong></div>
+        <div><span>${t('exchange.challengeTargetLabel')}</span><strong>${pct(def.targetReturn * 100, i18n.locale, 0, false)}</strong></div>
+        <div><span>${t('exchange.challengeDrawdownLabel')}</span><strong>${pct(def.maxDrawdown * 100, i18n.locale, 0, false)}</strong></div>
+        <div><span>${t('exchange.challengeMaxDrawdown')}</span><strong>${pct(summary.maxDrawdown * 100, i18n.locale, 2, false)}</strong></div>
+        <div><span>${t('exchange.challengeDaysLabel')}</span><strong>${numFmt(summary.daysElapsed)} / ${numFmt(def.days)}</strong></div>
+        <div><span>${t('exchange.challengePositionCap')}</span><strong>${pct(def.maxPositionWeight * 100, i18n.locale, 0, false)}</strong></div>
+      </div>
+      <button class="btn btn--ghost btn--sm" type="button" data-challenge-abandon>${t('exchange.challengeAbandon')}</button>
+    </div>`;
+  }
+
+  function timelineHtml() {
+    const rows = exchangeTimelineRows(state);
+    if (!rows.length) return `<p class="muted">${t('exchange.timelineEmpty')}</p>`;
+    if (timelineDay === null || !rows.some((row) => row.day === timelineDay)) {
+      timelineDay = rows[0].day;
+    }
+    return `<div class="exchange-timeline">
+      <div class="exchange-ticket__row">
+        <label>${t('exchange.timelineDay')}<select class="input input--select" data-timeline-day>
+          ${rows.map((row) => `<option value="${row.day}" ${row.day === timelineDay ? 'selected' : ''}>${simDate(row.day)} · ${moneyFmt(row.equity)}</option>`).join('')}
+        </select></label>
+        <button class="btn" type="button" data-timeline-rewind>${t('exchange.timelineRewind')}</button>
+      </div>
+      ${table({
+    head: [t('exchange.time'), t('exchange.equity'), t('exchange.challengeReturn'), t('exchange.positions')],
+    rows: rows.slice(0, 8).map((row) => [
+      simDate(row.day) === simDate(state.dayIndex)
+        ? `${simDate(row.day)} · ${t('exchange.timelineToday')}`
+        : simDate(row.day),
+      moneyFmt(row.equity),
+      pctFmt(row.returnPct * 100),
+      numFmt(row.positionsCount),
+    ]),
+  })}
+      <p class="muted">${t('exchange.timelineNote', { count: rows.length })}</p>
     </div>`;
   }
 
@@ -904,6 +1026,16 @@ export function createExchangeView(ctx) {
               body: `<div id="sim-shorts">${shortsHtml()}</div><div id="sim-margin">${marginHtml()}</div>`,
             })}
             ${card({
+              title: t('exchange.challengeTitle'),
+              subtitle: t('exchange.challengeSubtitle'),
+              body: `<div id="sim-challenge">${challengeHtml()}</div>`,
+            })}
+            ${card({
+              title: t('exchange.timelineTitle'),
+              subtitle: t('exchange.timelineSubtitle'),
+              body: `<div id="sim-timeline">${timelineHtml()}</div>`,
+            })}
+            ${card({
               title: t('exchange.optionTitle'),
               subtitle: t('exchange.optionSubtitle'),
               body: `<div id="sim-options">${optionsHtml()}</div>`,
@@ -951,6 +1083,8 @@ export function createExchangeView(ctx) {
     set('#sim-positions', positionsHtml());
     set('#sim-shorts', shortsHtml());
     set('#sim-margin', marginHtml());
+    set('#sim-challenge', challengeHtml());
+    set('#sim-timeline', timelineHtml());
     set('#sim-orders', ordersHtml());
     set('#sim-trades', tradesHtml());
     set('#sim-company', companyProfileHtml());
@@ -1010,16 +1144,31 @@ export function createExchangeView(ctx) {
     const type = form.querySelector('[data-sim-type]').value;
     const qty = Number(form.querySelector('[data-sim-qty]').value);
     const limitValue = form.querySelector('[data-sim-limit]').value;
+    const stopValue = form.querySelector('[data-sim-stop]').value;
+    const stopLimitValue = form.querySelector('[data-sim-stop-limit]').value;
+    const trailValue = form.querySelector('[data-sim-trail]').value;
+    const conditional = ['stop', 'stopLimit', 'trailing'].includes(type);
     const result = submitOrder(state, {
       ticker: selected,
       side,
       type,
       qty,
       limitPrice: type === 'limit' ? Number(limitValue) : null,
+      stopPrice: (type === 'stop' || type === 'stopLimit') ? Number(stopValue) : null,
+      stopLimitPrice: type === 'stopLimit' ? Number(stopLimitValue) : null,
+      trailPct: type === 'trailing' ? Number(trailValue) / 100 : null,
       pending: true,
     });
     if (!result.ok) {
       toastFn(t(`exchange.error.${result.error}`), 'error');
+      return;
+    }
+    if (conditional) {
+      toastFn(t('exchange.conditionalSubmitted', {
+        qty: result.order.qty,
+        type: t(`exchange.${type}`),
+      }), 'info');
+      paint(true);
       return;
     }
     if (result.order.status === 'pending') {
@@ -1090,6 +1239,44 @@ export function createExchangeView(ctx) {
     paint(true);
   }
 
+  function submitOcoForm(event) {
+    event.preventDefault();
+    if (clock && clock.running) {
+      toastFn(t('exchange.pauseFirst'), 'warn');
+      return;
+    }
+    const form = event.target;
+    const action = form.querySelector('[data-oco-action]').value;
+    const qty = Number(form.querySelector('[data-oco-qty]').value);
+    const takeProfitPrice = Number(form.querySelector('[data-oco-take]').value);
+    const stopPrice = Number(form.querySelector('[data-oco-stop]').value);
+    const result = submitOco(state, {
+      ticker: selected,
+      action,
+      qty,
+      takeProfitPrice,
+      stopPrice,
+    });
+    if (!result.ok) {
+      toastFn(t(`exchange.error.${result.error}`), 'error');
+      return;
+    }
+    toastFn(t('exchange.ocoSubmitted', { qty: numFmt(qty) }), 'success');
+    paint(true);
+  }
+
+  function syncOrderTypeFields() {
+    const type = container.querySelector('[data-sim-type]')?.value;
+    const setDisabled = (selector, disabled) => {
+      const node = container.querySelector(selector);
+      if (node) node.disabled = disabled;
+    };
+    setDisabled('[data-sim-limit]', type !== 'limit');
+    setDisabled('[data-sim-stop]', type !== 'stop' && type !== 'stopLimit');
+    setDisabled('[data-sim-stop-limit]', type !== 'stopLimit');
+    setDisabled('[data-sim-trail]', type !== 'trailing');
+  }
+
   function persist() {
     try {
       localStorage.setItem(SAVE_KEY, serializeExchange(state));
@@ -1112,6 +1299,7 @@ export function createExchangeView(ctx) {
       timeframe = '5m';
       optionExpiryDays = 30;
       optionFormKey = '';
+      timelineDay = null;
       try {
         localStorage.removeItem(SAVE_KEY);
       } catch (error) {
@@ -1128,8 +1316,67 @@ export function createExchangeView(ctx) {
 
   function bind() {
     container.addEventListener('click', (event) => {
-      const target = event.target.closest('[data-sim-play],[data-sim-speed],[data-sim-step],[data-sim-step-day],[data-sim-save],[data-sim-reset],[data-sim-tf],[data-sim-cancel],[data-statement-link],[data-rights-subscribe],[data-rights-decline],[data-option-close]');
+      const target = event.target.closest('[data-sim-play],[data-sim-speed],[data-sim-step],[data-sim-step-day],[data-sim-save],[data-sim-reset],[data-sim-tf],[data-sim-cancel],[data-statement-link],[data-rights-subscribe],[data-rights-decline],[data-option-close],[data-option-exercise],[data-challenge-start],[data-challenge-abandon],[data-timeline-rewind]');
       if (!target) return;
+      if (target.matches('[data-challenge-start]')) {
+        const result = startExchangeChallenge(state, target.dataset.challengeStart);
+        if (!result.ok) {
+          toastFn(t(`exchange.error.${result.error}`), 'error');
+          return;
+        }
+        toastFn(t('exchange.challengeStarted', {
+          name: t(`exchange.challenge.${result.definition.id}.name`),
+        }), 'success');
+        paint(true);
+        return;
+      }
+      if (target.matches('[data-challenge-abandon]')) {
+        if (typeof window !== 'undefined'
+          && !window.confirm(t('exchange.challengeAbandonConfirm'))) return;
+        const result = abandonExchangeChallenge(state);
+        if (!result.ok) {
+          toastFn(t(`exchange.error.${result.error}`), 'error');
+          return;
+        }
+        toastFn(t('exchange.challengeAbandoned'), 'info');
+        paint(true);
+        return;
+      }
+      if (target.matches('[data-timeline-rewind]')) {
+        const rows = exchangeTimelineRows(state);
+        const day = timelineDay ?? rows[0]?.day;
+        if (day === null || day === undefined) return;
+        if (typeof window !== 'undefined'
+          && !window.confirm(t('exchange.timelineConfirm', { date: simDate(day) }))) return;
+        const result = rewindToDay(state, day);
+        if (!result.ok) {
+          toastFn(t(`exchange.error.${result.error}`), 'error');
+          return;
+        }
+        if (clock) {
+          clock.pause();
+          clock.secondCounter = state.second;
+        }
+        timelineDay = null;
+        toastFn(t('exchange.timelineRewound', { date: simDate(day) }), 'success');
+        paint(true);
+        return;
+      }
+      if (target.matches('[data-option-exercise]')) {
+        const result = exerciseOptionPosition(
+          state, target.dataset.optionExercise, Number(target.dataset.optionExerciseQty),
+        );
+        if (!result.ok) {
+          toastFn(t(`exchange.error.${result.error}`), 'error');
+          return;
+        }
+        toastFn(t('exchange.optionExercised', {
+          qty: numFmt(result.qty),
+          shares: numFmt(result.shares),
+        }), 'success');
+        paint(true);
+        return;
+      }
       if (target.matches('[data-option-close]')) {
         const result = closeOptionPosition(
           state, target.dataset.optionClose, Number(target.dataset.optionCloseQty),
@@ -1220,19 +1467,20 @@ export function createExchangeView(ctx) {
       if (event.target.matches('[data-sim-ticker]')) {
         setSelected(event.target.value);
       }
-      if (event.target.matches('[data-sim-type]')) {
-        const limit = container.querySelector('[data-sim-limit]');
-        if (limit) limit.disabled = event.target.value !== 'limit';
-      }
+      if (event.target.matches('[data-sim-type]')) syncOrderTypeFields();
       if (event.target.matches('[data-option-expiry]')) {
         optionExpiryDays = Number(event.target.value);
         paint(true);
+      }
+      if (event.target.matches('[data-timeline-day]')) {
+        timelineDay = Number(event.target.value);
       }
     });
     container.addEventListener('submit', (event) => {
       if (event.target.matches('[data-sim-form]')) submit(event);
       if (event.target.matches('[data-option-form]')) submitOption(event);
       if (event.target.matches('[data-bond-form]')) submitBond(event);
+      if (event.target.matches('[data-oco-form]')) submitOcoForm(event);
     });
   }
 
@@ -1249,8 +1497,7 @@ export function createExchangeView(ctx) {
       });
       chart.setData(chartData());
     }
-    const limit = container.querySelector('[data-sim-limit]');
-    if (limit) limit.disabled = true;
+    syncOrderTypeFields();
   }
 
   function mount(root) {

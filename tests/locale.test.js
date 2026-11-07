@@ -649,8 +649,6 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'roadmap.p13.i3', 'roadmap.p13.i4',
     'roadmap.p14.title', 'roadmap.p14.text', 'roadmap.p14.i1', 'roadmap.p14.i2',
     'roadmap.p14.i3', 'roadmap.p14.i4',
-    'roadmap.p15.title', 'roadmap.p15.text', 'roadmap.p15.i1', 'roadmap.p15.i2',
-    'roadmap.p15.i3', 'roadmap.p15.i4',
     'locked.eyebrow', 'locked.subtitle', 'locked.options.title', 'locked.options.text',
     'locked.options.i1', 'locked.options.i2', 'locked.options.i3', 'locked.options.i4',
     'locked.challenges.title', 'locked.challenges.text', 'locked.challenges.i1',
@@ -1120,6 +1118,19 @@ test('exchange controls, statuses and errors are localised', () => {
     'bondRating', 'bondYield', 'bondAvgPrice', 'bondPositions', 'bondNoPositions',
     'bondCoupons', 'bondNoCoupons', 'bondCouponAmount', 'bondCouponNote',
     'bondFormNote', 'bondBought', 'bondSold', 'bondEmpty',
+    'challengeTitle', 'challengeSubtitle', 'challengeIntro', 'challengeActive',
+    'challengeStart', 'challengeAbandon', 'challengeAbandonConfirm',
+    'challengeAbandoned', 'challengeStarted', 'challengeDays',
+    'challengeDaysLeft', 'challengeTarget', 'challengeDrawdown', 'challengeReturn',
+    'challengeScore', 'challengeGrade', 'challengeName', 'challengeStatus',
+    'challengePositionCap', 'challengeDaysLabel', 'challengeTargetLabel',
+    'challengeDrawdownLabel', 'challengeMaxDrawdown',
+    'timelineTitle', 'timelineSubtitle', 'timelineDay', 'timelineRewind',
+    'timelineToday', 'timelineNote', 'timelineEmpty', 'timelineConfirm',
+    'timelineRewound',
+    'stop', 'stopLimit', 'trailing', 'stopPrice', 'stopLimitPrice', 'trailPercent',
+    'conditionalSubmitted', 'ocoTitle', 'ocoTakeProfit', 'ocoStop', 'ocoSubmit',
+    'ocoNote', 'ocoSubmitted', 'optionExercise', 'optionExercised',
     'reportRevenue', 'reportNetIncome', 'reportEps',
     'reportGrossMargin', 'reportOperatingMargin', 'reportNetMargin', 'reportOperatingCashFlow',
     'reportAssets', 'reportLiabilities', 'reportEquity', 'reportCash',
@@ -1192,6 +1203,13 @@ test('exchange controls, statuses and errors are localised', () => {
   for (const charge of ['interest', 'borrowFee']) {
     check(`exchange.charge.${charge}`);
   }
+  for (const challenge of ['sprint', 'hedge', 'marathon']) {
+    check(`exchange.challenge.${challenge}.name`);
+    check(`exchange.challenge.${challenge}.desc`);
+  }
+  for (const status of ['passed', 'failed', 'abandoned']) {
+    check(`exchange.challengeResult.${status}`);
+  }
   for (const key of [
     'order.invalid', 'order.limit', 'order.noLiquidity', 'order.insufficientCash',
     'order.insufficientShares', 'order.halted', 'order.delisted',
@@ -1202,6 +1220,13 @@ test('exchange controls, statuses and errors are localised', () => {
     'option.insufficientContracts',
     'bond.invalid', 'bond.noPosition', 'bond.insufficient', 'bond.insufficientCash',
     'bond.delisted',
+    'order.stop', 'order.stopLimit', 'order.trail', 'order.oco',
+    'challenge.invalid', 'challenge.active', 'challenge.none',
+    'challenge.shortBlocked', 'challenge.marginBlocked', 'challenge.positionLimit',
+    'challenge.assetBlocked.stock', 'challenge.assetBlocked.etf',
+    'challenge.assetBlocked.bond', 'challenge.assetBlocked.option',
+    'option.notLong', 'option.notExpiryDay', 'option.notInTheMoney',
+    'option.insufficientShares', 'timeline.notFound',
     'rights.closed', 'rights.none', 'rights.insufficientCash',
     'order.notFound', 'order.notOpen',
   ]) {

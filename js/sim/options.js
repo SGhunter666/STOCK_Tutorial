@@ -281,30 +281,156 @@ export function closeOption(state, key, qty) {
   return { ok: true, contract, qty: quantity, price: quote, realized, fee };
 }
 
-/** Cash-settle every contract that reached its expiry day. */
+function addStockTrade(state, { ticker, side, qty, price, source }) {
+  state.account.trades.push({
+    asset: 'stock',
+    ticker,
+    side,
+    qty,
+    price: round(price, 4),
+    fee: 0,
+    orderId: `${source.toUpperCase()}-${ticker}-${state.dayIndex}`,
+    day: state.dayIndex,
+    second: state.second,
+    date: dateForTradingDay(state.dayIndex).toISOString().slice(0, 10),
+    time: '',
+    source,
+  });
+  if (state.account.trades.length > 500) state.account.trades.splice(0, state.account.trades.length - 500);
+}
+
+function deliverLongCall(state, position, quantity) {
+  const shares = quantity * CONTRACT_SIZE;
+  const strikeCost = round(position.strike * shares, 2);
+  if (state.account.cash + 1e-9 < strikeCost) return null;
+  const premium = round(position.costBasis * quantity / Math.abs(position.qty), 2);
+  const existing = state.account.positions[position.ticker] || { qty: 0, avgCost: 0 };
+  const nextQty = existing.qty + shares;
+  existing.avgCost = nextQty
+    ? (existing.avgCost * existing.qty + strikeCost + premium) / nextQty
+    : 0;
+  existing.qty = nextQty;
+  state.account.positions[position.ticker] = existing;
+  state.account.cash = round(state.account.cash - strikeCost, 2);
+  addStockTrade(state, {
+    ticker: position.ticker, side: 'buy', qty: shares, price: position.strike, source: 'exercise',
+  });
+  return { shares, cashDelta: -strikeCost, premium, realized: 0 };
+}
+
+function deliverLongPut(state, position, quantity) {
+  const shares = quantity * CONTRACT_SIZE;
+  const existing = state.account.positions[position.ticker];
+  if (!existing || existing.qty < shares) return null;
+  const premium = round(position.costBasis * quantity / Math.abs(position.qty), 2);
+  const strikeProceeds = round(position.strike * shares, 2);
+  const realized = round((position.strike - existing.avgCost) * shares - premium, 2);
+  state.account.cash = round(state.account.cash + strikeProceeds, 2);
+  state.account.realizedPnl = round(state.account.realizedPnl + realized, 2);
+  existing.qty -= shares;
+  if (existing.qty <= 0) delete state.account.positions[position.ticker];
+  addStockTrade(state, {
+    ticker: position.ticker, side: 'sell', qty: shares, price: position.strike, source: 'exercise',
+  });
+  return { shares, cashDelta: strikeProceeds, premium, realized };
+}
+
+function assignShortCall(state, position, quantity) {
+  const shares = quantity * CONTRACT_SIZE;
+  const strikeProceeds = round(position.strike * shares, 2);
+  const premium = round(position.costBasis * quantity / Math.abs(position.qty), 2);
+  const intrinsic = round(Math.max(0, (state.quotes[position.ticker]?.last || 0)
+    - position.strike) * shares, 2);
+  const realized = round(premium - intrinsic, 2);
+  const existing = state.account.positions[position.ticker];
+  if (existing && existing.qty >= shares) {
+    existing.qty -= shares;
+    if (existing.qty <= 0) delete state.account.positions[position.ticker];
+    addStockTrade(state, {
+      ticker: position.ticker, side: 'sell', qty: shares, price: position.strike, source: 'assignment',
+    });
+  } else {
+    const short = state.account.shorts[position.ticker]
+      || { qty: 0, avgPrice: 0, openedDay: state.dayIndex };
+    const nextQty = short.qty + shares;
+    short.avgPrice = nextQty
+      ? (short.avgPrice * short.qty + strikeProceeds) / nextQty
+      : 0;
+    short.qty = nextQty;
+    state.account.shorts[position.ticker] = short;
+    addStockTrade(state, {
+      ticker: position.ticker, side: 'short', qty: shares, price: position.strike, source: 'assignment',
+    });
+  }
+  state.account.cash = round(state.account.cash + strikeProceeds, 2);
+  state.account.realizedPnl = round(state.account.realizedPnl + realized, 2);
+  return { shares, cashDelta: strikeProceeds, premium, realized };
+}
+
+function assignShortPut(state, position, quantity) {
+  const shares = quantity * CONTRACT_SIZE;
+  const strikeCost = round(position.strike * shares, 2);
+  if (state.account.cash + 1e-9 < strikeCost) return null;
+  const premium = round(position.costBasis * quantity / Math.abs(position.qty), 2);
+  const intrinsic = round(Math.max(0, position.strike
+    - (state.quotes[position.ticker]?.last || 0)) * shares, 2);
+  const realized = round(premium - intrinsic, 2);
+  const existing = state.account.positions[position.ticker] || { qty: 0, avgCost: 0 };
+  const nextQty = existing.qty + shares;
+  existing.avgCost = nextQty
+    ? (existing.avgCost * existing.qty + strikeCost) / nextQty
+    : 0;
+  existing.qty = nextQty;
+  state.account.positions[position.ticker] = existing;
+  state.account.cash = round(state.account.cash - strikeCost, 2);
+  state.account.realizedPnl = round(state.account.realizedPnl + realized, 2);
+  addStockTrade(state, {
+    ticker: position.ticker, side: 'buy', qty: shares, price: position.strike, source: 'assignment',
+  });
+  return { shares, cashDelta: -strikeCost, premium, realized };
+}
+
+/** Physical delivery (with a cash fallback) for every contract past expiry. */
 export function settleExpiredOptions(state) {
   const positions = state.account.options || [];
   const expiring = positions.filter((position) => position.expiryDay < state.dayIndex);
   if (!expiring.length) return { settlements: [] };
   const settlements = [];
   for (const position of expiring) {
-    const quote = state.quotes[position.ticker];
-    const spot = quote?.last || 0;
+    const spot = state.quotes[position.ticker]?.last || 0;
     const intrinsic = position.type === 'call'
       ? Math.max(0, spot - position.strike)
       : Math.max(0, position.strike - spot);
     const quantity = Math.abs(position.qty);
-    const gross = round(intrinsic * CONTRACT_SIZE * quantity, 2);
     const isLong = position.qty > 0;
-    const cashDelta = isLong ? gross : -gross;
-    const realized = isLong
-      ? round(gross - position.costBasis, 2)
-      : round(position.costBasis - gross, 2);
-    state.account.cash = round(state.account.cash + cashDelta, 2);
-    state.account.realizedPnl = round(state.account.realizedPnl + realized, 2);
+    let delivery = 'none';
+    let cashDelta = 0;
+    let realized = 0;
+    let delivered = null;
+    if (intrinsic > 0) {
+      if (isLong && position.type === 'call') delivered = deliverLongCall(state, position, quantity);
+      else if (isLong && position.type === 'put') delivered = deliverLongPut(state, position, quantity);
+      else if (!isLong && position.type === 'call') delivered = assignShortCall(state, position, quantity);
+      else if (!isLong && position.type === 'put') delivered = assignShortPut(state, position, quantity);
+      if (delivered) {
+        delivery = 'shares';
+        cashDelta = delivered.cashDelta;
+        realized = delivered.realized;
+      }
+    }
+    if (!delivered) {
+      const gross = round(intrinsic * CONTRACT_SIZE * quantity, 2);
+      cashDelta = isLong ? gross : -gross;
+      realized = isLong
+        ? round(gross - position.costBasis, 2)
+        : round(position.costBasis - gross, 2);
+      state.account.cash = round(state.account.cash + cashDelta, 2);
+      state.account.realizedPnl = round(state.account.realizedPnl + realized, 2);
+      delivery = intrinsic > 0 ? 'cash' : 'none';
+    }
     pushOptionTrade(state, {
       ticker: position.ticker,
-      side: isLong ? 'expire' : 'assigned',
+      side: isLong ? (delivery === 'shares' ? 'exercise' : 'expire') : 'assigned',
       optionType: position.type,
       strike: position.strike,
       expiryDay: position.expiryDay,
@@ -314,6 +440,7 @@ export function settleExpiredOptions(state) {
       amount: cashDelta,
       realized,
       source: 'expiry',
+      delivery,
     });
     settlements.push({
       ...position,
@@ -321,6 +448,8 @@ export function settleExpiredOptions(state) {
       intrinsic: round(intrinsic, 2),
       cashDelta,
       realized,
+      delivery,
+      shares: delivered ? delivered.shares : 0,
       day: state.dayIndex,
     });
   }
@@ -330,6 +459,66 @@ export function settleExpiredOptions(state) {
     ...(state.account.optionSettlements || []),
   ].slice(0, 120);
   return { settlements };
+}
+
+/** Manual exercise on the expiry day; shares change hands at the strike. */
+export function exerciseOption(state, key, qty) {
+  const position = (state.account.options || []).find((item) => item.key === key);
+  if (!position) return { ok: false, error: 'option.noPosition' };
+  if (position.qty <= 0) return { ok: false, error: 'option.notLong' };
+  if (position.expiryDay !== state.dayIndex) return { ok: false, error: 'option.notExpiryDay' };
+  const quantity = Math.floor(Number(qty) || 0);
+  if (quantity <= 0 || quantity > position.qty) {
+    return { ok: false, error: 'option.invalid' };
+  }
+  const spot = state.quotes[position.ticker]?.last || 0;
+  const intrinsic = position.type === 'call'
+    ? Math.max(0, spot - position.strike)
+    : Math.max(0, position.strike - spot);
+  if (intrinsic <= 0) return { ok: false, error: 'option.notInTheMoney' };
+  const delivered = position.type === 'call'
+    ? deliverLongCall(state, position, quantity)
+    : deliverLongPut(state, position, quantity);
+  if (!delivered) {
+    return {
+      ok: false,
+      error: position.type === 'call' ? 'option.insufficientCash' : 'option.insufficientShares',
+    };
+  }
+  const remaining = position.qty - quantity;
+  state.account.options = remaining > 0
+    ? state.account.options.map((item) => (item.key === key
+      ? {
+        ...item,
+        qty: remaining,
+        costBasis: round(item.costBasis
+          - item.costBasis * quantity / position.qty, 2),
+      }
+      : item))
+    : state.account.options.filter((item) => item.key !== key);
+  state.account.realizedPnl = round(state.account.realizedPnl + delivered.realized, 2);
+  pushOptionTrade(state, {
+    ticker: position.ticker,
+    side: 'exercise',
+    optionType: position.type,
+    strike: position.strike,
+    expiryDay: position.expiryDay,
+    qty: quantity,
+    premium: round(intrinsic, 2),
+    fee: 0,
+    amount: delivered.cashDelta,
+    realized: delivered.realized,
+    source: 'exercise',
+    delivery: 'shares',
+  });
+  return {
+    ok: true,
+    contract: position,
+    qty: quantity,
+    shares: delivered.shares,
+    cashDelta: delivered.cashDelta,
+    realized: delivered.realized,
+  };
 }
 
 export function optionPositionMark(state, position) {

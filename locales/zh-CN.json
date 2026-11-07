@@ -5806,9 +5806,9 @@
       "p1c": "交互演示、实战任务、测验、XP、成就与解锁",
       "p1d": "Sandbox 独立存档、6 个 Challenge 目标，以及含客户、员工与费用的基金经营",
       "future": {
-        "a": "交易所级实时行情直连与授权数据源（当前支持可选 JSON 参考通道）",
-        "b": "真实分钟级历史数据与更广市场覆盖（当前为 tick 级模拟分时与日线快照）",
-        "c": "真实地区税制、税务申报与监管合规成本（当前提供教学用简化档案）"
+        "a": "期权按欧式到期实物交割，不模拟提前指派",
+        "b": "交易所为多档做市商模型，不含 L2 逐笔队列",
+        "c": "固定 54 个虚构标的，不含 IPO 或退市后重新上市流程"
       },
       "p1e": "真实美股历史实验室（2008 / 2015–2026 / 2020 / 2022）",
       "p1f": "IndexedDB / localStorage 存档、主题与模拟边界说明",
@@ -5826,10 +5826,10 @@
   "roadmap": {
     "eyebrow": "开发路线图",
     "title": "开发路线图",
-    "subtitle": "Phase 1–13 已完成；以下为真实实现状态，不把未实现功能伪装成可用。",
+    "subtitle": "Phase 1–14 已完成；以下为真实实现状态，不把未实现功能伪装成可用。",
     "statusShipped": "已发布",
     "statusPlanned": "计划中",
-    "note": "路线图可能随开发调整。当前版本已实现期权、做空、保证金、期货、职业晋升、基金经营 / 自动再平衡 / 仓位参数研究 / 组合优化器 / 多因子风险分解 / 交易成本模型、宏观世界与经济事件冲击、债券 / 外汇 / 商品 / 加密资产多资产、盘中 tick 分时与可选外部 JSON 实时行情参考通道，以及含参数优化、多因子回归、逻辑回归 / MLP / 双隐层网络、自动调参与分析师修正 / 资金流等另类数据因子的量化实验室；交易所级实时数据授权、真实分钟历史与税费 / 监管成本校准仍未实现。",
+    "note": "路线图可能随开发调整。本项目按设计只使用虚构公司与确定性模拟行情，不接入真实行情，也不提供真实税务申报。当前已实现期权、做空、保证金、期货、职业晋升、基金经营、量化实验室、宏观世界、债券 / 外汇 / 商品 / 加密资产与模拟交易所；交易所双模式、时间旅行复盘、高级订单与期权实物交割均已完成；期权按欧式到期交割，不模拟提前指派。",
     "p1": {
       "title": "Phase 1 · 教学基础版本",
       "text": "从零开始完成第一阶段的完整学习与交易闭环。",
@@ -5940,14 +5940,6 @@
       "i2": "股息税：£500 免税额与 10.75% / 35.75% / 39.35% 税率档",
       "i3": "ISA 免税与 £20,000 额度；英国股票买入 0.5% SDRT 与固定教学汇率",
       "i4": "税务实验室页面、卖出与股息明细、提示、来源链接与中英双语测试；仅供教学估算"
-    },
-    "p15": {
-      "title": "Phase 15 · 真实行情与合规（待完成）",
-      "text": "已接入本地 Alpaca 2016–2026 原始日线场景与拆股调整；剩余升级需要服务端行情代理、数据授权和完整分钟历史。",
-      "i1": "服务端 API Proxy 与 Alpaca / Twelve Data / Polygon 适配器，密钥只放环境变量",
-      "i2": "真实分钟历史、分页缓存、拆股复权与防前视历史回放；当前已接入 2016–2026 原始日线与拆股，分钟线仅 2020-03 只读",
-      "i3": "美国税制、Wash Sale 与年度税务报告",
-      "i4": "数据授权看板、监管课程与新增挑战，并明确标注真实 / 延迟 / 模拟数据"
     }
   },
   "locked": {
@@ -6076,7 +6068,26 @@
       "bond.noPosition": "找不到该债券持仓。",
       "bond.insufficient": "债券持仓不足。",
       "bond.insufficientCash": "现金不足，无法买入该债券。",
-      "bond.delisted": "该债券发行人已退市，无法买入。"
+      "bond.delisted": "该债券发行人已退市，无法买入。",
+      "order.stop": "止损单需要填写触发价。",
+      "order.stopLimit": "止损限价单需要填写触发价与触发后限价。",
+      "order.trail": "追踪止损幅度必须在 0.1%–49% 之间。",
+      "order.oco": "OCO 需要同时填写止盈价与止损价。",
+      "challenge.invalid": "挑战参数无效。",
+      "challenge.active": "已有进行中的挑战。",
+      "challenge.none": "当前没有进行中的挑战。",
+      "challenge.shortBlocked": "本次挑战不允许卖空。",
+      "challenge.marginBlocked": "本次挑战不允许融资买入。",
+      "challenge.positionLimit": "该标的将超过本次挑战的单只持仓上限。",
+      "challenge.assetBlocked.stock": "本次挑战不允许交易股票。",
+      "challenge.assetBlocked.etf": "本次挑战不允许交易 ETF。",
+      "challenge.assetBlocked.bond": "本次挑战不允许交易债券。",
+      "challenge.assetBlocked.option": "本次挑战不允许交易期权。",
+      "option.notLong": "只有多头期权可以行权。",
+      "option.notExpiryDay": "只能在到期日当天行权。",
+      "option.notInTheMoney": "该期权当前没有内在价值，无法行权。",
+      "option.insufficientShares": "持仓不足，无法行权卖出标的。",
+      "timeline.notFound": "找不到该交易日的快照。"
     },
     "companyProfile": "公司资料",
     "companyProfileSubtitle": "基本面、最新财报与公司行为",
@@ -6438,7 +6449,73 @@
     "bondSold": "卖出 {qty} 份 {id}。",
     "bondEmpty": "暂无可交易债券。",
     "optionValue": "期权市值",
-    "bondValue": "债券市值"
+    "bondValue": "债券市值",
+    "challengeTitle": "交易所挑战",
+    "challengeSubtitle": "在限定交易日、收益目标与回撤约束下完成一次评分运行",
+    "challengeIntro": "挑战直接使用当前账户与行情，不重置资金；开始后按规则限制品种、方向、融资与单只权重。",
+    "challengeActive": "挑战进行中",
+    "challengeStart": "开始挑战",
+    "challengeAbandon": "放弃挑战",
+    "challengeAbandonConfirm": "放弃后本次挑战不会计入评分，确定放弃吗？",
+    "challengeAbandoned": "已放弃本次挑战。",
+    "challengeStarted": "挑战「{name}」已开始。",
+    "challengeDays": "{days} 个交易日",
+    "challengeDaysLabel": "交易日",
+    "challengeDaysLeft": "剩余 {days} 个交易日",
+    "challengeTarget": "目标 {value}",
+    "challengeTargetLabel": "目标",
+    "challengeDrawdown": "回撤上限 {value}",
+    "challengeDrawdownLabel": "回撤上限",
+    "challengeMaxDrawdown": "最大回撤",
+    "challengeReturn": "当前收益",
+    "challengeScore": "评分",
+    "challengeGrade": "评级",
+    "challengeName": "挑战",
+    "challengeStatus": "结果",
+    "challengePositionCap": "单只上限",
+    "challengeResult": {
+      "passed": "已通过",
+      "failed": "未通过",
+      "abandoned": "已放弃"
+    },
+    "challenge": {
+      "sprint": {
+        "name": "稳健冲刺",
+        "desc": "10 个交易日内取得 3% 收益，回撤不超过 6%；禁止卖空、期权与融资，单只标的不超过权益 40%。"
+      },
+      "hedge": {
+        "name": "对冲进阶",
+        "desc": "20 个交易日内取得 6% 收益，回撤不超过 10%；可用卖空、期权与融资，单只标的不超过 35%。"
+      },
+      "marathon": {
+        "name": "长线耐力",
+        "desc": "40 个交易日内取得 10% 收益，回撤不超过 15%；可用全部工具，单只标的不超过 30%。"
+      }
+    },
+    "timelineTitle": "时间旅行复盘",
+    "timelineSubtitle": "回到某个交易日开盘，重新推演当时的决策",
+    "timelineDay": "回到交易日",
+    "timelineRewind": "回到该日开盘",
+    "timelineToday": "当前",
+    "timelineNote": "保留最近 {count} 个交易日快照；回退会丢弃之后的成交与订单，并记录为新的复盘分支。",
+    "timelineEmpty": "还没有可复盘的历史快照，推进至少一个交易日后会出现。",
+    "timelineConfirm": "回到 {date} 开盘会丢弃该日之后的成交与订单，确定继续吗？",
+    "timelineRewound": "已回到 {date} 开盘，可以重新推演。",
+    "stop": "止损单",
+    "stopLimit": "止损限价",
+    "trailing": "追踪止损",
+    "stopPrice": "触发价",
+    "stopLimitPrice": "触发后限价",
+    "trailPercent": "追踪幅度 %",
+    "conditionalSubmitted": "{qty} 股{type}已提交，触发后才会参与撮合。",
+    "ocoTitle": "OCO 离场（止盈 + 止损）",
+    "ocoTakeProfit": "止盈价",
+    "ocoStop": "止损价",
+    "ocoSubmit": "提交 OCO",
+    "ocoNote": "两条腿共享同一批持股或借券，任一成交或取消时另一条自动撤销。",
+    "ocoSubmitted": "已提交 {qty} 股 OCO 离场单。",
+    "optionExercise": "行权",
+    "optionExercised": "已行权 {qty} 张，交割 {shares} 股。"
   },
   "history": {
     "eyebrow": "真实历史实战",

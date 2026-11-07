@@ -5806,9 +5806,9 @@
       "p1c": "Interactive demos, practice tasks, quizzes, XP, achievements and unlocks",
       "p1d": "Sandbox with a separate save, six Challenge goals and fund management with clients, staff and fees",
       "future": {
-        "a": "Exchange-grade live quote connectivity and licensed data (the optional JSON reference channel is available now)",
-        "b": "Real minute history and broader market coverage (tick-level simulated intraday and daily snapshots are available now)",
-        "c": "Real regional tax rules, filing and regulatory costs (simplified teaching profiles are available now)"
+        "a": "Options settle physically at expiry and are not early-assigned",
+        "b": "The exchange uses a multi-level market-maker book without L2 order-by-order queues",
+        "c": "A fixed universe of 54 fictional instruments without IPO or re-listing flows"
       },
       "p1e": "Real US equity history lab (2008 / 2015–2026 / 2020 / 2022)",
       "p1f": "IndexedDB / localStorage saves, themes and simulation-boundary notes",
@@ -5826,10 +5826,10 @@
   "roadmap": {
     "eyebrow": "Roadmap",
     "title": "Development Roadmap",
-    "subtitle": "Phases 1–13 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
+    "subtitle": "Phases 1–14 are complete; this page shows the real implementation status rather than advertising unbuilt features.",
     "statusShipped": "Shipped",
     "statusPlanned": "Planned",
-    "note": "The roadmap may change. The current build includes options, short selling, margin, futures, career progression, fund management with auto rebalancing / sizing research / a portfolio optimiser / multi-factor risk decomposition / transaction and tax modelling, a Macro World with event shocks, bonds / FX / commodities / crypto, intraday tick candles with an optional external JSON quote channel, and a Quant Lab with parameter optimisation, multi-factor regression, logistic / MLP / two-hidden-layer networks, auto tuning and analyst-revision / money-flow factors; exchange-grade live data, real minute history and real regional tax filing remain unimplemented.",
+    "note": "The roadmap may change. This project deliberately uses fictional companies and deterministic simulated quotes only: it does not connect to live market data and does not file real taxes. Shipped features include options, short selling, margin, futures, career progression, fund management, the Quant Lab, Macro World, bonds / FX / commodities / crypto and the simulated exchange; exchange challenge modes, time-travel review, advanced orders and physical option settlement are complete; options settle at expiry and are not early-assigned.",
     "p1": {
       "title": "Phase 1 · Teaching foundation",
       "text": "A complete learning and trading loop for Stage 1, starting from zero.",
@@ -5940,14 +5940,6 @@
       "i2": "Dividend tax: £500 allowance and 10.75% / 35.75% / 39.35% rate bands",
       "i3": "ISA exemption and £20,000 allowance; 0.5% SDRT on UK share purchases and a fixed teaching FX rate",
       "i4": "Tax Lab page, disposal and dividend detail, warnings, source links and bilingual tests; educational estimate only"
-    },
-    "p15": {
-      "title": "Phase 15 · Real data and compliance (planned)",
-      "text": "The local Alpaca 2016–2026 raw daily scenario and split handling are wired in. The remaining upgrade needs a server-side market proxy, data licensing and full minute history.",
-      "i1": "Server API proxy with Alpaca / Twelve Data / Polygon adapters; keys live only in environment variables",
-      "i2": "Real minute history, paginated caching, split adjustment and look-ahead-safe replay; 2016–2026 raw daily bars and splits are in, while minute data covers 2020-03 read-only",
-      "i3": "US tax rules, wash sales and an annual tax report",
-      "i4": "Data licensing dashboard, regulatory lessons and new challenges with explicit real / delayed / simulated labels"
     }
   },
   "locked": {
@@ -6076,7 +6068,26 @@
       "bond.noPosition": "No bond position found.",
       "bond.insufficient": "Not enough bonds to sell.",
       "bond.insufficientCash": "Insufficient cash to buy this bond.",
-      "bond.delisted": "This bond's issuer has been delisted; buying is blocked."
+      "bond.delisted": "This bond's issuer has been delisted; buying is blocked.",
+      "order.stop": "A stop order needs a trigger price.",
+      "order.stopLimit": "A stop-limit order needs both a trigger and a limit price.",
+      "order.trail": "The trailing percentage must be between 0.1% and 49%.",
+      "order.oco": "An OCO needs both a take-profit and a stop price.",
+      "challenge.invalid": "Invalid challenge.",
+      "challenge.active": "A challenge is already running.",
+      "challenge.none": "No challenge is running.",
+      "challenge.shortBlocked": "Short selling is not allowed in this challenge.",
+      "challenge.marginBlocked": "Margin buying is not allowed in this challenge.",
+      "challenge.positionLimit": "This order would exceed the challenge position cap.",
+      "challenge.assetBlocked.stock": "Stocks are not allowed in this challenge.",
+      "challenge.assetBlocked.etf": "ETFs are not allowed in this challenge.",
+      "challenge.assetBlocked.bond": "Bonds are not allowed in this challenge.",
+      "challenge.assetBlocked.option": "Options are not allowed in this challenge.",
+      "option.notLong": "Only long options can be exercised.",
+      "option.notExpiryDay": "Options can only be exercised on their expiry day.",
+      "option.notInTheMoney": "This option has no intrinsic value to exercise.",
+      "option.insufficientShares": "Not enough shares to deliver for this exercise.",
+      "timeline.notFound": "No snapshot exists for that session."
     },
     "companyProfile": "Company profile",
     "companyProfileSubtitle": "Fundamentals, latest report and corporate actions",
@@ -6438,7 +6449,73 @@
     "bondSold": "Sold {qty} of {id}.",
     "bondEmpty": "No bonds are available.",
     "optionValue": "Option value",
-    "bondValue": "Bond value"
+    "bondValue": "Bond value",
+    "challengeTitle": "Exchange challenges",
+    "challengeSubtitle": "Run a scored session with a deadline, return target and drawdown limit",
+    "challengeIntro": "Challenges use the current account and market without resetting cash. Rules limit assets, direction, margin and single-position weight.",
+    "challengeActive": "Challenge active",
+    "challengeStart": "Start challenge",
+    "challengeAbandon": "Abandon challenge",
+    "challengeAbandonConfirm": "Abandoning discards this run without a score. Continue?",
+    "challengeAbandoned": "Challenge abandoned.",
+    "challengeStarted": "Challenge \"{name}\" started.",
+    "challengeDays": "{days} trading days",
+    "challengeDaysLabel": "Trading days",
+    "challengeDaysLeft": "{days} trading days left",
+    "challengeTarget": "Target {value}",
+    "challengeTargetLabel": "Target",
+    "challengeDrawdown": "Drawdown limit {value}",
+    "challengeDrawdownLabel": "Drawdown limit",
+    "challengeMaxDrawdown": "Max drawdown",
+    "challengeReturn": "Current return",
+    "challengeScore": "Score",
+    "challengeGrade": "Grade",
+    "challengeName": "Challenge",
+    "challengeStatus": "Result",
+    "challengePositionCap": "Position cap",
+    "challengeResult": {
+      "passed": "Passed",
+      "failed": "Failed",
+      "abandoned": "Abandoned"
+    },
+    "challenge": {
+      "sprint": {
+        "name": "Steady sprint",
+        "desc": "Earn 3% in 10 trading days with drawdown under 6%; no shorting, options or margin, and each position capped at 40% of equity."
+      },
+      "hedge": {
+        "name": "Hedging step-up",
+        "desc": "Earn 6% in 20 trading days with drawdown under 10%; shorting, options and margin allowed, each position capped at 35%."
+      },
+      "marathon": {
+        "name": "Long-haul endurance",
+        "desc": "Earn 10% in 40 trading days with drawdown under 15%; every instrument is allowed, each position capped at 30%."
+      }
+    },
+    "timelineTitle": "Time-travel review",
+    "timelineSubtitle": "Rewind to a past session open and replay the decisions",
+    "timelineDay": "Rewind to",
+    "timelineRewind": "Rewind to this open",
+    "timelineToday": "current",
+    "timelineNote": "The last {count} session snapshots are kept. Rewinding discards later trades and orders and records a new review branch.",
+    "timelineEmpty": "No review snapshots yet; advance at least one trading day first.",
+    "timelineConfirm": "Rewinding to the {date} open discards every later trade and order. Continue?",
+    "timelineRewound": "Rewound to the {date} open; you can replay from here.",
+    "stop": "Stop",
+    "stopLimit": "Stop-limit",
+    "trailing": "Trailing stop",
+    "stopPrice": "Trigger price",
+    "stopLimitPrice": "Limit after trigger",
+    "trailPercent": "Trail %",
+    "conditionalSubmitted": "{qty} shares submitted as a {type}; it only matches after the trigger.",
+    "ocoTitle": "OCO exit (take-profit + stop)",
+    "ocoTakeProfit": "Take-profit price",
+    "ocoStop": "Stop price",
+    "ocoSubmit": "Submit OCO",
+    "ocoNote": "Both legs share the same shares or borrow; when one fills or is cancelled the other is cancelled automatically.",
+    "ocoSubmitted": "OCO exit submitted for {qty} shares.",
+    "optionExercise": "Exercise",
+    "optionExercised": "Exercised {qty} contracts and delivered {shares} shares."
   },
   "history": {
     "eyebrow": "Real historical replay",

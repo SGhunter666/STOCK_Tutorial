@@ -128,7 +128,7 @@ test('a large market order partially fills and a limit order rests', () => {
     ticker, side: 'buy', type: 'limit', qty: 50,
     limitPrice: state.quotes[ticker].bid - 0.02,
   });
-  assert(rest.ok, 'limit accepted');
+  assert(rest.ok, `limit accepted (${rest.error || 'no error'})`);
   assertEqual(rest.order.status, 'open', 'resting');
   assertEqual(getBook(state, ticker).bids.some((level) => level.price === rest.order.limitPrice), true, 'in book');
   cancelOrder(state, rest.order.id);
