@@ -25,6 +25,7 @@ import {
   SIM_OPTION_TENORS, buildOptionChain, optionRows, optionStrikeGrid,
 } from '../../sim/options.js';
 import { SIM_BONDS, bondQuotes, bondRows } from '../../sim/bonds.js';
+import { reviewSummary } from '../../sim/review.js';
 import { SimulationClock, SIM_SPEEDS } from '../../sim/simulationClock.js';
 import { nextMacroEventDay } from '../../sim/macroEconomy.js';
 import { sectorSensitivity } from '../../sim/industryModel.js';
@@ -644,6 +645,43 @@ export function createExchangeView(ctx) {
     </div>`;
   }
 
+  function reviewHtml() {
+    const summary = reviewSummary(state, equity(state));
+    const cells = [
+      [t('exchange.reviewEquity'), moneyFmt(summary.equity)],
+      [t('exchange.reviewReturn'), pctFmt(summary.returnPct * 100)],
+      [t('exchange.reviewRealized'), moneyFmt(summary.realized)],
+      [t('exchange.reviewUnrealized'), moneyFmt(summary.unrealized)],
+      [t('exchange.reviewWinRate'),
+        summary.winRate === null ? '—' : pctPlain(summary.winRate * 100, 1)],
+      [t('exchange.reviewProfitFactor'),
+        summary.profitFactor === null ? '—' : numFmt(summary.profitFactor, 2)],
+      [t('exchange.reviewMaxDrawdown'), pctPlain(summary.maxDrawdown * 100, 2)],
+      [t('exchange.reviewClosedTrades'), numFmt(summary.closedCount)],
+    ];
+    return `<div class="exchange-review">
+      <div class="exchange-macro__grid">${cells.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div>
+      <p class="muted">${t('exchange.reviewCosts', {
+    fees: moneyFmt(summary.fees),
+    financing: moneyFmt(summary.financing),
+    dividends: moneyFmt(summary.dividends),
+    coupons: moneyFmt(summary.coupons),
+  })}</p>
+      ${table({
+    head: [t('exchange.reviewTicker'), t('exchange.reviewRealized'),
+      t('exchange.reviewUnrealized'), t('exchange.reviewTotal')],
+    rows: summary.rows.slice(0, 8).map((row) => [
+      row.ticker,
+      moneyFmt(row.realized),
+      moneyFmt(row.unrealized),
+      moneyFmt(row.total),
+    ]),
+    empty: t('exchange.empty'),
+  })}
+      <p class="muted">${t('exchange.reviewNote')}</p>
+    </div>`;
+  }
+
   function ordersHtml() {
     const rows = openOrderRows(state);
     return table({
@@ -1080,6 +1118,11 @@ export function createExchangeView(ctx) {
               body: `<div id="sim-timeline">${timelineHtml()}</div>`,
             })}
             ${card({
+              title: t('exchange.reviewTitle'),
+              subtitle: t('exchange.reviewSubtitle'),
+              body: `<div id="sim-review">${reviewHtml()}</div>`,
+            })}
+            ${card({
               title: t('exchange.optionTitle'),
               subtitle: t('exchange.optionSubtitle'),
               body: `<div id="sim-options">${optionsHtml()}</div>`,
@@ -1146,6 +1189,7 @@ export function createExchangeView(ctx) {
     set('#sim-option-chain', optionChainHtml());
     set('#sim-option-positions', optionPositionsHtml());
     set('#sim-summary', summaryHtml());
+    set('#sim-review', reviewHtml());
     ensureOptionForm();
     const note = container.querySelector('#sim-chart-note');
     if (note) note.textContent = chartNote();

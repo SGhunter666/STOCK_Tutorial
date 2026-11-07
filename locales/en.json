@@ -6530,7 +6530,21 @@
     "ocoSubmitted": "OCO exit submitted for {qty} shares.",
     "optionExercise": "Exercise",
     "optionEarly": "early assignment",
-    "optionExercised": "Exercised {qty} contracts and delivered {shares} shares."
+    "optionExercised": "Exercised {qty} contracts and delivered {shares} shares.",
+    "reviewTitle": "Performance review",
+    "reviewSubtitle": "Review this run with recorded fills, current positions and session snapshots",
+    "reviewEquity": "Equity",
+    "reviewReturn": "Total return",
+    "reviewRealized": "Realized P&L",
+    "reviewUnrealized": "Unrealized P&L",
+    "reviewWinRate": "Win rate",
+    "reviewProfitFactor": "Profit factor",
+    "reviewMaxDrawdown": "Max drawdown",
+    "reviewClosedTrades": "Closed trades",
+    "reviewTicker": "Ticker",
+    "reviewTotal": "Total",
+    "reviewCosts": "Fees {fees} · Financing & borrow {financing} · Dividends {dividends} · Coupons {coupons}",
+    "reviewNote": "Win rate and profit factor only use recorded closing fills with a realized result (stocks, options and bonds). Max drawdown uses saved session-open equity plus current equity; only the last 500 fills are retained."
   },
   "history": {
     "eyebrow": "Real historical replay",

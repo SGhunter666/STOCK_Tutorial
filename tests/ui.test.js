@@ -377,9 +377,13 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assert(root.querySelector('#sim-positions').textContent.includes('NCRT'), 'position row');
   assert(root.querySelector('#sim-trades').textContent.includes('buy'), 'trade ledger');
   assert(root.querySelector('#sim-summary').textContent.includes('exchange.equity'), 'equity summary');
+  assert(root.querySelector('#sim-review'), 'review card');
+  assert(root.querySelector('#sim-review').textContent.includes('exchange.reviewWinRate'), 'review statistics');
   root.querySelector('[data-sim-step-day]').click();
   assertEqual(root.querySelector('#sim-clock').textContent, '09:30:00', 'next session opens at 09:30');
   assertEqual(root.querySelector('#sim-date').textContent, simDate(1), 'date refreshed after advancing');
+  assert(root.querySelector('#sim-review').textContent.includes('exchange.reviewTicker'), 'review attribution table');
+  assert(root.querySelector('#sim-review').textContent.includes('NCRT'), 'review attribution row');
   assert(root.querySelector('#sim-timeline svg.exchange-spark'), 'timeline equity sparkline');
   root.querySelector('[data-challenge-start]').click();
   assert(root.querySelector('#sim-challenge').textContent.includes('exchange.challengeActive'),

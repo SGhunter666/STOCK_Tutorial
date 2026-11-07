@@ -6530,7 +6530,21 @@
     "ocoSubmitted": "已提交 {qty} 股 OCO 离场单。",
     "optionExercise": "行权",
     "optionEarly": "提前指派",
-    "optionExercised": "已行权 {qty} 张，交割 {shares} 股。"
+    "optionExercised": "已行权 {qty} 张，交割 {shares} 股。",
+    "reviewTitle": "交易统计与归因",
+    "reviewSubtitle": "用已记录成交、当前持仓与交易日快照复盘这段交易表现",
+    "reviewEquity": "总权益",
+    "reviewReturn": "累计收益率",
+    "reviewRealized": "已实现盈亏",
+    "reviewUnrealized": "未实现盈亏",
+    "reviewWinRate": "胜率",
+    "reviewProfitFactor": "盈亏比",
+    "reviewMaxDrawdown": "最大回撤",
+    "reviewClosedTrades": "已平仓",
+    "reviewTicker": "标的",
+    "reviewTotal": "合计",
+    "reviewCosts": "手续费 {fees} · 融资与借券 {financing} · 股息 {dividends} · 票息 {coupons}",
+    "reviewNote": "胜率与盈亏比只统计已记录实现盈亏的平仓成交（股票、期权与债券）；最大回撤基于已保存的交易日开盘权益与当前权益，成交记录最多保留最近 500 笔。"
   },
   "history": {
     "eyebrow": "真实历史实战",

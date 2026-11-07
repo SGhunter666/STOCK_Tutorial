@@ -221,6 +221,7 @@ function applyAccountFill(state, order, qty, price, fee) {
   const ticker = order.ticker;
   const action = actionForOrder(order);
   const gross = qty * price;
+  let realized = 0;
   if (action === 'openLong') {
     const position = account.positions[ticker] || { qty: 0, avgCost: 0 };
     account.cash -= gross + fee;
@@ -244,7 +245,8 @@ function applyAccountFill(state, order, qty, price, fee) {
       return false;
     }
     account.cash -= gross + fee;
-    account.realizedPnl += (short.avgPrice - price) * qty;
+    realized = (short.avgPrice - price) * qty;
+    account.realizedPnl += realized;
     short.qty -= qty;
     if (short.qty <= 0) delete account.shorts[ticker];
   } else {
@@ -255,7 +257,8 @@ function applyAccountFill(state, order, qty, price, fee) {
       return false;
     }
     account.cash += gross - fee;
-    account.realizedPnl += (price - position.avgCost) * qty;
+    realized = (price - position.avgCost) * qty;
+    account.realizedPnl += realized;
     position.qty -= qty;
     if (position.qty <= 0) delete account.positions[ticker];
   }
@@ -267,6 +270,7 @@ function applyAccountFill(state, order, qty, price, fee) {
     qty,
     price: round(price, 4),
     fee,
+    realized: round(realized, 2),
     orderId: order.id,
     day: state.dayIndex,
     second: state.second,
