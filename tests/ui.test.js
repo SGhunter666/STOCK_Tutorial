@@ -84,6 +84,21 @@ test('trading view renders an ETF profile and holdings instead of financials', (
   host.remove();
 });
 
+test('trading view renders the order card after a fill', () => {
+  const state = createGameState({ seed: 'ui-orders' });
+  state.orders.push({
+    id: 'o1', ticker: 'AURA', side: 'buy', type: 'market', qty: 10,
+    status: 'filled', fillPrice: 42, createdAt: { day: 0, tick: 0 },
+  });
+  const { ctx } = makeCtx(state);
+  const view = createTradeView(ctx, { ticker: 'AURA' });
+  const host = mountView(view);
+  assert(host.textContent.includes('trade.ordersTitle'), 'orders card renders with a filled order');
+  assert(host.textContent.includes('order.status.filled'), 'filled order row is shown');
+  view.destroy();
+  host.remove();
+});
+
 test('branches view renders six cards once Unit 32 is complete', () => {
   const state = createGameState({ seed: 'ui-branches' });
   state.education.units.u32.completedAt = Date.now();
@@ -327,6 +342,7 @@ test('tax view renders the UK estimate and recalculates for an ISA', () => {
 });
 
 test('simulated exchange renders 50 companies and records a player trade', () => {
+  localStorage.removeItem(SIM_EXCHANGE_SAVE_KEY);
   const host = document.createElement('div');
   host.id = 'exchange-root';
   document.body.appendChild(host);
@@ -400,6 +416,15 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assert(!root.querySelector('[data-statement-link]'), 'ETF hides the statement link');
   view.destroy();
   host.remove();
+  const remountHost = document.createElement('div');
+  document.body.appendChild(remountHost);
+  const remount = createExchangeView({ i18n: fakeI18n, toast: () => {} });
+  remount.mount(remountHost);
+  assert(remountHost.querySelector('#sim-positions').textContent.includes('NCRT'),
+    'exchange progress persists across mounts');
+  remount.destroy();
+  remountHost.remove();
+  localStorage.removeItem(SIM_EXCHANGE_SAVE_KEY);
 });
 
 test('exchange company events render buybacks and offerings', () => {

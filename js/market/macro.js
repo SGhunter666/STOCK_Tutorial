@@ -143,10 +143,10 @@ export function macroCalendar(day, seed = '', { past = 3, future = 3 } = {}) {
 }
 
 const REGIONS = [
-  { id: 'us', nameKey: 'macro.region.us', base: 1000, period: 260, coupling: 1, phase: 0 },
-  { id: 'europe', nameKey: 'macro.region.europe', base: 760, period: 240, coupling: 0.78, phase: 0.6 },
-  { id: 'asia', nameKey: 'macro.region.asia', base: 880, period: 220, coupling: 0.62, phase: 1.1 },
-  { id: 'em', nameKey: 'macro.region.em', base: 640, period: 200, coupling: 0.48, phase: 1.7 },
+  { id: 'us', nameKey: 'macroPage.region.us', base: 1000, period: 260, coupling: 1, phase: 0 },
+  { id: 'europe', nameKey: 'macroPage.region.europe', base: 760, period: 240, coupling: 0.78, phase: 0.6 },
+  { id: 'asia', nameKey: 'macroPage.region.asia', base: 880, period: 220, coupling: 0.62, phase: 1.1 },
+  { id: 'em', nameKey: 'macroPage.region.em', base: 640, period: 200, coupling: 0.48, phase: 1.7 },
 ];
 
 /** Global market proxies; US uses the simulated index, other regions link to it. */

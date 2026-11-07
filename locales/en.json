@@ -5527,6 +5527,7 @@
     "financialsNote": "Assets = liabilities + equity; figures are simplified simulations, not audited statements.",
     "short": "Short",
     "cover": "Cover",
+    "long": "Long",
     "stopOrder": "Stop",
     "trailingOrder": "Trailing stop",
     "stopLimitOrder": "Stop-limit",

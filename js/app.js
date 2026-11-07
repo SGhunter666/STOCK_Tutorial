@@ -857,7 +857,12 @@ const actions = {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = (() => {
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${now.getFullYear()}-${month}-${day}`;
+    })();
     anchor.href = url;
     anchor.download = `stock-market-academy-save-${stamp}.json`;
     document.body.appendChild(anchor);

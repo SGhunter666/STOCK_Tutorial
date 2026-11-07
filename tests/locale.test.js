@@ -11,6 +11,7 @@ import { ACHIEVEMENTS } from '../js/education/progress.js';
 import { COMPANIES, SECTORS, getCompany } from '../js/data/companies.js';
 import { MARKET_SEGMENTS } from '../js/market/marketAccess.js';
 import { HISTORY_SCENARIOS, HISTORY_SECTOR_PACKS } from '../js/data/historyScenarios.js';
+import { globalMarkets } from '../js/market/macro.js';
 import { CAREER_RANKS } from '../js/education/career.js';
 import {
   FUND_STRATEGIES, FUND_RISK_PROFILES, FUND_ROLES,
@@ -388,7 +389,7 @@ test('demo and practice content is localised', () => {
     fields.forEach((field) => check(`demo.${demoId}.${field}`));
   }
   [
-    'trade.short', 'trade.cover', 'trade.stopOrder', 'trade.trailingOrder', 'trade.stopPrice',
+    'trade.short', 'trade.cover', 'trade.long', 'trade.stopOrder', 'trade.trailingOrder', 'trade.stopPrice',
     'trade.trailAmount', 'trade.trailHint', 'trade.shortable', 'trade.shortPositionHint',
     'trade.shortLockedHint', 'trade.stopLockedHint', 'trade.estimateTrigger',
     'trade.estimateMargin', 'trade.estimateNoteConditional', 'trade.submitShort',
@@ -952,6 +953,9 @@ test('macro dashboard, calendar, regimes and regions are localised', () => {
   ['expansion', 'slowdown', 'inflation', 'neutral'].forEach((regime) => check(`macroPage.regime.${regime}`));
   ['cpi', 'payrolls', 'gdp', 'pmi', 'centralBank'].forEach((event) => check(`macroPage.event.${event}`));
   ['us', 'europe', 'asia', 'em'].forEach((region) => check(`macroPage.region.${region}`));
+  for (const region of globalMarkets({ market: { index: { value: 1000, prevClose: 1000 } } }, 10, 'locale')) {
+    check(region.nameKey);
+  }
   ['expansion', 'slowdown', 'inflation', 'neutral'].forEach((regime) => check(`macro.regime.${regime}`));
   assertEqual(missing.length, 0, missing.join('\n'));
 });

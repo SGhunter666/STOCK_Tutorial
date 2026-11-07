@@ -5527,6 +5527,7 @@
     "financialsNote": "资产 = 负债 + 股东权益；数字为简化模拟，不是审计报表。",
     "short": "做空",
     "cover": "平空",
+    "long": "做多",
     "stopOrder": "止损单",
     "trailingOrder": "追踪止损",
     "stopLimitOrder": "止损限价单",

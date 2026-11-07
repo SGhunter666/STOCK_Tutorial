@@ -78,10 +78,11 @@ export function reviewSummary(state, equityValue = 0) {
   }
 
   const initialCash = Number.isFinite(account.initialCash) ? account.initialCash : 0;
+  const rawReturn = initialCash > 0 ? (equityValue - initialCash) / initialCash : 0;
   return {
     equity: round(equityValue, 2),
     initialCash,
-    returnPct: initialCash > 0 ? (equityValue - initialCash) / initialCash : 0,
+    returnPct: Math.abs(rawReturn) < 0.00005 ? 0 : rawReturn,
     realized: round(Number(account.realizedPnl) || 0, 2),
     unrealized,
     fees: round(Number(account.fees) || 0, 2),

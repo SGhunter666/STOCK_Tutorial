@@ -98,6 +98,7 @@ export function createExchangeView(ctx) {
   let clock = null;
   let lastPaint = 0;
   let destroyed = false;
+  let onPageHide = null;
 
   function quote() {
     return state.quotes[selected];
@@ -1671,6 +1672,8 @@ export function createExchangeView(ctx) {
     syncAlertState();
     mountPage();
     bind();
+    onPageHide = () => { persist(); };
+    window.addEventListener('pagehide', onPageHide);
     const play = container.querySelector('[data-sim-play]');
     if (play) play.textContent = t('exchange.play');
   }
@@ -1681,6 +1684,13 @@ export function createExchangeView(ctx) {
 
   function destroy() {
     destroyed = true;
+    if (onPageHide) {
+      window.removeEventListener('pagehide', onPageHide);
+      onPageHide = null;
+    }
+    // Route changes and locale rerenders unmount this view; keep unsaved
+    // exchange progress instead of silently falling back to the last manual save.
+    if (container) persist();
     if (clock) clock.destroy();
     if (chart) chart.destroy();
     clock = null;

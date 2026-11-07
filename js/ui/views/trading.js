@@ -475,7 +475,7 @@ export function createTradeView(ctx, { ticker }) {
         <td class="num">${order.createdAt && Number.isFinite(order.createdAt.day) ? formatMarketDate(order.createdAt.day, i18n.locale) : '—'}</td>
         <td>${order.status === ORDER_STATUS.open ? `<button class="link-btn" type="button" data-cancel="${order.id}">${t('trade.cancel')}</button>` : ''}</td>
       </tr>`;
-    }).join('');
+    });
     return card({
       title: t('trade.ordersTitle'),
       subtitle: t('trade.ordersSubtitle', { open: open.length, total: orders.length }),

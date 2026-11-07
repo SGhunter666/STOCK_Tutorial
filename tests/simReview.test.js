@@ -93,4 +93,5 @@ test('session statistics roll up costs, income and drawdown', () => {
   assertEqual(summary.financing, 12.5, 'interest and borrow fees');
   assertClose(summary.maxDrawdown, 0.25, 1e-9, 'peak-to-trough drawdown');
   assertClose(summary.returnPct, 0, 1e-9, 'flat return');
+  assertEqual(reviewSummary(state, 99_999.12).returnPct, 0, 'rounding noise is clamped for display');
 });
