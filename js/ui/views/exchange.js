@@ -17,6 +17,7 @@ import {
   submitOptionOrder, closeOptionPosition, submitBondOrder, submitOco,
   exerciseOptionPosition, startExchangeChallenge, abandonExchangeChallenge,
   exchangeChallengeSnapshot, exchangeTimelineRows, rewindToDay,
+  setExchangeOptionStyle,
 } from '../../sim/exchangeEngine.js';
 import { SIM_MARGIN_CONFIG, marginSnapshot, shortRows } from '../../sim/margin.js';
 import { SIM_ETFS, etfNav, etfHoldingsRows } from '../../sim/etfs.js';
@@ -418,12 +419,22 @@ export function createExchangeView(ctx) {
     });
   }
 
+  function optionMetaHtml() {
+    return `<div class="exchange-options__head">
+      <strong>${t('exchange.optionDealer')}</strong>
+      <label class="exchange-option-style">${t('exchange.optionStyle')}
+        <select class="input input--select" data-option-style>
+          <option value="european" ${state.optionStyle !== 'american' ? 'selected' : ''}>${t('exchange.optionEuropean')}</option>
+          <option value="american" ${state.optionStyle === 'american' ? 'selected' : ''}>${t('exchange.optionAmerican')}</option>
+        </select>
+      </label>
+    </div>
+    <p class="muted">${t('exchange.optionContractSize')} · ${t(`exchange.optionStyleNote.${state.optionStyle === 'american' ? 'american' : 'european'}`)}</p>`;
+  }
+
   function optionsHtml() {
     return `<div class="exchange-options">
-      <div class="exchange-options__head">
-        <strong>${t('exchange.optionDealer')}</strong>
-        <span class="muted">${t('exchange.optionContractSize')}</span>
-      </div>
+      <div id="sim-option-meta">${optionMetaHtml()}</div>
       <div id="sim-option-chain">${optionChainHtml()}</div>
       <div id="sim-option-form">${optionFormHtml()}</div>
       <div id="sim-option-positions">${optionPositionsHtml()}</div>
@@ -1089,6 +1100,7 @@ export function createExchangeView(ctx) {
     set('#sim-trades', tradesHtml());
     set('#sim-company', companyProfileHtml());
     set('#sim-company-actions', companyActionsHtml());
+    set('#sim-option-meta', optionMetaHtml());
     set('#sim-option-chain', optionChainHtml());
     set('#sim-option-positions', optionPositionsHtml());
     set('#sim-option-settlements', optionSettlementsHtml());
@@ -1470,6 +1482,19 @@ export function createExchangeView(ctx) {
       if (event.target.matches('[data-sim-type]')) syncOrderTypeFields();
       if (event.target.matches('[data-option-expiry]')) {
         optionExpiryDays = Number(event.target.value);
+        paint(true);
+      }
+      if (event.target.matches('[data-option-style]')) {
+        const result = setExchangeOptionStyle(state, event.target.value);
+        if (!result.ok) {
+          toastFn(t(`exchange.error.${result.error}`), 'error');
+          event.target.value = state.optionStyle || 'european';
+          return;
+        }
+        toastFn(t(result.style === 'american'
+          ? 'exchange.optionStyleAmericanOn'
+          : 'exchange.optionStyleEuropeanOn'), 'info');
+        optionFormKey = '';
         paint(true);
       }
       if (event.target.matches('[data-timeline-day]')) {

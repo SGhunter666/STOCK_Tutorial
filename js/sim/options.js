@@ -9,6 +9,9 @@ import { CONTRACT_SIZE, blackScholes } from '../options/pricing.js';
 export const SIM_OPTION_TENORS = Object.freeze([7, 30, 90]);
 export const SIM_OPTION_STRIKE_LEVELS = 2;
 export const SIM_OPTION_FEE_BPS = 1;
+export const SIM_OPTION_STYLES = Object.freeze(['european', 'american']);
+export const SIM_EARLY_ASSIGN_DAYS = 3;
+export const SIM_EARLY_ASSIGN_MONEYNESS = 0.05;
 
 const round = (value, digits = 2) => {
   const factor = 10 ** digits;
@@ -74,6 +77,7 @@ export function optionContract(state, { ticker, type, strike, expiryDay }) {
   const bid = round(Math.max(0.01, premium * 0.985), 2);
   const ask = round(Math.max(bid + 0.01, premium * 1.015), 2);
   return {
+    style: state.optionStyle === 'american' ? 'american' : 'european',
     ticker: symbol,
     type,
     strike: safeStrike,
@@ -160,6 +164,7 @@ function pushOptionTrade(state, trade) {
 function optionPosition(state, contract, qty, costBasis, openedDay) {
   return {
     key: optionKey(contract),
+    style: contract.style || 'european',
     ticker: contract.ticker,
     type: contract.type,
     strike: contract.strike,
@@ -459,6 +464,81 @@ export function settleExpiredOptions(state) {
     ...(state.account.optionSettlements || []),
   ].slice(0, 120);
   return { settlements };
+}
+
+/** Switches the settlement style; blocked while option positions are open. */
+export function setOptionStyle(state, style) {
+  if (!SIM_OPTION_STYLES.includes(style)) return { ok: false, error: 'option.style' };
+  if ((state.account.options || []).length) {
+    return { ok: false, error: 'option.styleLocked' };
+  }
+  state.optionStyle = style;
+  return { ok: true, style };
+}
+
+/**
+ * Deterministic early assignment for American-style short options: a short leg
+ * that is at least 5% in the money with three or fewer sessions left is
+ * assigned at the next session open. European positions are never assigned.
+ */
+export function assignEarlyOptions(state) {
+  if (state.optionStyle !== 'american') return { assignments: [] };
+  const positions = (state.account.options || []).filter((position) => (
+    position.qty < 0
+    && position.style === 'american'
+    && position.expiryDay > state.dayIndex
+    && position.expiryDay - state.dayIndex <= SIM_EARLY_ASSIGN_DAYS
+  ));
+  if (!positions.length) return { assignments: [] };
+  const assignments = [];
+  for (const position of positions) {
+    const spot = state.quotes[position.ticker]?.last || 0;
+    if (!(spot > 0)) continue;
+    const inTheMoney = position.type === 'call'
+      ? spot >= position.strike * (1 + SIM_EARLY_ASSIGN_MONEYNESS)
+      : spot <= position.strike * (1 - SIM_EARLY_ASSIGN_MONEYNESS);
+    if (!inTheMoney) continue;
+    const quantity = -position.qty;
+    const delivered = position.type === 'call'
+      ? assignShortCall(state, position, quantity)
+      : assignShortPut(state, position, quantity);
+    if (!delivered) continue;
+    state.account.options = (state.account.options || [])
+      .filter((item) => item.key !== position.key);
+    pushOptionTrade(state, {
+      ticker: position.ticker,
+      side: 'assigned',
+      optionType: position.type,
+      strike: position.strike,
+      expiryDay: position.expiryDay,
+      qty: quantity,
+      premium: round(Math.max(0, position.type === 'call'
+        ? spot - position.strike : position.strike - spot), 2),
+      fee: 0,
+      amount: delivered.cashDelta,
+      realized: delivered.realized,
+      source: 'earlyAssignment',
+      delivery: 'shares',
+    });
+    const settlement = {
+      ...position,
+      spot: round(spot, 2),
+      intrinsic: round(Math.abs(position.type === 'call'
+        ? spot - position.strike : position.strike - spot), 2),
+      cashDelta: delivered.cashDelta,
+      realized: delivered.realized,
+      delivery: 'shares',
+      early: true,
+      shares: delivered.shares,
+      day: state.dayIndex,
+    };
+    assignments.push(settlement);
+    state.account.optionSettlements = [
+      settlement,
+      ...(state.account.optionSettlements || []),
+    ].slice(0, 120);
+  }
+  return { assignments };
 }
 
 /** Manual exercise on the expiry day; shares change hands at the strike. */

@@ -23,11 +23,21 @@ import { FX_PAIRS } from '../js/assets/fx.js';
 import { COMMODITY_DEFS } from '../js/assets/commodities.js';
 import { CRYPTO_DEFS } from '../js/assets/crypto.js';
 import { SIM_COMPANIES } from '../js/sim/companies50.js';
+import { I18n } from '../js/i18n/i18n.js';
 
 const zhResponse = await fetch('../locales/zh-CN.json');
 const enResponse = await fetch('../locales/en.json');
 const zh = await zhResponse.json();
 const en = await enResponse.json();
+
+test('dotted flat keys resolve through the i18n lookup', () => {
+  const i18n = new I18n({ 'zh-CN': zh, en });
+  i18n.locale = 'zh-CN';
+  assertEqual(i18n.t('exchange.error.order.invalid'), zh.exchange.error['order.invalid']);
+  assertEqual(i18n.t('exchange.error.option.styleLocked'),
+    zh.exchange.error['option.styleLocked']);
+  assertEqual(i18n.t('exchange.title'), zh.exchange.title);
+});
 
 function flatten(dict, prefix = '') {
   const out = {};
@@ -1114,6 +1124,9 @@ test('exchange controls, statuses and errors are localised', () => {
     'optionClosed', 'optionNoPositions', 'optionNoSettlements', 'optionIntrinsic',
     'optionCash', 'optionEmpty', 'optionChainNote', 'optionFormNote',
     'callBidAsk', 'putBidAsk', 'call', 'put', 'optionOpened', 'optionSold',
+    'optionStyle', 'optionEuropean', 'optionAmerican',
+    'optionStyleNote.european', 'optionStyleNote.american',
+    'optionStyleAmericanOn', 'optionStyleEuropeanOn',
     'optionValue', 'bondValue',
     'bondTitle', 'bondSubtitle', 'bond', 'bondIssuer', 'bondYears', 'bondCoupon',
     'bondRating', 'bondYield', 'bondAvgPrice', 'bondPositions', 'bondNoPositions',
@@ -1227,7 +1240,8 @@ test('exchange controls, statuses and errors are localised', () => {
     'challenge.assetBlocked.stock', 'challenge.assetBlocked.etf',
     'challenge.assetBlocked.bond', 'challenge.assetBlocked.option',
     'option.notLong', 'option.notExpiryDay', 'option.notInTheMoney',
-    'option.insufficientShares', 'timeline.notFound',
+    'option.insufficientShares', 'option.style', 'option.styleLocked',
+    'timeline.notFound',
     'rights.closed', 'rights.none', 'rights.insufficientCash',
     'order.notFound', 'order.notOpen',
   ]) {

@@ -20,12 +20,23 @@ export function detectLocale() {
   return normalizeLocale(browser);
 }
 
+/**
+ * Resolves nested keys and dotted flat keys. Some dictionaries store error
+ * codes as literal keys such as `"order.invalid"` inside `exchange.error`;
+ * trying the longest remaining suffix first keeps both shapes working.
+ */
 function readPath(dict, key) {
   const parts = key.split('.');
   let node = dict;
-  for (const part of parts) {
+  let index = 0;
+  while (index < parts.length) {
     if (node == null || typeof node !== 'object') return undefined;
+    const literal = parts.slice(index).join('.');
+    if (Object.prototype.hasOwnProperty.call(node, literal)) return node[literal];
+    const part = parts[index];
+    if (!Object.prototype.hasOwnProperty.call(node, part)) return undefined;
     node = node[part];
+    index += 1;
   }
   return node;
 }

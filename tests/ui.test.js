@@ -351,6 +351,7 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   assert(root.querySelector('#sim-news'), 'market news card');
   assert(root.querySelector('#sim-option-chain table'), 'option chain');
   assert(root.querySelector('[data-option-form]'), 'option ticket');
+  assert(root.querySelector('[data-option-style]'), 'option style switch');
   assert(root.querySelector('#sim-option-positions'), 'option positions');
   assert(root.querySelector('#sim-bond-quotes table'), 'bond quotes');
   assert(root.querySelector('[data-bond-form]'), 'bond ticket');

@@ -6087,6 +6087,8 @@
       "option.notExpiryDay": "Options can only be exercised on their expiry day.",
       "option.notInTheMoney": "This option has no intrinsic value to exercise.",
       "option.insufficientShares": "Not enough shares to deliver for this exercise.",
+      "option.style": "Unknown option settlement style.",
+      "option.styleLocked": "Close all option positions before switching settlement style.",
       "timeline.notFound": "No snapshot exists for that session."
     },
     "companyProfile": "Company profile",
@@ -6402,9 +6404,18 @@
     "noEtfHoldings": "This fund has no holdings.",
     "change": "Change",
     "optionTitle": "Options",
-    "optionSubtitle": "European options on the same exchange: quotes, trading, closing and cash settlement",
+    "optionSubtitle": "Options on the same exchange: quotes, trading, closing, exercise and expiry delivery",
     "optionDealer": "Option dealer quotes",
     "optionContractSize": "100 shares of the underlying per contract",
+    "optionStyle": "Settlement",
+    "optionEuropean": "European (expiry only)",
+    "optionAmerican": "American (early assignment)",
+    "optionStyleNote": {
+      "european": "European options settle only at expiry and are never early-assigned.",
+      "american": "In American mode a short leg at least 5% in the money with three or fewer sessions left is assigned at the next open; premiums still use the European Black-Scholes approximation."
+    },
+    "optionStyleAmericanOn": "Switched to American: deep in-the-money shorts can be assigned early.",
+    "optionStyleEuropeanOn": "Switched to European: settlement only at expiry.",
     "optionStrike": "Strike",
     "optionType": "Option type",
     "optionExpiry": "Expiry",

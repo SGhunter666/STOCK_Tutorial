@@ -4,6 +4,7 @@ import {
   submitOptionOrder, exerciseOptionPosition, startExchangeChallenge,
   abandonExchangeChallenge, exchangeChallengeSnapshot, exchangeTimelineRows,
   rewindToDay, serializeExchange, deserializeExchange, equity,
+  setExchangeOptionStyle,
 } from '../js/sim/exchangeEngine.js';
 import { updateChallenge } from '../js/sim/challenges.js';
 import { buildOptionChain } from '../js/sim/options.js';
@@ -224,6 +225,54 @@ test('expiry-day option exercise delivers shares and is rejected earlier', () =>
   assertEqual(state.account.options.length, 0, 'contract removed');
   assertEqual(state.account.positions.APLA.qty, 100, 'shares credited');
   assertClose(state.account.cash, cashBefore - call.strike * 100, 0.02, 'strike paid');
+});
+
+test('American short options are assigned early while European ones are not', () => {
+  const american = createExchangeEngine({ seed: 'american-assign', cash: 200_000 });
+  assertEqual(setExchangeOptionStyle(american, 'american').ok, true, 'style switched');
+  const chain = buildOptionChain(american, 'NCRT', 7, 2);
+  const call = chain.contracts.find((item) => item.type === 'call'
+    && item.strike === chain.strikes[2]);
+  const sold = submitOptionOrder(american, {
+    side: 'sell', ticker: 'NCRT', type: 'call',
+    strike: call.strike, expiryDay: call.expiryDay, qty: 1,
+  });
+  assert(sold.ok, 'short call opened');
+  assertEqual(american.account.options[0].style, 'american', 'contract style stored');
+  const locked = setExchangeOptionStyle(american, 'european');
+  assertEqual(locked.error, 'option.styleLocked', 'style locked while positions are open');
+  const basis = american.account.options[0].costBasis;
+  const spot = call.strike * 1.2;
+  setMarket(american, 'NCRT', spot);
+  american.dayIndex = call.expiryDay - 2;
+  american.lastNewsDay = call.expiryDay;
+  american.lastMacroDay = call.expiryDay;
+  american.second = 23_399;
+  advanceSecond(american);
+  assertEqual(american.account.options.length, 0, 'short call assigned');
+  assertEqual(american.account.shorts.NCRT.qty, 100, 'short shares delivered');
+  assertEqual(american.account.optionSettlements[0].early, true, 'early flag recorded');
+  const intrinsic = Math.round((spot - call.strike) * 100 * 100) / 100;
+  assertClose(american.account.optionSettlements[0].realized, basis - intrinsic, 0.05,
+    'assignment PnL');
+
+  const european = createExchangeEngine({ seed: 'european-no-assign', cash: 200_000 });
+  const euChain = buildOptionChain(european, 'NCRT', 7, 2);
+  const euCall = euChain.contracts.find((item) => item.type === 'call'
+    && item.strike === euChain.strikes[2]);
+  const euSold = submitOptionOrder(european, {
+    side: 'sell', ticker: 'NCRT', type: 'call',
+    strike: euCall.strike, expiryDay: euCall.expiryDay, qty: 1,
+  });
+  assert(euSold.ok, 'european short opened');
+  setMarket(european, 'NCRT', euCall.strike * 1.2);
+  european.dayIndex = euCall.expiryDay - 2;
+  european.lastNewsDay = euCall.expiryDay;
+  european.lastMacroDay = euCall.expiryDay;
+  european.second = 23_399;
+  advanceSecond(european);
+  assertEqual(european.account.options.length, 1, 'European contract not assigned early');
+  assertEqual(european.account.shorts.NCRT, undefined, 'no shares delivered');
 });
 
 test('a challenge settles automatically at its deadline', () => {

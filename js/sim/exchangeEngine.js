@@ -38,6 +38,7 @@ import { SIM_ETF_INSTRUMENTS, SIM_ETF_TICKERS, etfNav } from './etfs.js';
 import {
   SIM_OPTION_FEE_BPS, optionContract, buyOption, sellOption, closeOption,
   settleExpiredOptions, optionCollateral, optionMarketValue, exerciseOption,
+  assignEarlyOptions, setOptionStyle,
 } from './options.js';
 import {
   accrueBondCoupons, bondMarketValue, buyBond, sellBond,
@@ -812,6 +813,10 @@ export function closeOptionPosition(state, key, qty) {
   const result = closeOption(state, key, qty);
   if (result.ok) checkMargin(state);
   return result;
+}
+
+export function setExchangeOptionStyle(state, style) {
+  return setOptionStyle(state, style);
 }
 
 export function exerciseOptionPosition(state, key, qty) {
@@ -1844,6 +1849,7 @@ export function createExchangeEngine({ seed = 'sim-exchange-v1', cash = SIM_STAR
     macro: createMacroState(),
     lastMacroDay: 0,
     guidance: [],
+    optionStyle: 'european',
     challenge: createChallengeState(),
     timeline: createTimelineState(),
     account: {
@@ -1900,6 +1906,7 @@ export function advanceSecond(state) {
     state.second = 0;
     expireRights(state);
     settleExpiredOptions(state);
+    assignEarlyOptions(state);
     accrueBondCoupons(state);
     releaseBankruptcies(state);
     releaseHalts(state);
@@ -2064,6 +2071,7 @@ export function serializeExchange(state) {
     macro: state.macro,
     lastMacroDay: state.lastMacroDay,
     guidance: state.guidance,
+    optionStyle: state.optionStyle,
     challenge: state.challenge,
     timeline: state.timeline,
     account: state.account,
@@ -2094,6 +2102,7 @@ export function deserializeExchange(snapshot) {
   state.macro.events = Array.isArray(state.macro.events) ? state.macro.events : [];
   state.lastMacroDay = Number.isFinite(data.lastMacroDay) ? data.lastMacroDay : state.dayIndex;
   state.guidance = data.guidance || [];
+  state.optionStyle = data.optionStyle === 'american' ? 'american' : 'european';
   state.challenge = data.challenge || createChallengeState();
   state.challenge.active = state.challenge.active || null;
   state.challenge.history = Array.isArray(state.challenge.history)

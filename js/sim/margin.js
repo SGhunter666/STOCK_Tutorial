@@ -41,6 +41,9 @@ export function normalizeAccount(account) {
   if (!account) return account;
   if (!account.shorts || typeof account.shorts !== 'object') account.shorts = {};
   if (!Array.isArray(account.options)) account.options = [];
+  for (const position of account.options) {
+    if (!position.style) position.style = 'european';
+  }
   if (!Array.isArray(account.optionSettlements)) account.optionSettlements = [];
   if (!account.bonds || typeof account.bonds !== 'object') account.bonds = {};
   if (!Array.isArray(account.coupons)) account.coupons = [];

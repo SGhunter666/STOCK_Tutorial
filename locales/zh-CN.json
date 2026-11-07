@@ -6087,6 +6087,8 @@
       "option.notExpiryDay": "只能在到期日当天行权。",
       "option.notInTheMoney": "该期权当前没有内在价值，无法行权。",
       "option.insufficientShares": "持仓不足，无法行权卖出标的。",
+      "option.style": "未知的期权交割规则。",
+      "option.styleLocked": "仍有期权持仓，无法切换交割规则。",
       "timeline.notFound": "找不到该交易日的快照。"
     },
     "companyProfile": "公司资料",
@@ -6402,9 +6404,18 @@
     "noEtfHoldings": "该基金没有成分股。",
     "change": "涨跌幅",
     "optionTitle": "期权",
-    "optionSubtitle": "同一交易所内的欧式期权：报价、买卖、平仓与到期现金结算",
+    "optionSubtitle": "同一交易所内的期权：报价、买卖、平仓、行权与到期交割",
     "optionDealer": "期权做市商报价",
     "optionContractSize": "每张合约 100 股标的",
+    "optionStyle": "交割规则",
+    "optionEuropean": "欧式（仅到期）",
+    "optionAmerican": "美式（可提前指派）",
+    "optionStyleNote": {
+      "european": "欧式期权只在到期日结算，不做提前指派。",
+      "american": "美式模式下，深度实值（≥5%）空头在剩余 ≤3 个交易日时会在下一交易日开盘被提前指派；权利金仍按欧式 Black-Scholes 近似定价。"
+    },
+    "optionStyleAmericanOn": "已切换为美式：深度实值空头可提前指派。",
+    "optionStyleEuropeanOn": "已切换为欧式：仅在到期日结算。",
     "optionStrike": "行权价",
     "optionType": "期权类型",
     "optionExpiry": "到期日",
