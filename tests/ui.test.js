@@ -380,6 +380,13 @@ test('simulated exchange renders 50 companies and records a player trade', () =>
   root.querySelector('[data-sim-step-day]').click();
   assertEqual(root.querySelector('#sim-clock').textContent, '09:30:00', 'next session opens at 09:30');
   assertEqual(root.querySelector('#sim-date').textContent, simDate(1), 'date refreshed after advancing');
+  assert(root.querySelector('#sim-timeline svg.exchange-spark'), 'timeline equity sparkline');
+  root.querySelector('[data-challenge-start]').click();
+  assert(root.querySelector('#sim-challenge').textContent.includes('exchange.challengeActive'),
+    'challenge active');
+  root.querySelector('[data-sim-step-day]').click();
+  assert(root.querySelector('#sim-challenge svg.exchange-spark'), 'challenge equity sparkline');
+  assert(root.querySelectorAll('#sim-challenge tbody tr').length >= 2, 'challenge progress rows');
   assert(root.querySelector('#sim-news').textContent.includes('exchange.news.'), 'next-day news headlines render');
   const tickerSelect = root.querySelector('[data-sim-ticker]');
   tickerSelect.value = 'MKT';

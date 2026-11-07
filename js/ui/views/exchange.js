@@ -37,6 +37,24 @@ const INSTRUMENTS = [
   ...SIM_ETFS.map((etf) => ({ ticker: etf.ticker, name: etf.name, isEtf: true })),
 ];
 
+/** Tiny inline sparkline used by the challenge and timeline cards. */
+function sparkline(values, { width = 260, height = 48 } = {}) {
+  if (!Array.isArray(values) || values.length < 2) return '';
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const step = width / (values.length - 1);
+  const points = values.map((value, index) => {
+    const x = (index * step).toFixed(1);
+    const y = (height - ((value - min) / span) * (height - 6) - 3).toFixed(1);
+    return `${x},${y}`;
+  }).join(' ');
+  const tone = values[values.length - 1] >= values[0] ? 'up' : 'down';
+  return `<svg class="exchange-spark exchange-spark--${tone}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-hidden="true">
+    <polyline points="${points}" fill="none" stroke="currentColor" stroke-width="2" />
+  </svg>`;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -579,6 +597,16 @@ export function createExchangeView(ctx) {
         <div><span>${t('exchange.challengeDaysLabel')}</span><strong>${numFmt(summary.daysElapsed)} / ${numFmt(def.days)}</strong></div>
         <div><span>${t('exchange.challengePositionCap')}</span><strong>${pct(def.maxPositionWeight * 100, i18n.locale, 0, false)}</strong></div>
       </div>
+      ${summary.progress.length > 1 ? sparkline(summary.progress.map((item) => item.equity)) : ''}
+      ${summary.progress.length > 1 ? table({
+    head: [t('exchange.time'), t('exchange.equity'), t('exchange.challengeReturn'), t('exchange.challengeMaxDrawdown')],
+    rows: summary.progress.slice(-5).reverse().map((item) => [
+      simDate(item.day),
+      moneyFmt(item.equity),
+      pctFmt(item.returnPct * 100),
+      pct(item.drawdown * 100, i18n.locale, 2, false),
+    ]),
+  }) : ''}
       <button class="btn btn--ghost btn--sm" type="button" data-challenge-abandon>${t('exchange.challengeAbandon')}</button>
     </div>`;
   }
@@ -596,6 +624,7 @@ export function createExchangeView(ctx) {
         </select></label>
         <button class="btn" type="button" data-timeline-rewind>${t('exchange.timelineRewind')}</button>
       </div>
+      ${rows.length > 1 ? sparkline([...rows].reverse().map((row) => row.equity)) : ''}
       ${table({
     head: [t('exchange.time'), t('exchange.equity'), t('exchange.challengeReturn'), t('exchange.positions')],
     rows: rows.slice(0, 8).map((row) => [
