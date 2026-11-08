@@ -41899,7 +41899,12 @@ function submitOco(state, {
   const quantity = Math.floor(Number(qty) || 0);
   const side = action === 'closeShort' ? 'cover' : 'sell';
   if (!cs || quantity <= 0) return { ok: false, error: 'order.invalid' };
-  if (!Number.isFinite(Number(takeProfitPrice)) || !Number.isFinite(Number(stopPrice))) {
+  const takeProfit = Number(takeProfitPrice);
+  const stop = Number(stopPrice);
+  if (!Number.isFinite(takeProfit) || !Number.isFinite(stop) || takeProfit <= 0 || stop <= 0) {
+    return { ok: false, error: 'order.oco' };
+  }
+  if (action === 'closeShort' ? stop <= takeProfit : stop >= takeProfit) {
     return { ok: false, error: 'order.oco' };
   }
   const available = action === 'closeShort'

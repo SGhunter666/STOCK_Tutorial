@@ -181,6 +181,22 @@ test('an OCO pair cancels its sibling when the take-profit fills', () => {
   assertEqual(state.account.positions.NCRT, undefined, 'position closed once');
 });
 
+test('an OCO pair rejects empty or inverted prices', () => {
+  const state = createExchangeEngine({ seed: 'oco-invalid', cash: 100_000 });
+  submitOrder(state, { ticker: 'NCRT', side: 'buy', type: 'market', qty: 100 });
+  const quote = state.quotes.NCRT;
+  const empty = submitOco(state, {
+    ticker: 'NCRT', action: 'closeLong', qty: 100, takeProfitPrice: 0, stopPrice: 0,
+  });
+  assertEqual(empty.error, 'order.oco', 'empty prices rejected');
+  const inverted = submitOco(state, {
+    ticker: 'NCRT', action: 'closeLong', qty: 100,
+    takeProfitPrice: quote.last - 5, stopPrice: quote.last + 5,
+  });
+  assertEqual(inverted.error, 'order.oco', 'inverted bracket rejected');
+  assertEqual(state.orders.filter((order) => order.ocoGroup).length, 0, 'no legs created');
+});
+
 test('time travel restores the day-open account and records a branch', () => {
   const state = createExchangeEngine({ seed: 'timeline-rewind', cash: 100_000 });
   assertEqual(exchangeTimelineRows(state).length, 1, 'day zero snapshot');
