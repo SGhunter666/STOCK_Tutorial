@@ -227,6 +227,34 @@ func _ready() -> void:
 	Game.selected_ticker = "APLA"
 	await get_tree().process_frame
 
+	Game.set_layout("advanced")
+	await get_tree().process_frame
+	main.navigate("trade")
+	await get_tree().process_frame
+	var advanced_trade = main._screens["trade"]
+	if not advanced_trade._indicators_card.visible:
+		failures.append("advanced layout should show technical indicators")
+	Game.set_layout("beginner")
+	await get_tree().process_frame
+	academy_screen = main._screens["academy"]
+
+	main.navigate("market")
+	await get_tree().process_frame
+	var market_screen = main._screens["market"]
+	Game.settings["liveFeedUrl"] = "https://example.com/quotes.json"
+	market_screen._live_status = "ready"
+	market_screen._live_data = SmaLiveFeed.normalize({
+		"AURA": 12.34, "NOVA": {"last": 8.5, "changePct": -1.2},
+	})
+	market_screen._render_live_body()
+	await get_tree().process_frame
+	if market_screen._live_body.get_child_count() < 4:
+		failures.append("live feed card did not render quotes")
+	Game.settings["liveFeedUrl"] = ""
+	market_screen._live_status = "idle"
+	market_screen._live_data = {}
+	market_screen._render_live_body()
+
 	var short_open := Game.submit_order({
 		"ticker": "NVDO", "side": "short", "type": "market", "qty": 5,
 	})

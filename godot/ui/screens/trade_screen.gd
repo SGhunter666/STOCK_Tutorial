@@ -24,6 +24,9 @@ var _name_label: Label
 var _ticker_label: Label
 var _meta_label: Label
 var _profile_label: Label
+var _sensitivity_label: Label
+var _indicators_card: PanelContainer
+var _indicator_labels: Dictionary = {}
 var _last_label: Label
 var _change_label: Label
 var _stat_labels: Dictionary = {}
@@ -70,6 +73,8 @@ func _build() -> void:
 	identity.add_child(_name_label)
 	identity.add_child(_meta_label)
 	identity.add_child(_profile_label)
+	_sensitivity_label = SmaKit.caption("")
+	identity.add_child(_sensitivity_label)
 	quote_head.add_child(identity)
 	quote_head.add_child(SmaKit.hspacer())
 	var financials_button := SmaKit.button(I18n.t("financials.open"), _open_financials)
@@ -119,6 +124,27 @@ func _build() -> void:
 	_chart.custom_minimum_size.y = 290
 	chart_box.add_child(_chart)
 	left.add_child(chart_card)
+
+	_indicators_card = SmaKit.card(10)
+	var indicator_box := SmaKit.vbox(5)
+	_indicators_card.add_child(indicator_box)
+	indicator_box.add_child(SmaKit.label(I18n.t("trade.indicatorsTitle"), 13))
+	indicator_box.add_child(SmaKit.muted(I18n.t("trade.indicatorsSubtitle"), 10))
+	var indicator_grid := GridContainer.new()
+	indicator_grid.columns = 4
+	indicator_grid.add_theme_constant_override("h_separation", 12)
+	indicator_grid.add_theme_constant_override("v_separation", 2)
+	for spec in [["sma20", "trade.sma20"], ["sma50", "trade.sma50"],
+			["rsi14", "trade.rsi14"], ["trend", "trade.trend"],
+			["volatility", "trade.volatility"], ["drawdown", "trade.drawdown"]]:
+		indicator_grid.add_child(SmaKit.caption(I18n.t(String(spec[1]))))
+		var value := SmaKit.label("—", 11)
+		_indicator_labels[String(spec[0])] = value
+		indicator_grid.add_child(value)
+	indicator_box.add_child(indicator_grid)
+	indicator_box.add_child(SmaKit.muted(I18n.t("trade.indicatorsNote"), 9))
+	_indicators_card.visible = false
+	left.add_child(_indicators_card)
 
 	var book_card := SmaKit.card(10)
 	var book_box := SmaKit.vbox(4)
@@ -362,6 +388,13 @@ func refresh(reason: String = "") -> void:
 		I18n.t("company.dividendYield"), dividend_yield,
 		I18n.t("company.marketCap"), SmaFormat.compact(float(company.get("marketCap", 0.0))),
 	]
+	var sensitivity := SmaIndustry.sector_sensitivity(String(company.get("sector", "")))
+	_sensitivity_label.text = "%s · %s / %s / %s" % [
+		I18n.t("exchange.macroSensitivity"),
+		_signed_num(float(sensitivity["growth"])),
+		_signed_num(float(sensitivity["rates"])),
+		_signed_num(float(sensitivity["energy"])),
+	]
 	var change := float(quote.get("changePct", 0.0))
 	_last_label.text = SmaFormat.money(last)
 	_change_label.text = SmaFormat.pct(change)
@@ -377,6 +410,7 @@ func refresh(reason: String = "") -> void:
 		_reset_stop_price()
 	_update_book(ticker)
 	_update_chart(ticker)
+	_update_indicators(ticker, last)
 	_update_position(ticker)
 	_update_orders()
 	_update_available()
@@ -457,6 +491,49 @@ func _update_chart(ticker: String) -> void:
 	var candles: Array = game.exchange.get_candles(ticker, _timeframe)
 	var title := "%s · %s" % [ticker, _timeframe]
 	_chart.set_candles(candles, _timeframe, title)
+
+
+func _update_indicators(ticker: String, last: float) -> void:
+	if _indicators_card == null:
+		return
+	_indicators_card.visible = String(game.settings.get("layout", "beginner")) == "advanced"
+	if not _indicators_card.visible:
+		return
+	var snapshot := SmaIndicators.snapshot(game.exchange.get_candles(ticker, "1D"), last)
+	if snapshot.is_empty():
+		for key in _indicator_labels.keys():
+			_indicator_labels[key].text = "—"
+		return
+	var sma20 := float(snapshot["sma20"])
+	var sma50 := float(snapshot["sma50"])
+	var rsi14 := float(snapshot["rsi14"])
+	var volatility := float(snapshot["volatility"])
+	var drawdown := float(snapshot["drawdown"])
+	_indicator_labels["sma20"].text = "—" if is_nan(sma20) else SmaFormat.money(sma20)
+	_indicator_labels["sma50"].text = "—" if is_nan(sma50) else SmaFormat.money(sma50)
+	_indicator_labels["rsi14"].text = "—" if is_nan(rsi14) else SmaFormat.num(rsi14, 1)
+	var trend := String(snapshot["trend"])
+	var trend_key := "trade.trendUnknown"
+	var trend_color := SmaUiTheme.MUTED
+	if trend == "up":
+		trend_key = "trade.trendUp"
+		trend_color = SmaUiTheme.POSITIVE
+	elif trend == "down":
+		trend_key = "trade.trendDown"
+		trend_color = SmaUiTheme.NEGATIVE
+	elif trend == "flat":
+		trend_key = "trade.trendFlat"
+	_indicator_labels["trend"].text = I18n.t(trend_key)
+	_indicator_labels["trend"].add_theme_color_override("font_color", trend_color)
+	_indicator_labels["volatility"].text = "—" if is_nan(volatility) \
+		else SmaFormat.pct_plain(volatility, 1)
+	_indicator_labels["drawdown"].text = "—" if is_nan(drawdown) \
+		else SmaFormat.pct_plain(drawdown, 1)
+	_indicator_labels["drawdown"].add_theme_color_override("font_color", SmaUiTheme.NEGATIVE)
+
+
+func _signed_num(value: float) -> String:
+	return ("+" if value > 0.0 else "") + SmaFormat.num(value, 2)
 
 
 func _update_position(ticker: String) -> void:

@@ -9,6 +9,14 @@ var _sector_filter: OptionButton
 var _sector_values: Array[String] = [""]
 var _list: VBoxContainer
 var _count_label: Label
+var _live_body: VBoxContainer
+var _live_http: HTTPRequest
+var _live_timer: Timer
+var _live_key := ""
+var _live_status := "idle"
+var _live_error := ""
+var _live_data: Dictionary = {}
+var _live_loading := false
 
 
 func _build() -> void:
@@ -47,6 +55,7 @@ func _build() -> void:
 	_count_label = SmaKit.muted("")
 	filters.add_child(_count_label)
 	root.add_child(filters)
+	_build_live_card(root)
 
 	var table_card := SmaKit.card(0)
 	table_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -81,6 +90,167 @@ func _build() -> void:
 		_create_row(String(ticker), etfs[ticker])
 
 
+func _build_live_card(root: VBoxContainer) -> void:
+	var card := SmaKit.card(10)
+	var box := SmaKit.vbox(4)
+	card.add_child(box)
+	var head := SmaKit.hbox(8)
+	head.add_child(SmaKit.label(I18n.t("market.liveTitle"), 13))
+	head.add_child(SmaKit.hspacer())
+	head.add_child(SmaKit.caption(I18n.t("market.livePill")))
+	box.add_child(head)
+	box.add_child(SmaKit.muted(I18n.t("market.liveSubtitle"), 10))
+	_live_body = SmaKit.vbox(4)
+	box.add_child(_live_body)
+	root.add_child(card)
+	_live_timer = Timer.new()
+	_live_timer.timeout.connect(_request_live)
+	add_child(_live_timer)
+	_render_live_body()
+
+
+func _sync_live_config() -> void:
+	if game == null:
+		return
+	var url := String(game.settings.get("liveFeedUrl", "")).strip_edges()
+	var interval := int(game.settings.get("liveFeedInterval", 60))
+	if not [15, 30, 60].has(interval):
+		interval = 60
+	var key := "%s|%d" % [url, interval]
+	if key == _live_key:
+		return
+	_live_key = key
+	if _live_http != null and _live_loading:
+		_live_http.cancel_request()
+	_live_loading = false
+	_live_status = "idle"
+	_live_error = ""
+	_live_data = {}
+	if _live_timer != null:
+		_live_timer.stop()
+		_live_timer.wait_time = float(interval)
+	if url != "":
+		_request_live()
+		if _live_timer != null:
+			_live_timer.start()
+	_render_live_body()
+
+
+func _request_live() -> void:
+	if game == null or _live_loading:
+		return
+	var url := String(game.settings.get("liveFeedUrl", "")).strip_edges()
+	if not (url.begins_with("http://") or url.begins_with("https://")):
+		_live_status = "error"
+		_live_error = "liveFeed.errorUrl"
+		_render_live_body()
+		return
+	if _live_http == null:
+		_live_http = HTTPRequest.new()
+		_live_http.timeout = 8.0
+		_live_http.request_completed.connect(_on_live_completed)
+		add_child(_live_http)
+	_live_loading = true
+	_live_status = "loading"
+	_live_error = ""
+	_render_live_body()
+	var error := _live_http.request(url, PackedStringArray(["Accept: application/json"]))
+	if error != OK:
+		_live_loading = false
+		_live_status = "error"
+		_live_error = "liveFeed.errorFetch"
+		_render_live_body()
+
+
+func _on_live_completed(result: int, response_code: int, _headers: PackedStringArray,
+		body: PackedByteArray) -> void:
+	_live_loading = false
+	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300:
+		_live_status = "error"
+		_live_error = "liveFeed.errorHttp"
+		_render_live_body()
+		return
+	var payload: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if payload == null:
+		_live_status = "error"
+		_live_error = "liveFeed.errorFetch"
+		_render_live_body()
+		return
+	var normalized := SmaLiveFeed.normalize(payload, int(Time.get_unix_time_from_system()))
+	if not bool(normalized.get("ok", false)):
+		_live_status = "error"
+		_live_error = String(normalized.get("error", "liveFeed.errorFetch"))
+		_render_live_body()
+		return
+	_live_status = "ready"
+	_live_error = ""
+	_live_data = normalized
+	_render_live_body()
+
+
+func _render_live_body() -> void:
+	if _live_body == null or game == null:
+		return
+	SmaKit.clear_children(_live_body)
+	var url := String(game.settings.get("liveFeedUrl", "")).strip_edges()
+	if url == "":
+		_live_body.add_child(SmaKit.muted(I18n.t("market.liveSetup"), 11))
+		_live_body.add_child(SmaKit.button(I18n.t("market.liveSettings"), _open_settings))
+		_live_body.add_child(SmaKit.muted(I18n.t("market.liveNote"), 10))
+		return
+	var status_text := I18n.t("market.liveStatusIdle")
+	if _live_status == "loading":
+		status_text = I18n.t("market.liveStatusLoading")
+	elif _live_status == "error":
+		status_text = I18n.t(_live_error)
+	elif _live_status == "ready":
+		status_text = I18n.t("market.liveStatusReady")
+	var meta := SmaKit.hbox(10)
+	meta.add_child(SmaKit.muted(status_text, 11))
+	if _live_status == "ready" and not _live_data.is_empty():
+		meta.add_child(SmaKit.muted(I18n.t("market.liveUpdated", {
+			"time": Time.get_time_string_from_unix_time(
+				int(_live_data.get("updatedAt", 0)))}), 10))
+		meta.add_child(SmaKit.muted(I18n.t("market.liveCount", {
+			"count": (_live_data.get("quotes", []) as Array).size()}), 10))
+	_live_body.add_child(meta)
+	if _live_status == "ready":
+		var quotes: Array = _live_data.get("quotes", [])
+		var head := SmaKit.hbox(8)
+		head.add_child(SmaKit.cell(I18n.t("market.liveTicker"), 1.4,
+			HORIZONTAL_ALIGNMENT_LEFT, SmaUiTheme.DIM, 10))
+		head.add_child(SmaKit.cell(I18n.t("market.liveLast"), 1.0,
+			HORIZONTAL_ALIGNMENT_RIGHT, SmaUiTheme.DIM, 10))
+		head.add_child(SmaKit.cell(I18n.t("market.liveChange"), 1.0,
+			HORIZONTAL_ALIGNMENT_RIGHT, SmaUiTheme.DIM, 10))
+		_live_body.add_child(head)
+		for quote in quotes.slice(0, 10):
+			var line := SmaKit.hbox(8)
+			line.add_child(SmaKit.cell(String(quote.get("ticker", "")), 1.4))
+			line.add_child(SmaKit.cell(
+				SmaFormat.money(float(quote.get("last", 0.0))), 1.0,
+				HORIZONTAL_ALIGNMENT_RIGHT))
+			var change: Variant = quote.get("changePct", null)
+			line.add_child(SmaKit.cell(
+				"—" if change == null else SmaFormat.pct(float(change)), 1.0,
+				HORIZONTAL_ALIGNMENT_RIGHT,
+				SmaUiTheme.MUTED if change == null else SmaKit.value_color(float(change))))
+			_live_body.add_child(line)
+	var actions := SmaKit.hbox(8)
+	var refresh := SmaKit.button(I18n.t("market.liveRefresh"), _request_live)
+	refresh.disabled = _live_status == "loading"
+	actions.add_child(refresh)
+	actions.add_child(SmaKit.button(I18n.t("market.liveSettings"), _open_settings))
+	_live_body.add_child(actions)
+	_live_body.add_child(SmaKit.muted(I18n.t("market.liveNote"), 10))
+
+
+func _open_settings() -> void:
+	var main := get_tree().get_first_node_in_group("main")
+	if main != null and main.has_method("navigate"):
+		main.navigate("settings")
+
+
 func _create_row(ticker: String, company: Dictionary) -> void:
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
@@ -113,6 +283,7 @@ func _create_row(ticker: String, company: Dictionary) -> void:
 
 
 func refresh(_reason: String = "") -> void:
+	_sync_live_config()
 	_update_rows()
 	_apply_filter()
 
