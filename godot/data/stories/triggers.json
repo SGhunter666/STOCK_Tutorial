@@ -1,0 +1,23 @@
+{
+  "triggers": [
+    {
+      "id": "new_game_opening",
+      "event": "game_new",
+      "story": "opening",
+      "once": true
+    },
+    {
+      "id": "first_trade_hint",
+      "event": "trade_filled",
+      "story": "first_trade",
+      "once": true
+    },
+    {
+      "id": "day_one_brief",
+      "event": "day_closed",
+      "story": "day_one",
+      "once": true,
+      "condition": { "day_gte": 1 }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "id": "day_one",
+  "title": { "zh_CN": "第一个交易日结束", "en": "First Close" },
+  "start": "intro",
+  "nodes": {
+    "intro": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "收盘了。第一天最重要的是建立节奏，而不是赚多少。明天开盘前，你只有一个目标：账户权益达到 10.3 万美元，同时保留至少 40% 现金。",
+        "en": "The close is in. Day one is about building rhythm, not making money. Before tomorrow's open, your only goal is $103,000 equity while keeping at least 40% in cash."
+      },
+      "next": "accept"
+    },
+    "accept": {
+      "type": "choice",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "接不接这个任务？",
+        "en": "Do you accept the assignment?"
+      },
+      "choices": [
+        {
+          "text": { "zh_CN": "接受。先控制风险，再谈收益。", "en": "Accept. Risk first, return second." },
+          "next": "accept_line",
+          "effects": [
+            { "set_flag": "mission_day1", "value": "accepted" },
+            { "toast": { "zh_CN": "目标已记下：收盘时自己对照权益与现金", "en": "Goal noted: check equity and cash at the close" } }
+          ]
+        },
+        {
+          "text": { "zh_CN": "拒绝。我有自己的节奏。", "en": "Decline. I have my own process." },
+          "next": "decline_line",
+          "effects": [{ "set_flag": "mission_day1", "value": "declined" }]
+        }
+      ]
+    },
+    "accept_line": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "很好。打开持仓页，看清楚每一项暴露。明天的每一笔交易，都要能回答“这笔仓位为什么存在”。",
+        "en": "Good. Open the Portfolio screen and read every exposure. Tomorrow, every trade must answer one question: why does this position exist?"
+      },
+      "next": "end"
+    },
+    "decline_line": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "可以。但请把你的规则写下来，并在收盘时对照。没有书面规则的自由，通常只是随机的另一种说法。",
+        "en": "Fine. But write your rules down and check them at every close. Freedom without written rules is usually randomness by another name."
+      },
+      "next": "end"
+    },
+    "end": { "type": "end" }
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "stories": ["opening.json", "first_trade.json", "day_one.json"],
+  "triggers": "triggers.json"
+}

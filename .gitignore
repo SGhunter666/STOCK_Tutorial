@@ -3,3 +3,4 @@
 .trae-html-share-packages/
 *.log
 data/real/
+godot/.godot/

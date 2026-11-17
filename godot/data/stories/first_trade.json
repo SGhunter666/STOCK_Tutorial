@@ -1,0 +1,71 @@
+{
+  "id": "first_trade",
+  "title": { "zh_CN": "第一笔成交", "en": "First Fill" },
+  "start": "first",
+  "nodes": {
+    "first": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "成交了。现在做一件比下单更重要的事：复盘。你为什么在这个价格买，什么情况下你会承认自己错了？",
+        "en": "Filled. Now do something more important than ordering: review. Why this price, and what would make you admit you were wrong?"
+      },
+      "next": "review"
+    },
+    "review": {
+      "type": "choice",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "选一个你现在最想检查的东西。",
+        "en": "Pick what you want to inspect right now."
+      },
+      "choices": [
+        {
+          "text": { "zh_CN": "成本基础与持仓占比。", "en": "Cost basis and position weight." },
+          "next": "value_ack",
+          "condition": { "flag": "path", "value": "value" },
+          "effects": [{ "set_flag": "discipline", "value": true }]
+        },
+        {
+          "text": { "zh_CN": "成交后的盘口深度和滑点。", "en": "Book depth and slippage after the fill." },
+          "next": "momentum_ack",
+          "condition": { "flag": "path", "value": "momentum" },
+          "effects": [{ "set_flag": "discipline", "value": true }]
+        },
+        {
+          "text": { "zh_CN": "先搞清楚订单类型和成交规则。", "en": "First, understand order types and matching rules." },
+          "next": "basic_ack",
+          "effects": [{ "set_flag": "discipline", "value": true }]
+        }
+      ]
+    },
+    "value_ack": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "很好。成本基础决定了你真正的盈亏，持仓占比决定了你能不能睡着。把这两个数字写进交易日志。",
+        "en": "Good. Cost basis defines your real P&L; position weight defines whether you can sleep. Put both numbers in your journal."
+      },
+      "next": "end"
+    },
+    "momentum_ack": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "盘口会告诉你成交的代价。大单吃掉几档深度，滑点就会吃掉你的优势。下次先看深度，再决定数量。",
+        "en": "The book tells you the cost of trading. Large orders eat several levels, and slippage eats your edge. Check depth before sizing next time."
+      },
+      "next": "end"
+    },
+    "basic_ack": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "最不花哨、也最值钱的选择。市价单追求成交，限价单追求价格；停损单先等待触发。搞清规则，再谈策略。",
+        "en": "The least flashy and most valuable choice. Market orders chase fills; limit orders chase price; stop orders wait for a trigger. Learn the rules before strategy."
+      },
+      "next": "end"
+    },
+    "end": { "type": "end" }
+  }
+}

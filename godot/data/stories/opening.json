@@ -1,0 +1,73 @@
+{
+  "id": "opening",
+  "title": { "zh_CN": "入职第一天", "en": "First Day" },
+  "start": "intro",
+  "nodes": {
+    "intro": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "欢迎来到远望交易学院。你的模拟账户里有 10 万美元，市场每天 09:30 开盘、16:00 收盘。这里亏掉的钱不会真的消失，但你的坏习惯会。",
+        "en": "Welcome to Farview Trading Academy. Your simulated account holds $100,000. The market opens at 09:30 and closes at 16:00. Losses here are not real, but bad habits are."
+      },
+      "next": "desk"
+    },
+    "desk": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "先别急着下单。我带你走到工位：左边是行情，中间是交易台，右边是你的持仓。今天只有一个任务——弄明白你买入的到底是什么。",
+        "en": "Don't rush to trade. I'll walk you to your desk: quotes on the left, the ticket in the middle, your positions on the right. Today's only task is to understand what you are buying."
+      },
+      "next": "choice"
+    },
+    "choice": {
+      "type": "choice",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "第一家公司，你打算先看什么？",
+        "en": "For your first company, what do you look at first?"
+      },
+      "choices": [
+        {
+          "text": { "zh_CN": "先读财报和估值，再决定价格是否合理。", "en": "Read the filings and valuation before judging the price." },
+          "next": "value_reply",
+          "effects": [{ "set_flag": "path", "value": "value" }]
+        },
+        {
+          "text": { "zh_CN": "先看价格走势和成交量，市场会告诉我答案。", "en": "Start with price action and volume; the market will tell me." },
+          "next": "momentum_reply",
+          "effects": [{ "set_flag": "path", "value": "momentum" }]
+        }
+      ]
+    },
+    "value_reply": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "稳妥的起点。记住：财报是过去，价格是预期。你要做的是找出两者之间的差距，而不是相信任何一个数字。",
+        "en": "A solid start. Remember: filings describe the past, prices describe expectations. Your job is to find the gap, not to trust either number."
+      },
+      "next": "brief"
+    },
+    "momentum_reply": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "市场派的答案。趋势能持续，也能瞬间反转。至少给自己写一条退出规则，否则你交易的不是趋势，是情绪。",
+        "en": "The market's answer. Trends persist and then break. Write an exit rule for yourself, or you will be trading emotion instead of trend."
+      },
+      "next": "brief"
+    },
+    "brief": {
+      "type": "line",
+      "speaker": { "zh_CN": "林岚 · 首席导师", "en": "Lin Lan · Lead Mentor" },
+      "text": {
+        "zh_CN": "去行情页选一家公司，读完它的资料卡，然后下你的第一笔单。别用满仓证明勇气——仓位管理才是职业和业余的分界线。",
+        "en": "Pick a company on the Market screen, read its profile, then place your first order. Don't prove courage with full size — position sizing is the line between professional and amateur."
+      },
+      "next": "end"
+    },
+    "end": { "type": "end" }
+  }
+}
