@@ -669,6 +669,84 @@ func _ready() -> void:
 	if String(Game.fund.get("status", "none")) != "active":
 		failures.append("career fund was not restored after sandbox")
 
+	# Sweep every teaching demo and quiz dialog so missing fields or signals
+	# surface even when a flow is not covered above.
+	main.navigate("academy")
+	await get_tree().process_frame
+	academy_screen = main._screens["academy"]
+	for demo_id in SmaDemoDialog.SUPPORTED:
+		academy_screen._open_demo(String(demo_id))
+		await get_tree().process_frame
+		var sweep_demo: SmaDemoDialog = null
+		for child in main.get_children():
+			if child is SmaDemoDialog:
+				sweep_demo = child
+		if sweep_demo == null:
+			failures.append("demo did not open: %s" % demo_id)
+			continue
+		sweep_demo._close()
+		await get_tree().process_frame
+	for unit in SmaAcademy.units():
+		var unit_id := String(unit.get("id", ""))
+		if unit_id == "" or SmaAcademy.build_quiz(unit_id, 1).is_empty():
+			continue
+		academy_screen._open_quiz(unit_id)
+		await get_tree().process_frame
+		var sweep_quiz: SmaQuizDialog = null
+		for child in main.get_children():
+			if child is SmaQuizDialog:
+				sweep_quiz = child
+		if sweep_quiz == null:
+			failures.append("quiz did not open: %s" % unit_id)
+			continue
+		sweep_quiz._close()
+		await get_tree().process_frame
+
+	main.navigate("fund")
+	await get_tree().process_frame
+	var fund_screen = main._screens["fund"]
+	fund_screen._run_optimizer()
+	await get_tree().process_frame
+	if fund_screen._optimizer.is_empty():
+		failures.append("fund optimizer did not produce weights")
+	else:
+		fund_screen._apply_optimizer()
+		await get_tree().process_frame
+
+	main.navigate("replay")
+	await get_tree().process_frame
+	var replay_screen = main._screens["replay"]
+	replay_screen._previous()
+	replay_screen._next()
+	replay_screen._latest()
+	await get_tree().process_frame
+	if replay_screen._selected_day < 0 \
+			or Game.replay_snapshot(replay_screen._selected_day).is_empty():
+		failures.append("replay snapshot did not render")
+
+	main.navigate("statements")
+	await get_tree().process_frame
+	var statements_screen = main._screens["statements"]
+	var statement_history: Array = Game.statement_history(statements_screen._ticker, 8)
+	if statement_history.size() > 1:
+		statements_screen._quarter_index = 1
+		statements_screen.refresh()
+		await get_tree().process_frame
+	if statements_screen._quarter_index >= statement_history.size():
+		failures.append("statement quarter selection is out of range")
+
+	main.navigate("history")
+	await get_tree().process_frame
+	var sweep_history = main._screens["history"]
+	for scenario_id in ["2008-crisis", "2015-long", "2020-covid", "2022-hikes"]:
+		await sweep_history._start_scenario(scenario_id)
+		await get_tree().process_frame
+		if sweep_history._dataset.is_empty():
+			failures.append("history scenario did not load: %s" % scenario_id)
+			continue
+		sweep_history._advance_day()
+		await get_tree().process_frame
+
 	if failures.is_empty():
 		print("INTEGRATION OK equity=%.2f day=%d stories=%d" % [
 			Game.get_equity(), Game.get_day(), Game.narrative.stories.size()])
