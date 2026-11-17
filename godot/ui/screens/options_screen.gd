@@ -76,6 +76,7 @@ func refresh(_reason: String = "") -> void:
 	_body.add_child(columns)
 	_render_strategies()
 	_render_positions()
+	_render_education()
 
 
 func on_tick() -> void:
@@ -698,3 +699,24 @@ func _exercise_position(key: String, qty: int) -> void:
 		"qty": int(result.get("quantity", qty)),
 		"shares": int(result.get("shares", 0))}))
 	refresh()
+
+
+func _render_education() -> void:
+	var contract := _selected_contract()
+	if contract.is_empty():
+		return
+	var card := SmaKit.card(12)
+	var box := SmaKit.vbox(4)
+	card.add_child(box)
+	box.add_child(SmaKit.label(I18n.t("options.educationTitle"), 13))
+	box.add_child(SmaKit.muted(I18n.t("options.educationText", {
+		"vol": SmaFormat.pct_plain(float(contract.get("vol", 0.0)) * 100.0, 1),
+		"expiry": int(contract.get("expiryDay", 0)),
+	}), 11))
+	box.add_child(SmaKit.muted(I18n.t("options.contractSize", {
+		"size": SmaOptions.CONTRACT_SIZE}), 10))
+	box.add_child(SmaKit.label(I18n.t("options.boundaryTitle"), 13))
+	var boundary := SmaKit.muted(I18n.t("options.boundaryText"), 10)
+	boundary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(boundary)
+	_body.add_child(card)

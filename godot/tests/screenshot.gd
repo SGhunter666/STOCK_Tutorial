@@ -60,7 +60,20 @@ func _ready() -> void:
 	for i in 8:
 		Game.step_minute()
 	await _settle(6)
+	var trade_screen = main._screens["trade"]
+	trade_screen._right_scroll.scroll_vertical = 100000
+	await _settle(4)
 	await _shot("trade_filled")
+	Game.academy_mark_section_read("u4", "s3")
+	trade_screen.refresh()
+	trade_screen._right_scroll.scroll_vertical = 0
+	await _settle(4)
+	if trade_screen._oco_card.visible:
+		var oco_last := float(Game.exchange.quote(Game.selected_ticker).get("last", 0.0))
+		trade_screen._oco_tp.value = SmaFormat.round_to(oco_last * 1.1, 2)
+		trade_screen._oco_stop.value = SmaFormat.round_to(oco_last * 0.9, 2)
+		await _settle(4)
+		await _shot("trade_oco")
 
 	main.navigate("portfolio")
 	await _settle(6)

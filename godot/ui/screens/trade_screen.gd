@@ -37,10 +37,19 @@ var _estimate_label: Label
 var _fee_label: Label
 var _available_label: Label
 var _feedback: Label
+var _oco_card: PanelContainer
+var _oco_qty: SpinBox
+var _oco_tp: SpinBox
+var _oco_stop: SpinBox
+var _oco_submit: Button
+var _oco_feedback: Label
+var _oco_action := "closeLong"
+var _oco_key := ""
 var _position_box: VBoxContainer
 var _orders_box: VBoxContainer
 var _orders_key := ""
 var _order_buttons: Dictionary = {}
+var _right_scroll: ScrollContainer
 
 
 func _build() -> void:
@@ -149,10 +158,13 @@ func _build() -> void:
 	book_box.add_child(bid_box)
 	left.add_child(book_card)
 
+	_right_scroll = SmaKit.scroll()
+	_right_scroll.custom_minimum_size.x = 360
+	_right_scroll.size_flags_horizontal = Control.SIZE_SHRINK_END
+	body.add_child(_right_scroll)
 	var right := SmaKit.vbox(12)
-	right.custom_minimum_size.x = 360
-	right.size_flags_horizontal = Control.SIZE_SHRINK_END
-	body.add_child(right)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_right_scroll.add_child(right)
 
 	var ticket_card := SmaKit.card(12)
 	var ticket := SmaKit.vbox(9)
@@ -248,6 +260,24 @@ func _build() -> void:
 	_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ticket.add_child(_feedback)
 	right.add_child(ticket_card)
+
+	_oco_card = SmaKit.card(12)
+	var oco_box := SmaKit.vbox(6)
+	_oco_card.add_child(oco_box)
+	oco_box.add_child(SmaKit.label(I18n.t("exchange.ocoTitle"), 13))
+	var oco_note := SmaKit.muted(I18n.t("exchange.ocoNote"), 10)
+	oco_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	oco_box.add_child(oco_note)
+	_oco_qty = _oco_spin_row(oco_box, I18n.t("common.qty"), 1.0, 1)
+	_oco_tp = _oco_spin_row(oco_box, I18n.t("exchange.ocoTakeProfit"), 0.01, 0.01)
+	_oco_stop = _oco_spin_row(oco_box, I18n.t("exchange.ocoStop"), 0.01, 0.01)
+	_oco_submit = SmaKit.button(I18n.t("exchange.ocoSubmit"), _submit_oco, true)
+	oco_box.add_child(_oco_submit)
+	_oco_feedback = SmaKit.muted("")
+	_oco_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	oco_box.add_child(_oco_feedback)
+	_oco_card.visible = false
+	right.add_child(_oco_card)
 
 	var position_card := SmaKit.card(10)
 	var position_box := SmaKit.vbox(5)
@@ -352,6 +382,7 @@ func refresh(reason: String = "") -> void:
 	_update_available()
 	_update_estimate()
 	_update_limit_gate()
+	_update_oco(ticker, last)
 
 
 func _update_limit_gate() -> void:
@@ -499,6 +530,59 @@ func _update_available() -> void:
 	]
 
 
+func _oco_spin_row(box: VBoxContainer, label_text: String, minimum: float,
+		step: float) -> SpinBox:
+	var row := SmaKit.hbox(8)
+	row.add_child(SmaKit.label(label_text, 12, SmaUiTheme.MUTED))
+	row.add_child(SmaKit.hspacer())
+	var spin := SpinBox.new()
+	spin.min_value = minimum
+	spin.max_value = 1000000
+	spin.step = step
+	spin.custom_minimum_size.x = 130
+	row.add_child(spin)
+	box.add_child(row)
+	return spin
+
+
+## OCO exits only make sense for an open long or short. Quotes can carry two
+## legs that reserve the same shares, so the card hides once both are working.
+func _update_oco(ticker: String, last: float) -> void:
+	if _oco_card == null:
+		return
+	var account: Dictionary = game.exchange.state["account"]
+	var long_qty := int(account["positions"].get(ticker, {}).get("qty", 0))
+	var short_qty := int(account["shorts"].get(ticker, {}).get("qty", 0))
+	var action := "closeLong" if long_qty > 0 else "closeShort"
+	var available: int = game.exchange.available_shares(ticker) if long_qty > 0 \
+		else game.exchange.available_short_shares(ticker)
+	_oco_card.visible = available > 0
+	if not _oco_card.visible:
+		_oco_key = ""
+		_oco_feedback.text = ""
+		return
+	var key := "%s|%s" % [ticker, action]
+	if key != _oco_key:
+		_oco_key = key
+		_oco_action = action
+		_oco_qty.max_value = float(available)
+		_oco_qty.value = float(available)
+		var take_profit := last * (1.1 if action == "closeLong" else 0.9)
+		var stop := last * (0.9 if action == "closeLong" else 1.1)
+		_oco_tp.value = maxf(0.01, SmaFormat.round_to(take_profit, 2))
+		_oco_stop.value = maxf(0.01, SmaFormat.round_to(stop, 2))
+		_oco_feedback.text = ""
+	else:
+		_oco_qty.max_value = float(available)
+	var unlocked: bool = game.academy_is_tool_unlocked("order.limit")
+	_oco_submit.disabled = not unlocked
+	if not unlocked:
+		_oco_feedback.text = I18n.t("error.limitLocked")
+		_oco_feedback.add_theme_color_override("font_color", SmaUiTheme.WARNING)
+	elif _oco_feedback.text == I18n.t("error.limitLocked"):
+		_oco_feedback.text = ""
+
+
 func _current_price() -> float:
 	var ticker: String = game.selected_ticker
 	var quote: Dictionary = game.exchange.quote(ticker)
@@ -591,3 +675,24 @@ func _cancel(order_id: String) -> void:
 	game.cancel_order(order_id)
 	_orders_key = ""
 	refresh()
+
+
+func _submit_oco() -> void:
+	if game == null or not game.started or _oco_card == null:
+		return
+	var quantity := int(_oco_qty.value)
+	var result: Dictionary = game.submit_oco({
+		"ticker": game.selected_ticker,
+		"action": _oco_action,
+		"qty": quantity,
+		"takeProfitPrice": _oco_tp.value,
+		"stopPrice": _oco_stop.value,
+	})
+	if bool(result.get("ok", false)):
+		game.toast(I18n.t("exchange.ocoSubmitted", {"qty": quantity}))
+		_orders_key = ""
+		refresh()
+		return
+	var error_key := String(result.get("error", "order.oco"))
+	_oco_feedback.text = I18n.t("error.%s" % error_key)
+	_oco_feedback.add_theme_color_override("font_color", SmaUiTheme.NEGATIVE)

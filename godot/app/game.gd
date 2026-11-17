@@ -183,6 +183,26 @@ func _advance_steps(steps: int) -> void:
 				"count": early_assignments.size(),
 				"ticker": String(early_assignments[0].get("ticker", ""))}))
 			exchange.state["earlyAssignments"] = []
+		var paid := 0.0
+		var paid_count := 0
+		var owed := 0.0
+		var owed_count := 0
+		for entry in exchange.state["account"].get("dividends", []):
+			if int(entry.get("day", -1)) != day_after:
+				continue
+			var amount := float(entry.get("amount", 0.0))
+			if amount >= 0.0:
+				paid += amount
+				paid_count += 1
+			else:
+				owed += -amount
+				owed_count += 1
+		if paid_count > 0:
+			toast_requested.emit(I18n.t("toast.dividendPaid", {
+				"amount": SmaFormat.money(paid), "count": paid_count}))
+		if owed_count > 0:
+			toast_requested.emit(I18n.t("toast.dividendOwed", {
+				"amount": SmaFormat.money(owed), "count": owed_count}))
 		if narrative != null:
 			narrative.handle_event("day_closed", {"day": day_after})
 		save_game(false)

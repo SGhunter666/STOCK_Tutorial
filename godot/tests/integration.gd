@@ -194,6 +194,39 @@ func _ready() -> void:
 			Game.academy_snapshot())["done"]):
 		failures.append("filled stop order did not satisfy u19 practice")
 
+	Game.submit_order({"ticker": "VISO", "side": "buy", "type": "market", "qty": 10})
+	Game.selected_ticker = "VISO"
+	main.navigate("trade")
+	await get_tree().process_frame
+	trade_screen = main._screens["trade"]
+	if not trade_screen._oco_card.visible:
+		failures.append("OCO card should show for an open long")
+	else:
+		var oco_last := float(Game.exchange.quote("VISO").get("last", 0.0))
+		trade_screen._oco_qty.value = 10
+		trade_screen._oco_tp.value = oco_last * 1.2
+		trade_screen._oco_stop.value = oco_last * 0.8
+		trade_screen._submit_oco()
+		await get_tree().process_frame
+		var oco_legs: Array = []
+		for row in Game.exchange.open_order_rows("player"):
+			if not String(row.get("ocoGroup", "")).is_empty():
+				oco_legs.append(row)
+		if oco_legs.size() != 2:
+			failures.append("OCO UI did not create two legs")
+		else:
+			Game.cancel_order(String(oco_legs[0]["id"]))
+			await get_tree().process_frame
+			var live_legs := 0
+			for row in Game.exchange.open_order_rows("player"):
+				if String(row.get("ocoGroup", "")) == String(oco_legs[0]["ocoGroup"]):
+					live_legs += 1
+			if live_legs != 0:
+				failures.append("cancelling one OCO leg left the sibling working")
+	Game.submit_order({"ticker": "VISO", "side": "sell", "type": "market", "qty": 10})
+	Game.selected_ticker = "APLA"
+	await get_tree().process_frame
+
 	var short_open := Game.submit_order({
 		"ticker": "NVDO", "side": "short", "type": "market", "qty": 5,
 	})
