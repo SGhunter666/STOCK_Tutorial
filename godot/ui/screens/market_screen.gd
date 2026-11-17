@@ -170,7 +170,13 @@ func _on_live_completed(result: int, response_code: int, _headers: PackedStringA
 		_live_error = "liveFeed.errorHttp"
 		_render_live_body()
 		return
-	var payload: Variant = JSON.parse_string(body.get_string_from_utf8())
+	var json := JSON.new()
+	if json.parse(body.get_string_from_utf8()) != OK:
+		_live_status = "error"
+		_live_error = "liveFeed.errorFetch"
+		_render_live_body()
+		return
+	var payload: Variant = json.data
 	if payload == null:
 		_live_status = "error"
 		_live_error = "liveFeed.errorFetch"
