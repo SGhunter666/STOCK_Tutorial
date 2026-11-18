@@ -29,6 +29,7 @@ func refresh(_reason: String = "") -> void:
 	_render_header()
 	_render_language()
 	_render_simulation()
+	_render_display()
 	_render_live_feed()
 	_render_data()
 	_render_scope()
@@ -115,6 +116,43 @@ func _render_simulation() -> void:
 		game.settings["reducedMotion"] = value
 		game.save_game(false))
 	box.add_child(motion)
+	_body.add_child(card)
+
+
+func _render_display() -> void:
+	var card := SmaKit.card(12)
+	var box := SmaKit.vbox(6)
+	card.add_child(box)
+	box.add_child(SmaKit.label(I18n.t("settings.displayTitle"), 14))
+	box.add_child(SmaKit.muted(I18n.t("settings.displaySubtitle"), 11))
+	var mode_row := SmaKit.hbox(6)
+	mode_row.add_child(SmaKit.label(I18n.t("settings.displayMode"), 11))
+	var mode_select := OptionButton.new()
+	mode_select.add_item(I18n.t("settings.displayWindowed"))
+	mode_select.add_item(I18n.t("settings.displayFullscreen"))
+	mode_select.selected = 1 if String(game.settings.get("displayMode", "windowed")) \
+		== "fullscreen" else 0
+	mode_select.custom_minimum_size.x = 150
+	mode_select.item_selected.connect(func(index):
+		game.set_display_mode("fullscreen" if index == 1 else "windowed"))
+	mode_row.add_child(mode_select)
+	box.add_child(mode_row)
+	var preset_row := SmaKit.hbox(6)
+	preset_row.add_child(SmaKit.label(I18n.t("settings.displayResolution"), 11))
+	var preset_select := OptionButton.new()
+	for preset in SmaDisplay.PRESETS:
+		preset_select.add_item(I18n.t("settings.displayAuto") if preset == "auto"
+			else preset.replace("x", " × "))
+		preset_select.set_item_metadata(preset_select.item_count - 1, preset)
+		if String(game.settings.get("windowPreset", "auto")) == preset:
+			preset_select.select(preset_select.item_count - 1)
+	preset_select.custom_minimum_size.x = 160
+	preset_select.disabled = String(game.settings.get("displayMode", "windowed")) == "fullscreen"
+	preset_select.item_selected.connect(func(index):
+		game.set_window_preset(String(preset_select.get_item_metadata(index))))
+	preset_row.add_child(preset_select)
+	box.add_child(preset_row)
+	box.add_child(SmaKit.muted(I18n.t("settings.displayNote"), 10))
 	_body.add_child(card)
 
 

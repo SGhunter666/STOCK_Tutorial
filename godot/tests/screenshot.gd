@@ -3,13 +3,17 @@ extends Node
 ## Renders each screen to PNG for visual review. Run with a real renderer:
 ##   godot --path godot res://tests/screenshot.tscn
 
-const OUT_DIR := "/tmp/sma_shots"
+const DEFAULT_OUT_DIR := "/tmp/sma_shots"
 
+var out_dir := DEFAULT_OUT_DIR
 var main: Node
 
 
 func _ready() -> void:
-	DirAccess.make_dir_recursive_absolute(OUT_DIR)
+	var override := OS.get_environment("SMA_SHOT_DIR")
+	if override != "":
+		out_dir = override
+	DirAccess.make_dir_recursive_absolute(out_dir)
 	Game.save_path = "user://saves/screenshot.json"
 	SmaSaveService.clear(Game.save_path)
 	var scene: PackedScene = load("res://ui/main.tscn")
@@ -573,6 +577,6 @@ func _settle(frames: int) -> void:
 func _shot(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
-	var path := "%s/%s.png" % [OUT_DIR, name]
+	var path := "%s/%s.png" % [out_dir, name]
 	image.save_png(path)
 	print("SHOT ", path, " ", image.get_width(), "x", image.get_height())

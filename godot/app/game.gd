@@ -40,7 +40,8 @@ var paused := true
 var speed := 1
 var selected_ticker := "APLA"
 var settings := {"locale": "zh_CN", "speed": 1, "layout": "beginner",
-	"theme": "dark", "liveFeedUrl": "", "liveFeedInterval": 60}
+	"theme": "dark", "liveFeedUrl": "", "liveFeedInterval": 60,
+	"displayMode": "windowed", "windowPreset": "auto"}
 var sandbox_mode := false
 var sandbox_config := {"cash": 100000.0, "seed": "sandbox-2026",
 	"difficulty": "normal", "commission": 1.0}
@@ -62,6 +63,8 @@ func _ready() -> void:
 	I18n.set_locale(String(settings.get("locale", "zh_CN")))
 	SmaUiTheme.set_theme_mode(String(settings.get("theme", "dark")))
 	_apply_layout(String(settings.get("layout", "beginner")))
+	if DisplayServer.get_name() != "headless":
+		apply_display()
 	academy = SmaAcademy.create_state()
 	history = SmaHistoryService.new()
 
@@ -254,6 +257,46 @@ func set_live_feed(url: String, interval: int) -> void:
 	settings["liveFeedInterval"] = interval if [15, 30, 60].has(interval) else 60
 	save_game(false)
 	state_changed.emit("settings")
+
+
+func set_display_mode(value: String) -> void:
+	settings["displayMode"] = value if ["windowed", "fullscreen"].has(value) else "windowed"
+	apply_display()
+	save_game(false)
+	state_changed.emit("display")
+
+
+func set_window_preset(value: String) -> void:
+	settings["windowPreset"] = value if SmaDisplay.PRESETS.has(value) else "auto"
+	apply_display()
+	save_game(false)
+	state_changed.emit("display")
+
+
+## Applies the stored window mode/size. The project's canvas_items stretch mode
+## scales the 1440x900 layout to the window; SMA_KEEP_WINDOW=1 lets screenshot
+## runs keep --resolution.
+func apply_display() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var window := get_window()
+	if window == null:
+		return
+	window.min_size = SmaDisplay.MIN_SIZE
+	var keep_window := OS.get_environment("SMA_KEEP_WINDOW") == "1"
+	if keep_window:
+		return
+	var mode := String(settings.get("displayMode", "windowed"))
+	if mode == "fullscreen":
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	var usable := DisplayServer.screen_get_usable_rect()
+	var target := SmaDisplay.target_window_size(usable.size,
+		String(settings.get("windowPreset", "auto")))
+	DisplayServer.window_set_size(target)
+	var actual := DisplayServer.window_get_size()
+	DisplayServer.window_set_position(usable.position + (usable.size - actual) / 2)
 
 
 func toggle_pause() -> void:
@@ -1743,6 +1786,7 @@ func load_game() -> bool:
 	I18n.set_locale(String(settings.get("locale", "zh_CN")))
 	SmaUiTheme.set_theme_mode(String(settings.get("theme", "dark")))
 	_apply_layout(String(settings.get("layout", "beginner")))
+	apply_display()
 	selected_ticker = String(payload.get("selectedTicker", "APLA"))
 	if not exchange.state["companies"].has(selected_ticker):
 		selected_ticker = "APLA"

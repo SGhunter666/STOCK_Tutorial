@@ -32,6 +32,7 @@ const SUITES := [
 	"res://tests/test_live_feed.gd",
 	"res://tests/test_indicators.gd",
 	"res://tests/test_industry.gd",
+	"res://tests/test_display.gd",
 	"res://tests/test_stress.gd",
 	"res://tests/test_i18n.gd",
 ]

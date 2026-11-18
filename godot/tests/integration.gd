@@ -747,6 +747,15 @@ func _ready() -> void:
 		sweep_history._advance_day()
 		await get_tree().process_frame
 
+	Game.set_window_preset("1920x1080")
+	if String(Game.settings.get("windowPreset", "")) != "1920x1080":
+		failures.append("window preset did not persist")
+	Game.set_display_mode("fullscreen")
+	if String(Game.settings.get("displayMode", "")) != "fullscreen":
+		failures.append("display mode did not persist")
+	Game.set_display_mode("windowed")
+	Game.set_window_preset("auto")
+
 	if failures.is_empty():
 		print("INTEGRATION OK equity=%.2f day=%d stories=%d" % [
 			Game.get_equity(), Game.get_day(), Game.narrative.stories.size()])
