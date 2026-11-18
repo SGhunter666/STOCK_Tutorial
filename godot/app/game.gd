@@ -250,14 +250,14 @@ func set_theme(value: String) -> void:
 
 
 func set_display_mode(value: String) -> void:
-	settings["displayMode"] = value if ["windowed", "fullscreen"].has(value) else "windowed"
+	settings["displayMode"] = SmaDisplay.normalise_mode(value)
 	apply_display()
 	save_game(false)
 	state_changed.emit("display")
 
 
 func set_window_preset(value: String) -> void:
-	settings["windowPreset"] = value if SmaDisplay.PRESETS.has(value) else "auto"
+	settings["windowPreset"] = SmaDisplay.normalise_preset(value)
 	apply_display()
 	save_game(false)
 	state_changed.emit("display")
@@ -276,17 +276,18 @@ func apply_display() -> void:
 	var keep_window := OS.get_environment("SMA_KEEP_WINDOW") == "1"
 	if keep_window:
 		return
-	var mode := String(settings.get("displayMode", "windowed"))
-	if mode == "fullscreen":
+	var usable := DisplayServer.screen_get_usable_rect()
+	var resolved := SmaDisplay.resolve_display(
+		String(settings.get("displayMode", "windowed")),
+		String(settings.get("windowPreset", "auto")), usable)
+	if String(resolved["mode"]) == "fullscreen":
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		return
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-	var usable := DisplayServer.screen_get_usable_rect()
-	var target := SmaDisplay.target_window_size(usable.size,
-		String(settings.get("windowPreset", "auto")))
+	var target: Vector2i = resolved["size"]
 	DisplayServer.window_set_size(target)
 	var actual := DisplayServer.window_get_size()
-	DisplayServer.window_set_position(usable.position + (usable.size - actual) / 2)
+	DisplayServer.window_set_position(SmaDisplay.centered_position(usable, actual))
 
 
 func toggle_pause() -> void:

@@ -730,6 +730,11 @@ func _ready() -> void:
 		sweep_history._advance_day()
 		await get_tree().process_frame
 
+	if not SmaDisplay.MODES.has(String(Game.settings.get("displayMode", ""))):
+		failures.append("stored display mode is not supported")
+	if not SmaDisplay.PRESETS.has(String(Game.settings.get("windowPreset", ""))):
+		failures.append("stored window preset is not supported")
+
 	for preset in SmaDisplay.PRESETS:
 		Game.set_window_preset(preset)
 		if String(Game.settings.get("windowPreset", "")) != preset:
@@ -737,9 +742,33 @@ func _ready() -> void:
 	Game.set_window_preset("bogus")
 	if String(Game.settings.get("windowPreset", "")) != "auto":
 		failures.append("invalid window preset did not fall back to auto")
+
+	for mode in SmaDisplay.MODES:
+		Game.set_display_mode(mode)
+		if String(Game.settings.get("displayMode", "")) != mode:
+			failures.append("display mode did not persist: %s" % mode)
+	Game.set_display_mode("bogus")
+	if String(Game.settings.get("displayMode", "")) != "windowed":
+		failures.append("invalid display mode did not fall back to windowed")
+
 	Game.set_display_mode("fullscreen")
-	if String(Game.settings.get("displayMode", "")) != "fullscreen":
-		failures.append("display mode did not persist")
+	for preset in SmaDisplay.PRESETS:
+		Game.set_window_preset(preset)
+		if String(Game.settings.get("displayMode", "")) != "fullscreen":
+			failures.append("preset changes escaped fullscreen: %s" % preset)
+
+	if DisplayServer.get_name() != "headless" \
+			and OS.get_environment("SMA_KEEP_WINDOW") != "1":
+		await get_tree().process_frame
+		if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
+			failures.append("fullscreen mode was not applied to the window")
+		Game.set_display_mode("windowed")
+		await get_tree().process_frame
+		if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
+			failures.append("windowed mode was not restored")
+		if Game.get_window().min_size != SmaDisplay.MIN_SIZE:
+			failures.append("window minimum size was not applied")
+
 	Game.set_display_mode("windowed")
 	Game.set_window_preset("auto")
 
