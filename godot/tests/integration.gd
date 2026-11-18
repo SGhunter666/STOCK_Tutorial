@@ -730,9 +730,13 @@ func _ready() -> void:
 		sweep_history._advance_day()
 		await get_tree().process_frame
 
-	Game.set_window_preset("1920x1080")
-	if String(Game.settings.get("windowPreset", "")) != "1920x1080":
-		failures.append("window preset did not persist")
+	for preset in SmaDisplay.PRESETS:
+		Game.set_window_preset(preset)
+		if String(Game.settings.get("windowPreset", "")) != preset:
+			failures.append("window preset did not persist: %s" % preset)
+	Game.set_window_preset("bogus")
+	if String(Game.settings.get("windowPreset", "")) != "auto":
+		failures.append("invalid window preset did not fall back to auto")
 	Game.set_display_mode("fullscreen")
 	if String(Game.settings.get("displayMode", "")) != "fullscreen":
 		failures.append("display mode did not persist")
