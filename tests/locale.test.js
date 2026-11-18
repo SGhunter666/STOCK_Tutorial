@@ -553,11 +553,6 @@ test('market, trading and portfolio views are localised', () => {
   [
     'market.eyebrow', 'market.title', 'market.subtitle', 'market.practiceTitle',
     'market.practiceText', 'market.practiceLink', 'market.indexName', 'market.indexNote',
-    'market.liveTitle', 'market.liveSubtitle', 'market.livePill', 'market.liveSetup',
-    'market.liveSettings', 'market.liveRefresh', 'market.liveStatusIdle',
-    'market.liveStatusLoading', 'market.liveStatusReady', 'market.liveUpdated',
-    'market.liveCount', 'market.liveTicker', 'market.liveLast', 'market.liveChange',
-    'market.liveNote',
     'market.searchPlaceholder', 'market.allSectors', 'market.companiesTitle',
     'market.companiesSubtitle', 'market.company', 'market.sector', 'market.last',
     'market.change', 'market.marketCap', 'market.spread', 'market.trend', 'market.inspect',
@@ -620,9 +615,6 @@ test('news, glossary, settings, roadmap and locked pages are localised', () => {
     'settings.speed', 'settings.layoutTitle', 'settings.layoutHint', 'settings.beginner',
     'settings.advanced', 'settings.themeTitle', 'settings.themeDark', 'settings.themeLight',
     'settings.themeHint', 'settings.reducedMotion', 'settings.reducedMotionHint',
-    'settings.liveTitle', 'settings.liveSubtitle', 'settings.liveUrlLabel',
-    'settings.liveUrlPlaceholder', 'settings.liveIntervalLabel', 'settings.liveIntervalOption',
-    'settings.liveSave', 'settings.liveHint', 'settings.liveSchema',
     'settings.dataTitle', 'settings.dataSubtitle', 'settings.saveStatus', 'settings.lastSaved',
     'settings.notSavedYet', 'settings.saveNow', 'settings.exportSave', 'settings.importSave',
     'settings.resetProgress', 'settings.dataHint', 'settings.scopeTitle', 'settings.scopeSubtitle',
@@ -852,7 +844,6 @@ test('fund management UI, roles, strategies and events are localised', () => {
     'toast.fundRedemptionPaid', 'toast.fundCashWithdrawn', 'toast.fundRedemptionRequest',
     'toast.fundPayrollShort', 'toast.fundClosed', 'toast.fundPlanApplied',
     'toast.fundAutoRebalance', 'toast.fundResearchApplied', 'toast.fundOptimizerPlan',
-    'toast.liveFeedSaved',
   ].forEach((key) => check(key));
   for (const strategy of Object.values(FUND_STRATEGIES)) {
     check(strategy.nameKey);
@@ -1088,9 +1079,7 @@ test('error and toast messages are localised', () => {
     'toast.achievement', 'toast.toolUnlocked', 'toast.quizPassed', 'toast.quizFailed',
     'toast.exported', 'toast.importOk', 'toast.importInvalid',
     'toast.challengeStarted', 'toast.challengeCompleted', 'toast.challengeFailed',
-    'toast.optionAssignedEarly', 'toast.liveFeedSaved',
-    'liveFeed.errorEmpty', 'liveFeed.errorQuotes', 'liveFeed.errorUrl',
-    'liveFeed.errorUnavailable', 'liveFeed.errorHttp', 'liveFeed.errorFetch',
+    'toast.optionAssignedEarly',
   ].forEach((key) => check(key));
   assertEqual(missing.length, 0, missing.join('\n'));
 });

@@ -457,17 +457,6 @@ const actions = {
     store.update(() => {}, { type: 'settings' });
     scheduleSave();
   },
-  setLiveFeedConfig(input = {}) {
-    const state = store.get();
-    const url = typeof input.url === 'string' ? input.url.trim().slice(0, 300) : '';
-    const interval = [15, 30, 60].includes(Number(input.interval)) ? Number(input.interval) : 60;
-    state.settings.liveFeedUrl = url;
-    state.settings.liveFeedInterval = interval;
-    store.update(() => {}, { type: 'settings' });
-    scheduleSave();
-    toast(i18n.t('toast.liveFeedSaved'), 'success', 3200);
-    return { ok: true, url, interval };
-  },
   inspectTicker(ticker) {
     if (!isCompanyUnlocked(store.get(), ticker)) return;
     recordInspection(store, bus, ticker, 'market');

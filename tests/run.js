@@ -7,7 +7,6 @@ import './optimizer.test.js';
 import './risk.test.js';
 import './quant.test.js';
 import './macro.test.js';
-import './liveFeed.test.js';
 import './ukTax.test.js';
 import './simCompanies.test.js';
 import './simFundamentals.test.js';

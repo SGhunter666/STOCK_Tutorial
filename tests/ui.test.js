@@ -307,19 +307,6 @@ test('quant regression mode renders factor premia and rank IC', () => {
   host.remove();
 });
 
-test('market view exposes the optional live data channel and settings path', () => {
-  const state = createGameState({ seed: 'ui-market-live' });
-  const { ctx } = makeCtx(state);
-  const view = createMarketView(ctx);
-  const host = mountView(view);
-  assert(host.textContent.includes('market.liveTitle'), 'live data card renders');
-  assert(host.textContent.includes('market.liveSetup'), 'unconfigured feed explains setup');
-  assert(host.querySelector('[data-go="/settings"]'), 'settings link renders');
-  assert(host.querySelector('[data-live-feed-refresh]') === null, 'refresh is hidden before a URL is configured');
-  view.destroy();
-  host.remove();
-});
-
 test('tax view renders the UK estimate and recalculates for an ISA', () => {
   const state = createGameState({ seed: 'ui-tax' });
   state.account.trades = [
@@ -519,20 +506,6 @@ test('history list exposes the curated 2022 scenario card', () => {
   assert(host.querySelector('[data-open="2022-hikes"]'), '2022 scenario open button renders');
   assert(host.textContent.includes('history.scenario.2022.title'), '2022 title renders');
   assert(host.textContent.includes('history.scenario.2022.period'), '2022 period renders');
-  view.destroy();
-  host.remove();
-});
-
-test('settings view includes the live data controls', () => {
-  const state = createGameState({ seed: 'ui-settings-live' });
-  const { ctx } = makeCtx(state);
-  ctx.actions.getSaveInfo = () => ({ lastSavedAt: null, storage: 'indexeddb' });
-  const view = createSettingsView(ctx);
-  const host = mountView(view);
-  assert(host.querySelector('#live-feed-url'), 'live feed URL input renders');
-  assert(host.querySelector('#live-feed-interval'), 'live feed interval selector renders');
-  assert(host.querySelector('[data-live-feed-save]'), 'live feed save button renders');
-  assert(host.textContent.includes('settings.liveTitle'), 'live feed card title renders');
   view.destroy();
   host.remove();
 });
