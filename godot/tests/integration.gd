@@ -238,23 +238,6 @@ func _ready() -> void:
 	await get_tree().process_frame
 	academy_screen = main._screens["academy"]
 
-	main.navigate("market")
-	await get_tree().process_frame
-	var market_screen = main._screens["market"]
-	Game.settings["liveFeedUrl"] = "https://example.com/quotes.json"
-	market_screen._live_status = "ready"
-	market_screen._live_data = SmaLiveFeed.normalize({
-		"AURA": 12.34, "NOVA": {"last": 8.5, "changePct": -1.2},
-	})
-	market_screen._render_live_body()
-	await get_tree().process_frame
-	if market_screen._live_body.get_child_count() < 4:
-		failures.append("live feed card did not render quotes")
-	Game.settings["liveFeedUrl"] = ""
-	market_screen._live_status = "idle"
-	market_screen._live_data = {}
-	market_screen._render_live_body()
-
 	var short_open := Game.submit_order({
 		"ticker": "NVDO", "side": "short", "type": "market", "qty": 5,
 	})

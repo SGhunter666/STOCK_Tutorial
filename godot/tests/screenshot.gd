@@ -39,20 +39,6 @@ func _ready() -> void:
 	main.navigate("market")
 	await _settle(6)
 	await _shot("market")
-	var market_screen = main._screens["market"]
-	Game.settings["liveFeedUrl"] = "https://example.com/quotes.json"
-	market_screen._live_status = "ready"
-	market_screen._live_data = SmaLiveFeed.normalize({
-		"AURA": 12.34, "NOVA": {"last": 8.5, "changePct": -1.2},
-		"APLA": {"last": 181.9, "changePct": 0.8},
-	})
-	market_screen._render_live_body()
-	await _settle(4)
-	await _shot("market_live")
-	Game.settings["liveFeedUrl"] = ""
-	market_screen._live_status = "idle"
-	market_screen._live_data = {}
-	market_screen._render_live_body()
 
 	main.navigate("trade")
 	await _settle(6)

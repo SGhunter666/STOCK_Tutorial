@@ -30,7 +30,6 @@ func refresh(_reason: String = "") -> void:
 	_render_language()
 	_render_simulation()
 	_render_display()
-	_render_live_feed()
 	_render_data()
 	_render_scope()
 	_render_boundaries()
@@ -153,46 +152,6 @@ func _render_display() -> void:
 	preset_row.add_child(preset_select)
 	box.add_child(preset_row)
 	box.add_child(SmaKit.muted(I18n.t("settings.displayNote"), 10))
-	_body.add_child(card)
-
-
-func _render_live_feed() -> void:
-	var card := SmaKit.card(12)
-	var box := SmaKit.vbox(6)
-	card.add_child(box)
-	box.add_child(SmaKit.label(I18n.t("settings.liveTitle"), 14))
-	box.add_child(SmaKit.muted(I18n.t("settings.liveSubtitle"), 11))
-	var url_row := SmaKit.hbox(8)
-	url_row.add_child(SmaKit.label(I18n.t("settings.liveUrlLabel"), 11))
-	var url_edit := LineEdit.new()
-	url_edit.placeholder_text = I18n.t("settings.liveUrlPlaceholder")
-	url_edit.text = String(game.settings.get("liveFeedUrl", ""))
-	url_edit.custom_minimum_size.x = 520
-	url_row.add_child(url_edit)
-	box.add_child(url_row)
-	var interval_row := SmaKit.hbox(8)
-	interval_row.add_child(SmaKit.label(I18n.t("settings.liveIntervalLabel"), 11))
-	var interval_select := OptionButton.new()
-	for seconds in [15, 30, 60]:
-		interval_select.add_item(I18n.t("settings.liveIntervalOption", {"seconds": seconds}))
-		interval_select.set_item_metadata(interval_select.item_count - 1, seconds)
-		if int(game.settings.get("liveFeedInterval", 60)) == int(seconds):
-			interval_select.select(interval_select.item_count - 1)
-	interval_select.custom_minimum_size.x = 120
-	interval_row.add_child(interval_select)
-	box.add_child(interval_row)
-	var save_feed := func():
-		var target := url_edit.text.strip_edges()
-		if target != "" and not (target.begins_with("http://")
-				or target.begins_with("https://")):
-			game.toast(I18n.t("liveFeed.errorUrl"))
-			return
-		var interval := int(interval_select.get_item_metadata(interval_select.selected))
-		game.set_live_feed(target, interval)
-		game.toast(I18n.t("toast.saved"))
-	box.add_child(SmaKit.button(I18n.t("settings.liveSave"), save_feed, true))
-	box.add_child(SmaKit.muted(I18n.t("settings.liveHint"), 10))
-	box.add_child(SmaKit.muted(I18n.t("settings.liveSchema"), 10))
 	_body.add_child(card)
 
 

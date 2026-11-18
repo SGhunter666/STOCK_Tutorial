@@ -40,8 +40,7 @@ var paused := true
 var speed := 1
 var selected_ticker := "APLA"
 var settings := {"locale": "zh_CN", "speed": 1, "layout": "beginner",
-	"theme": "dark", "liveFeedUrl": "", "liveFeedInterval": 60,
-	"displayMode": "windowed", "windowPreset": "auto"}
+	"theme": "dark", "displayMode": "windowed", "windowPreset": "auto"}
 var sandbox_mode := false
 var sandbox_config := {"cash": 100000.0, "seed": "sandbox-2026",
 	"difficulty": "normal", "commission": 1.0}
@@ -248,15 +247,6 @@ func set_theme(value: String) -> void:
 	SmaUiTheme.set_theme_mode(next_theme)
 	theme_changed.emit()
 	save_game(false)
-
-
-## External quotes are reference-only: only the URL and poll interval persist,
-## never any fetched price.
-func set_live_feed(url: String, interval: int) -> void:
-	settings["liveFeedUrl"] = url.strip_edges().substr(0, 300)
-	settings["liveFeedInterval"] = interval if [15, 30, 60].has(interval) else 60
-	save_game(false)
-	state_changed.emit("settings")
 
 
 func set_display_mode(value: String) -> void:
@@ -1780,9 +1770,6 @@ func load_game() -> bool:
 	var saved_settings: Dictionary = payload.get("settings", {})
 	for key in saved_settings.keys():
 		settings[key] = saved_settings[key]
-	settings["liveFeedUrl"] = String(settings.get("liveFeedUrl", "")).strip_edges().substr(0, 300)
-	var live_interval := int(settings.get("liveFeedInterval", 60))
-	settings["liveFeedInterval"] = live_interval if [15, 30, 60].has(live_interval) else 60
 	I18n.set_locale(String(settings.get("locale", "zh_CN")))
 	SmaUiTheme.set_theme_mode(String(settings.get("theme", "dark")))
 	_apply_layout(String(settings.get("layout", "beginner")))
